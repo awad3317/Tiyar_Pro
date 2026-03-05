@@ -1,378 +1,859 @@
-<!DOCTYPE html>
+<!doctype html>
 <html class="scroll-smooth" dir="rtl" lang="ar">
-<head>
-    <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Tayyar | تيار - نبتكر المستقبل بمرونة</title>
-    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="assets/css/style.css" rel="stylesheet"/>
-</head>
-<body class="antialiased selection:bg-sky-500 selection:text-white">
-<div class="bg-grain"></div>
-<div class="fixed inset-0 pointer-events-none -z-20 overflow-hidden">
-<div class="nebula-glow parallax-bg absolute w-[800px] h-[800px] top-[-200px] right-[-200px] opacity-60"></div>
-<div class="teal-glow parallax-bg absolute w-[600px] h-[600px] bottom-[-100px] left-[-100px] opacity-40" style="animation-duration: 25s; animation-direction: alternate-reverse;"></div>
-<div class="nebula-glow parallax-bg absolute w-[500px] h-[500px] top-[40%] left-[20%] opacity-30" style="animation-duration: 30s;"></div>
-</div>
-<nav class="fixed top-8 left-0 right-0 z-50 flex justify-center px-4">
-<div class="glass-nav rounded-2xl px-8 py-4 flex items-center justify-between w-full max-w-[1200px] transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] hover:scale-[1.01]">
-<div class="flex items-center gap-4">
-<div class="size-10 rounded-lg bg-gradient-to-br from-slate-800 to-black border border-white/10 flex items-center justify-center text-white shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-[spin_10s_linear_infinite] hover:animate-none">
-<span class="material-symbols-outlined text-[24px] text-sky-400">waves</span>
-</div>
-<h1 class="text-2xl font-bold tracking-wide text-white font-['IBM_Plex_Sans_Arabic']">تيار</h1>
-</div>
-<div class="hidden md:flex items-center gap-12">
-<a class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide" href="#">الرئيسية</a>
-<a class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide" href="#services">الخدمات</a>
-<a class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide" href="#process">رحلتنا</a>
-<a class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide" href="#portfolio">الأعمال</a>
-<a class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide" href="#stats">أرقامنا</a>
-</div>
-<a href="https://wa.me/967781152674">
-<button class="magnetic-btn relative group overflow-hidden bg-white/5 border border-white/10 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
-<span class="relative z-10">ابدأ الآن</span>
-<div class="absolute inset-0 bg-gradient-to-r from-sky-500/0 via-sky-500/10 to-sky-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"></div>
-</button>
-</a>
-</div>
-</nav>
-<header class="relative min-h-screen flex items-center pt-32 pb-20 overflow-hidden">
-<div class="container mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-<div class="order-1 lg:order-1 text-right space-y-8 z-10">
-<div class="hero-float-entrance inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md" style="animation-delay: 0s;">
-<span class="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8] animate-pulse"></span>
-<span class="text-xs font-bold uppercase tracking-[0.2em] text-slate-300">مستقبل الرقمنة</span>
-</div>
-<h1 class="text-6xl lg:text-8xl font-black leading-[1.1] font-['IBM_Plex_Sans_Arabic']">
-<span class="hero-text-mask"><span class="hero-text-reveal block text-metallic">تيار.. نصنع</span></span>
-<span class="hero-text-mask"><span class="hero-text-reveal block delay-100 text-transparent bg-clip-text bg-gradient-to-l from-sky-400 via-teal-200 to-white">المستحيل.</span></span>
-</h1>
-<div class="hero-text-mask">
-<p class="hero-text-reveal delay-200 text-lg text-slate-400 font-light leading-relaxed max-w-xl ml-auto border-r-2 border-slate-800 pr-6">
-                    حيث تلتقي التكنولوجيا بالفن. نحن نصمم تجارب رقمية غامرة تعيد تعريف حدود الويب وتضع علامتك التجارية في الصدارة.
-                </p>
-</div>
-<div class="hero-float-entrance flex flex-row-reverse items-center justify-end gap-6 pt-6" style="animation-delay: 0.6s;">
-    <a href="https://wa.me/967781152674">
-<button class="magnetic-btn px-8 py-4 rounded-xl bg-white text-black font-bold text-lg shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:shadow-[0_0_50px_rgba(255,255,255,0.4)]">
-                    ابدأ مشروعك
-                </button>
-</a>
-<button class="magnetic-btn group flex items-center gap-3 text-slate-400 font-bold hover:text-white transition-colors">
-<div class="w-12 h-12 rounded-full border border-slate-700 flex items-center justify-center group-hover:border-sky-500 group-hover:bg-sky-500/10 transition-all">
-<span class="material-symbols-outlined group-hover:text-sky-400 transition-colors">play_arrow</span>
-</div>
-<span class="font-['IBM_Plex_Sans_Arabic']">شاهد العرض</span>
-</button>
-</div>
-</div>
-<div class="order-2 lg:order-2 flex justify-center relative perspective-1000">
-<div class="relative w-full max-w-[700px] aspect-square flex items-center justify-center hero-float-entrance" style="animation-delay: 0.4s;">
-<div class="absolute inset-0 bg-sky-500/10 blur-[120px] rounded-full animate-pulse"></div>
-<div class="relative z-10 w-full h-full flex items-center justify-center">
-<img alt="3D Chrome Liquid Splash with Digital Interface Reflection" class="w-full h-full object-contain animate-[float_6s_ease-in-out_infinite]" src="assets/images/hero-3d.png" />
-<div class="magnetic-btn absolute top-[20%] right-[10%] p-4 rounded-xl bg-black/40 border border-cyan-500/30 backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.2)] animate-[bounce_4s_infinite]">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-cyan-400 text-lg">code</span>
-<div class="h-1.5 w-12 bg-cyan-500/20 rounded-full overflow-hidden">
-<div class="h-full w-2/3 bg-cyan-400 rounded-full animate-[loading_2s_ease-in-out_infinite]"></div>
-</div>
-</div>
-</div>
-<div class="magnetic-btn absolute bottom-[25%] left-[5%] p-4 rounded-xl bg-black/40 border border-purple-500/30 backdrop-blur-md shadow-[0_0_30px_rgba(168,85,247,0.2)] animate-[bounce_5s_infinite_reverse]">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-purple-400 text-lg">view_in_ar</span>
-<span class="text-xs text-purple-200 font-mono">Render: 98%</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</header>
-<section class="py-24 relative" id="services">
-<div class="container mx-auto px-6">
-<div class="stagger-child flex flex-col md:flex-row justify-between items-end mb-20 gap-8" style="animation-delay: 0.2s;">
-<div class="space-y-4 text-right">
-<span class="text-sky-500 font-bold tracking-widest text-sm uppercase">خدماتنا</span>
-<h2 class="text-4xl md:text-5xl font-bold text-white leading-tight">
-                    حلول رقمية <span class="text-slate-500">من بعد آخر</span>
-</h2>
-</div>
-<p class="text-slate-400 max-w-md text-lg leading-relaxed text-right md:text-left">
-                نحول الأفكار المعقدة إلى واجهات زجاجية بسيطة وأنظمة برمجية صلبة.
+    <link href="assets/css/style.css" rel="stylesheet" />
+  </head>
+  <body class="antialiased selection:bg-sky-500 selection:text-white">
+    <div class="bg-grain"></div>
+    <div class="fixed inset-0 pointer-events-none -z-20 overflow-hidden">
+      <div
+        class="nebula-glow parallax-bg absolute w-[800px] h-[800px] top-[-200px] right-[-200px] opacity-60"
+      ></div>
+      <div
+        class="teal-glow parallax-bg absolute w-[600px] h-[600px] bottom-[-100px] left-[-100px] opacity-40"
+        style="animation-duration: 25s; animation-direction: alternate-reverse"
+      ></div>
+      <div
+        class="nebula-glow parallax-bg absolute w-[500px] h-[500px] top-[40%] left-[20%] opacity-30"
+        style="animation-duration: 30s"
+      ></div>
+    </div>
+    <nav class="fixed top-8 left-0 right-0 z-50 flex justify-center px-4">
+      <div
+        class="glass-nav rounded-2xl px-8 py-4 flex items-center justify-between w-full max-w-[1200px] transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] hover:scale-[1.01]"
+      >
+        <div class="flex items-center gap-4">
+          <div
+            class="size-10 rounded-lg bg-gradient-to-br from-slate-800 to-black border border-white/10 flex items-center justify-center text-white shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-[spin_10s_linear_infinite] hover:animate-none"
+          >
+            <span class="material-symbols-outlined text-[24px] text-sky-400"
+              ><img src="assets/images/tiyar1.png" alt="Tiyar" class="size-10" />
+            
+          </div>
+          <h1
+            class="text-2xl font-bold tracking-wide text-white font-['IBM_Plex_Sans_Arabic']"
+          >
+            تيار
+          </h1>
+        </div>
+        <div class="hidden md:flex items-center gap-12">
+          <a
+            class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide"
+            href="#"
+            >الرئيسية</a
+          >
+          <a
+            class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide"
+            href="#services"
+            >الخدمات</a
+          >
+          <a
+            class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide"
+            href="#process"
+            >رحلتنا</a
+          >
+          <a
+            class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide"
+            href="#portfolio"
+            >الأعمال</a
+          >
+          <a
+            class="nav-link text-slate-400 hover:text-white font-medium transition-colors text-sm tracking-wide"
+            href="#stats"
+            >أرقامنا</a
+          >
+        </div>
+        <a href="https://wa.me/967781152674">
+          <button
+            class="magnetic-btn relative group overflow-hidden bg-white/5 border border-white/10 text-white px-6 py-2.5 rounded-xl font-bold text-sm"
+          >
+            <span class="relative z-10">ابدأ الآن</span>
+            <div
+              class="absolute inset-0 bg-gradient-to-r from-sky-500/0 via-sky-500/10 to-sky-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            ></div>
+          </button>
+        </a>
+      </div>
+    </nav>
+    <header
+      class="relative min-h-screen flex items-center pt-32 pb-20 overflow-hidden"
+    >
+      <div
+        class="container mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
+      >
+        <div class="order-1 lg:order-1 text-right space-y-8 z-10">
+          <div
+            class="hero-float-entrance inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md"
+            style="animation-delay: 0s"
+          >
+            <span
+              class="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8] animate-pulse"
+            ></span>
+            <span
+              class="text-xs font-bold uppercase tracking-[0.2em] text-slate-300"
+              >مستقبل الرقمنة</span
+            >
+          </div>
+          <h1
+            class="text-6xl lg:text-8xl font-black leading-[1.1] font-['IBM_Plex_Sans_Arabic']"
+          >
+            <span class="hero-text-mask"
+              ><span class="hero-text-reveal block text-metallic"
+                >تيار.. نصنع</span
+              ></span
+            >
+            <span class="hero-text-mask"
+              ><span
+                class="hero-text-reveal block delay-100 text-transparent bg-clip-text bg-gradient-to-l from-sky-400 via-teal-200 to-white"
+                >المستحيل.</span
+              ></span
+            >
+          </h1>
+          <div class="hero-text-mask">
+            <p
+              class="hero-text-reveal delay-200 text-lg text-slate-400 font-light leading-relaxed max-w-xl ml-auto border-r-2 border-slate-800 pr-6"
+            >
+              حيث تلتقي التكنولوجيا بالفن. نحن نصمم تجارب رقمية غامرة تعيد تعريف
+              حدود الويب وتضع علامتك التجارية في الصدارة.
             </p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<div class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item" style="animation-delay: 0.3s;">
-<div class="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[50px] group-hover:bg-sky-500/20 transition-all duration-700"></div>
-<div class="relative z-10">
-<div class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500">
-<div class="absolute inset-0 bg-sky-500/20 blur-xl rounded-full"></div>
-<span class="material-symbols-outlined text-5xl text-sky-200 relative z-10 drop-shadow-[0_0_10px_rgba(186,230,253,0.5)]">terminal</span>
-</div>
-<h3 class="text-2xl font-bold mb-3 text-white group-hover:text-sky-300 transition-colors">هندسة البرمجيات</h3>
-<p class="text-slate-400 leading-relaxed text-sm">بناء أنظمة عالية الأداء باستخدام أحدث التقنيات لضمان الاستقرار والقابلية للتوسع.</p>
-</div>
-<div class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">
-<span class="material-symbols-outlined text-sky-400">arrow_back</span>
-</div>
-</div>
-<div class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item" style="animation-delay: 0.45s;">
-<div class="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px] group-hover:bg-purple-500/20 transition-all duration-700"></div>
-<div class="relative z-10">
-<div class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500">
-<div class="absolute inset-0 bg-purple-500/20 blur-xl rounded-full"></div>
-<span class="material-symbols-outlined text-5xl text-purple-200 relative z-10 drop-shadow-[0_0_10px_rgba(233,213,255,0.5)]">brush</span>
-</div>
-<h3 class="text-2xl font-bold mb-3 text-white group-hover:text-purple-300 transition-colors">تصميم التجربة</h3>
-<p class="text-slate-400 leading-relaxed text-sm">واجهات مستخدم تدمج الجمالية بالوظيفة، مصممة بدقة البكسل لتأسر المستخدمين.</p>
-</div>
-<div class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">
-<span class="material-symbols-outlined text-purple-400">arrow_back</span>
-</div>
-</div>
-<div class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item" style="animation-delay: 0.6s;">
-<div class="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 blur-[50px] group-hover:bg-teal-500/20 transition-all duration-700"></div>
-<div class="relative z-10">
-<div class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500">
-<div class="absolute inset-0 bg-teal-500/20 blur-xl rounded-full"></div>
-<span class="material-symbols-outlined text-5xl text-teal-200 relative z-10 drop-shadow-[0_0_10px_rgba(153,246,228,0.5)]">cloud_circle</span>
-</div>
-<h3 class="text-2xl font-bold mb-3 text-white group-hover:text-teal-300 transition-colors">البنية السحابية</h3>
-<p class="text-slate-400 leading-relaxed text-sm">حلول سحابية آمنة ومرنة تمكن أعمالك من النمو دون قيود البنية التحتية.</p>
-</div>
-<div class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">
-<span class="material-symbols-outlined text-teal-400">arrow_back</span>
-</div>
-</div>
-</div>
-</div>
-</section>
-<section class="py-24 relative overflow-hidden" id="process">
-<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-full liquid-line opacity-30"></div>
-<div class="container mx-auto px-6 relative z-10">
-<div class="text-center mb-20 stagger-item">
-<span class="text-purple-400 font-bold tracking-[0.2em] text-sm uppercase">منهجية العمل</span>
-<h2 class="text-4xl md:text-5xl font-bold text-white mt-4 font-['IBM_Plex_Sans_Arabic']">رحلتنا نحو <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-sky-400">الابتكار</span></h2>
-</div>
-<div class="relative grid grid-cols-1 md:grid-cols-4 gap-12">
-<div class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] stagger-item" style="animation-delay: 0.15s;">
-<div class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-sky-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(14,165,233,0.5)] z-20 group-hover:scale-110 transition-transform">01</div>
-<div class="mb-6 w-14 h-14 bg-sky-500/10 rounded-lg flex items-center justify-center text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all duration-500">
-<span class="material-symbols-outlined text-3xl">lightbulb</span>
-</div>
-<h3 class="text-xl font-bold text-white mb-3">الاستراتيجية</h3>
-<p class="text-slate-400 text-sm leading-relaxed">نحلل السوق ونفهم أهدافك لنرسم خارطة طريق دقيقة تضمن النجاح.</p>
-</div>
-<div class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-12 stagger-item" style="animation-delay: 0.3s;">
-<div class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-purple-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(168,85,247,0.5)] z-20 group-hover:scale-110 transition-transform">02</div>
-<div class="mb-6 w-14 h-14 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all duration-500">
-<span class="material-symbols-outlined text-3xl">palette</span>
-</div>
-<h3 class="text-xl font-bold text-white mb-3">التصميم</h3>
-<p class="text-slate-400 text-sm leading-relaxed">نصمم تجارب بصرية مذهلة تركز على المستخدم وتعزز هوية علامتك.</p>
-</div>
-<div class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-24 stagger-item" style="animation-delay: 0.45s;">
-<div class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-teal-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(20,184,166,0.5)] z-20 group-hover:scale-110 transition-transform">03</div>
-<div class="mb-6 w-14 h-14 bg-teal-500/10 rounded-lg flex items-center justify-center text-teal-400 group-hover:scale-110 group-hover:bg-teal-500/20 transition-all duration-500">
-<span class="material-symbols-outlined text-3xl">code_blocks</span>
-</div>
-<h3 class="text-xl font-bold text-white mb-3">التطوير</h3>
-<p class="text-slate-400 text-sm leading-relaxed">نحول التصاميم إلى واقع باستخدام أحدث تقنيات البرمجة النظيفة والسريعة.</p>
-</div>
-<div class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-36 stagger-item" style="animation-delay: 0.6s;">
-<div class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-amber-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 group-hover:scale-110 transition-transform">04</div>
-<div class="mb-6 w-14 h-14 bg-amber-500/10 rounded-lg flex items-center justify-center text-amber-400 group-hover:scale-110 group-hover:bg-amber-500/20 transition-all duration-500">
-<span class="material-symbols-outlined text-3xl">rocket_launch</span>
-</div>
-<h3 class="text-xl font-bold text-white mb-3">الإطلاق</h3>
-<p class="text-slate-400 text-sm leading-relaxed">نطلق مشروعك للعالم ونضمن تشغيله بكفاءة عالية مع دعم مستمر.</p>
-</div>
-</div>
-</div>
-</section>
-<section class="py-32 relative overflow-hidden" id="portfolio">
-<div class="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/50 to-transparent pointer-events-none"></div>
-<div class="container mx-auto px-6 mb-16 relative z-10 stagger-item">
-<div class="flex justify-between items-end border-b border-white/5 pb-8">
-<div>
-<h2 class="text-5xl font-bold text-white mb-2 font-['IBM_Plex_Sans_Arabic']">أعمال مختارة</h2>
-<p class="text-slate-400 text-lg">تحف فنية رقمية صممت لتبقى.</p>
-</div>
-<a class="hidden md:flex items-center gap-2 text-sky-400 hover:text-sky-300 transition-colors group" href="#">
-<span>جميع المشاريع</span>
-<span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
-</a>
-</div>
-</div>
-<div class="container mx-auto px-6 relative z-10">
-<div class="flex flex-col gap-32">
-<div class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item">
-<div class="lg:col-span-8 relative">
-<div class="project-glow-bg absolute -inset-4 bg-sky-500/20 blur-2xl rounded-[40px]"></div>
-<div class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl">
-<img alt="Nova Bank Mockup" class="project-card-image w-full h-full object-cover" src="assets/images/project-nova.jpg" />
-<div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"></div>
-</div>
-</div>
-<div class="lg:col-span-4 text-right relative lg:-mr-12 z-20">
-<div class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-sky-500/30 transition-colors duration-500">
-<span class="text-sky-400 font-mono text-sm tracking-widest mb-4 block">01 — FINTECH</span>
-<h3 class="text-4xl font-bold text-white mb-4">نوفا بانك</h3>
-<p class="text-slate-400 leading-relaxed mb-8">إعادة تعريف التجربة المصرفية عبر واجهة انسيابية ونظام أمان متطور يعمل بالذكاء الاصطناعي.</p>
-<div class="flex gap-3 flex-wrap mb-8">
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">React</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">Node.js</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">Security</span>
-</div>
-<button class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all">
-<span>عرض المشروع</span>
-<span class="material-symbols-outlined text-sky-400">arrow_back</span>
-</button>
-</div>
-</div>
-</div>
-<div class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item">
-<div class="lg:col-span-4 order-2 lg:order-1 text-right relative lg:-ml-12 z-20">
-<div class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-purple-500/30 transition-colors duration-500">
-<span class="text-purple-400 font-mono text-sm tracking-widest mb-4 block">02 — ART &amp; CULTURE</span>
-<h3 class="text-4xl font-bold text-white mb-4">معرض ميوز</h3>
-<p class="text-slate-400 leading-relaxed mb-8">منصة تفاعلية ثلاثية الأبعاد تمكن الزوار من التجول افتراضياً في المعارض الفنية العالمية.</p>
-<div class="flex gap-3 flex-wrap mb-8">
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">WebGL</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">Three.js</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">UX Design</span>
-</div>
-<button class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all">
-<span>عرض المشروع</span>
-<span class="material-symbols-outlined text-purple-400">arrow_back</span>
-</button>
-</div>
-</div>
-<div class="lg:col-span-8 order-1 lg:order-2 relative">
-<div class="project-glow-bg absolute -inset-4 bg-purple-500/20 blur-2xl rounded-[40px]"></div>
-<div class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl">
-<img alt="Muse Gallery Mockup" class="project-card-image w-full h-full object-cover" src="assets/images/project-muse.jpg" />
-<div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"></div>
-</div>
-</div>
-</div>
-<div class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item">
-<div class="lg:col-span-8 relative">
-<div class="project-glow-bg absolute -inset-4 bg-teal-500/20 blur-2xl rounded-[40px]"></div>
-<div class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl">
-<img alt="Shield Net Mockup" class="project-card-image w-full h-full object-cover" src="assets/images/project-shield.jpg" />
-<div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"></div>
-</div>
-</div>
-<div class="lg:col-span-4 text-right relative lg:-mr-12 z-20">
-<div class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-teal-500/30 transition-colors duration-500">
-<span class="text-teal-400 font-mono text-sm tracking-widest mb-4 block">03 — SECURITY</span>
-<h3 class="text-4xl font-bold text-white mb-4">شيلد نت</h3>
-<p class="text-slate-400 leading-relaxed mb-8">لوحة تحكم مركزية للأمن السيبراني، توفر تحليلات لحظية للتهديدات وحماية استباقية.</p>
-<div class="flex gap-3 flex-wrap mb-8">
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">Python</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">AI Models</span>
-<span class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5">Dashboard</span>
-</div>
-<button class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all">
-<span>عرض المشروع</span>
-<span class="material-symbols-outlined text-teal-400">arrow_back</span>
-</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<section class="py-24 relative bg-black/50" id="stats">
-<div class="absolute inset-0 bg-gradient-to-r from-sky-900/5 via-transparent to-purple-900/5"></div>
-<div class="container mx-auto px-6 relative z-10">
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-<div class="relative p-6 border-r border-white/5 text-center group stagger-item" style="animation-delay: 0.2s;">
-<div class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">50+</div>
-<div class="text-sky-400 text-sm font-bold uppercase tracking-widest mb-2">مشروع ناجح</div>
-<div class="w-12 h-1 bg-gradient-to-r from-transparent via-sky-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"></div>
-</div>
-<div class="relative p-6 border-r border-white/5 text-center group stagger-item" style="animation-delay: 0.35s;">
-<div class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">10M+</div>
-<div class="text-purple-400 text-sm font-bold uppercase tracking-widest mb-2">مستخدم نشط</div>
-<div class="w-12 h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"></div>
-</div>
-<div class="relative p-6 border-r border-white/5 text-center group stagger-item" style="animation-delay: 0.5s;">
-<div class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">98%</div>
-<div class="text-teal-400 text-sm font-bold uppercase tracking-widest mb-2">نسبة الرضا</div>
-<div class="w-12 h-1 bg-gradient-to-r from-transparent via-teal-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"></div>
-</div>
-<div class="relative p-6 text-center group stagger-item" style="animation-delay: 0.65s;">
-<div class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]">24/7</div>
-<div class="text-amber-400 text-sm font-bold uppercase tracking-widest mb-2">دعم فني</div>
-<div class="w-12 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"></div>
-</div>
-</div>
-</div>
-</section>
-<footer class="pt-32 pb-12 relative overflow-hidden bg-gradient-to-t from-black to-[#0a0a0a]">
-<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-<div class="container mx-auto px-6 relative z-10">
-<div class="text-center mb-24 stagger-item">
-<h2 class="text-5xl md:text-7xl font-extrabold mb-8 tracking-tight font-['IBM_Plex_Sans_Arabic']">
-<span class="text-gold">لنبني المستقبل معاً</span>
-</h2>
-<p class="text-slate-400 mb-12 text-xl max-w-2xl mx-auto">نحن جاهزون لتحويل رؤيتك إلى واقع رقمي استثنائي.</p>
-<a class="magnetic-btn inline-flex items-center gap-4 bg-white text-black px-8 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform" href="https://wa.me/967781152674">
-<span>تواصل معنا</span>
-<span class="material-symbols-outlined">arrow_back</span>
-</a>
-</div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-12 text-right border-t border-white/5 pt-16 stagger-item">
-<div>
-<h5 class="font-bold text-white mb-6 uppercase tracking-widest text-sm">الشركة</h5>
-<ul class="space-y-4 text-slate-500 text-sm">
-<li><a class="hover:text-sky-400 transition-colors" href="#">من نحن</a></li>
-<li><a class="hover:text-sky-400 transition-colors" href="#">الوظائف</a></li>
-<li><a class="hover:text-sky-400 transition-colors" href="#">المدونة</a></li>
-</ul>
-</div>
-<div>
-<h5 class="font-bold text-white mb-6 uppercase tracking-widest text-sm">الخدمات</h5>
-<ul class="space-y-4 text-slate-500 text-sm">
-<li><a class="hover:text-sky-400 transition-colors" href="#">تطوير المواقع</a></li>
-<li><a class="hover:text-sky-400 transition-colors" href="#">تطبيقات الجوال</a></li>
-<li><a class="hover:text-sky-400 transition-colors" href="#">حلول الذكاء الاصطناعي</a></li>
-</ul>
-</div>
-<div>
-<h5 class="font-bold text-white mb-6 uppercase tracking-widest text-sm">تواصل</h5>
-<ul class="space-y-4 text-slate-500 text-sm">
-<li>hello@tayyar.com</li>
-<li>+966 50 000 0000</li>
-<li>الرياض، المملكة العربية السعودية</li>
-</ul>
-</div>
-<div>
-<h5 class="font-bold text-white mb-6 uppercase tracking-widest text-sm">اجتماعي</h5>
-<div class="flex gap-4">
-<a class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white hover:text-black transition-colors" href="#">
-<span class="material-symbols-outlined text-sm">alternate_email</span>
-</a>
-<a class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white hover:text-black transition-colors" href="#">
-<span class="material-symbols-outlined text-sm">share</span>
-</a>
-</div>
-</div>
-</div>
-<div class="mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-600">
-<p>© 2024 تيار للحلول التقنية. جميع الحقوق محفوظة.</p>
-<div class="flex items-center gap-2">
-<span>صنع بشغف في الرياض</span>
-<span class="material-symbols-outlined text-red-500 text-xs">favorite</span>
-</div>
-</div>
-</div>
-</footer>
-</body>
+          </div>
+          <div
+            class="hero-float-entrance flex flex-row-reverse items-center justify-end gap-6 pt-6"
+            style="animation-delay: 0.6s"
+          >
+            <a href="https://wa.me/967781152674">
+              <button
+                class="magnetic-btn px-8 py-4 rounded-xl bg-white text-black font-bold text-lg shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:shadow-[0_0_50px_rgba(255,255,255,0.4)]"
+              >
+                ابدأ مشروعك
+              </button>
+            </a>
+            <button
+              class="magnetic-btn group flex items-center gap-3 text-slate-400 font-bold hover:text-white transition-colors"
+            >
+              <div
+                class="w-12 h-12 rounded-full border border-slate-700 flex items-center justify-center group-hover:border-sky-500 group-hover:bg-sky-500/10 transition-all"
+              >
+                <span
+                  class="material-symbols-outlined group-hover:text-sky-400 transition-colors"
+                  >play_arrow</span
+                >
+              </div>
+              <span class="font-['IBM_Plex_Sans_Arabic']">شاهد العرض</span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="order-2 lg:order-2 flex justify-center relative perspective-1000"
+        >
+          <div
+            class="relative w-full max-w-[700px] aspect-square flex items-center justify-center hero-float-entrance"
+            style="animation-delay: 0.4s"
+          >
+            <div
+              class="absolute inset-0 bg-sky-500/10 blur-[120px] rounded-full animate-pulse"
+            ></div>
+            <div
+              class="relative z-10 w-full h-full flex items-center justify-center"
+            >
+              <img
+                alt="3D Chrome Liquid Splash with Digital Interface Reflection"
+                class="w-full h-full object-contain animate-[float_6s_ease-in-out_infinite]"
+                src="assets/images/hero-3d.png"
+              />
+              <div
+                class="magnetic-btn absolute top-[20%] right-[10%] p-4 rounded-xl bg-black/40 border border-cyan-500/30 backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.2)] animate-[bounce_4s_infinite]"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-cyan-400 text-lg"
+                    >code</span
+                  >
+                  <div
+                    class="h-1.5 w-12 bg-cyan-500/20 rounded-full overflow-hidden"
+                  >
+                    <div
+                      class="h-full w-2/3 bg-cyan-400 rounded-full animate-[loading_2s_ease-in-out_infinite]"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="magnetic-btn absolute bottom-[25%] left-[5%] p-4 rounded-xl bg-black/40 border border-purple-500/30 backdrop-blur-md shadow-[0_0_30px_rgba(168,85,247,0.2)] animate-[bounce_5s_infinite_reverse]"
+              >
+                <div class="flex items-center gap-3">
+                  <span
+                    class="material-symbols-outlined text-purple-400 text-lg"
+                    >view_in_ar</span
+                  >
+                  <span class="text-xs text-purple-200 font-mono"
+                    >Render: 98%</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <section class="py-24 relative" id="services">
+      <div class="container mx-auto px-6">
+        <div
+          class="stagger-child flex flex-col md:flex-row justify-between items-end mb-20 gap-8"
+          style="animation-delay: 0.2s"
+        >
+          <div class="space-y-4 text-right">
+            <span
+              class="text-sky-500 font-bold tracking-widest text-sm uppercase"
+              >خدماتنا</span
+            >
+            <h2 class="text-4xl md:text-5xl font-bold text-white leading-tight">
+              حلول رقمية <span class="text-slate-500">من بعد آخر</span>
+            </h2>
+          </div>
+          <p
+            class="text-slate-400 max-w-md text-lg leading-relaxed text-right md:text-left"
+          >
+            نحول الأفكار المعقدة إلى واجهات زجاجية بسيطة وأنظمة برمجية صلبة.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div
+            class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item"
+            style="animation-delay: 0.3s"
+          >
+            <div
+              class="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[50px] group-hover:bg-sky-500/20 transition-all duration-700"
+            ></div>
+            <div class="relative z-10">
+              <div
+                class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500"
+              >
+                <div
+                  class="absolute inset-0 bg-sky-500/20 blur-xl rounded-full"
+                ></div>
+                <span
+                  class="material-symbols-outlined text-5xl text-sky-200 relative z-10 drop-shadow-[0_0_10px_rgba(186,230,253,0.5)]"
+                  >terminal</span
+                >
+              </div>
+              <h3
+                class="text-2xl font-bold mb-3 text-white group-hover:text-sky-300 transition-colors"
+              >
+                هندسة البرمجيات
+              </h3>
+              <p class="text-slate-400 leading-relaxed text-sm">
+                بناء أنظمة عالية الأداء باستخدام أحدث التقنيات لضمان الاستقرار
+                والقابلية للتوسع.
+              </p>
+            </div>
+            <div
+              class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              <span class="material-symbols-outlined text-sky-400"
+                >arrow_back</span
+              >
+            </div>
+          </div>
+          <div
+            class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item"
+            style="animation-delay: 0.45s"
+          >
+            <div
+              class="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px] group-hover:bg-purple-500/20 transition-all duration-700"
+            ></div>
+            <div class="relative z-10">
+              <div
+                class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500"
+              >
+                <div
+                  class="absolute inset-0 bg-purple-500/20 blur-xl rounded-full"
+                ></div>
+                <span
+                  class="material-symbols-outlined text-5xl text-purple-200 relative z-10 drop-shadow-[0_0_10px_rgba(233,213,255,0.5)]"
+                  >brush</span
+                >
+              </div>
+              <h3
+                class="text-2xl font-bold mb-3 text-white group-hover:text-purple-300 transition-colors"
+              >
+                تصميم التجربة
+              </h3>
+              <p class="text-slate-400 leading-relaxed text-sm">
+                واجهات مستخدم تدمج الجمالية بالوظيفة، مصممة بدقة البكسل لتأسر
+                المستخدمين.
+              </p>
+            </div>
+            <div
+              class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              <span class="material-symbols-outlined text-purple-400"
+                >arrow_back</span
+              >
+            </div>
+          </div>
+          <div
+            class="service-module p-8 rounded-3xl group relative overflow-hidden stagger-item"
+            style="animation-delay: 0.6s"
+          >
+            <div
+              class="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 blur-[50px] group-hover:bg-teal-500/20 transition-all duration-700"
+            ></div>
+            <div class="relative z-10">
+              <div
+                class="w-16 h-16 mb-8 relative group-hover:scale-110 transition-transform duration-500"
+              >
+                <div
+                  class="absolute inset-0 bg-teal-500/20 blur-xl rounded-full"
+                ></div>
+                <span
+                  class="material-symbols-outlined text-5xl text-teal-200 relative z-10 drop-shadow-[0_0_10px_rgba(153,246,228,0.5)]"
+                  >cloud_circle</span
+                >
+              </div>
+              <h3
+                class="text-2xl font-bold mb-3 text-white group-hover:text-teal-300 transition-colors"
+              >
+                البنية السحابية
+              </h3>
+              <p class="text-slate-400 leading-relaxed text-sm">
+                حلول سحابية آمنة ومرنة تمكن أعمالك من النمو دون قيود البنية
+                التحتية.
+              </p>
+            </div>
+            <div
+              class="absolute bottom-6 left-6 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              <span class="material-symbols-outlined text-teal-400"
+                >arrow_back</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="py-24 relative overflow-hidden" id="process">
+      <div
+        class="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-full liquid-line opacity-30"
+      ></div>
+      <div class="container mx-auto px-6 relative z-10">
+        <div class="text-center mb-20 stagger-item">
+          <span
+            class="text-purple-400 font-bold tracking-[0.2em] text-sm uppercase"
+            >منهجية العمل</span
+          >
+          <h2
+            class="text-4xl md:text-5xl font-bold text-white mt-4 font-['IBM_Plex_Sans_Arabic']"
+          >
+            رحلتنا نحو
+            <span
+              class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-sky-400"
+              >الابتكار</span
+            >
+          </h2>
+        </div>
+        <div class="relative grid grid-cols-1 md:grid-cols-4 gap-12">
+          <div
+            class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] stagger-item"
+            style="animation-delay: 0.15s"
+          >
+            <div
+              class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-sky-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(14,165,233,0.5)] z-20 group-hover:scale-110 transition-transform"
+            >
+              01
+            </div>
+            <div
+              class="mb-6 w-14 h-14 bg-sky-500/10 rounded-lg flex items-center justify-center text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all duration-500"
+            >
+              <span class="material-symbols-outlined text-3xl">lightbulb</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">الاستراتيجية</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">
+              نحلل السوق ونفهم أهدافك لنرسم خارطة طريق دقيقة تضمن النجاح.
+            </p>
+          </div>
+          <div
+            class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-12 stagger-item"
+            style="animation-delay: 0.3s"
+          >
+            <div
+              class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-purple-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(168,85,247,0.5)] z-20 group-hover:scale-110 transition-transform"
+            >
+              02
+            </div>
+            <div
+              class="mb-6 w-14 h-14 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all duration-500"
+            >
+              <span class="material-symbols-outlined text-3xl">palette</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">التصميم</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">
+              نصمم تجارب بصرية مذهلة تركز على المستخدم وتعزز هوية علامتك.
+            </p>
+          </div>
+          <div
+            class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-24 stagger-item"
+            style="animation-delay: 0.45s"
+          >
+            <div
+              class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-teal-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(20,184,166,0.5)] z-20 group-hover:scale-110 transition-transform"
+            >
+              03
+            </div>
+            <div
+              class="mb-6 w-14 h-14 bg-teal-500/10 rounded-lg flex items-center justify-center text-teal-400 group-hover:scale-110 group-hover:bg-teal-500/20 transition-all duration-500"
+            >
+              <span class="material-symbols-outlined text-3xl"
+                >code_blocks</span
+              >
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">التطوير</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">
+              نحول التصاميم إلى واقع باستخدام أحدث تقنيات البرمجة النظيفة
+              والسريعة.
+            </p>
+          </div>
+          <div
+            class="process-node p-8 rounded-2xl relative group hover:-translate-y-4 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)] mt-0 md:mt-36 stagger-item"
+            style="animation-delay: 0.6s"
+          >
+            <div
+              class="absolute -top-4 -right-4 w-12 h-12 bg-slate-800 rounded-full border border-amber-500/50 flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 group-hover:scale-110 transition-transform"
+            >
+              04
+            </div>
+            <div
+              class="mb-6 w-14 h-14 bg-amber-500/10 rounded-lg flex items-center justify-center text-amber-400 group-hover:scale-110 group-hover:bg-amber-500/20 transition-all duration-500"
+            >
+              <span class="material-symbols-outlined text-3xl"
+                >rocket_launch</span
+              >
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">الإطلاق</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">
+              نطلق مشروعك للعالم ونضمن تشغيله بكفاءة عالية مع دعم مستمر.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="py-32 relative overflow-hidden" id="portfolio">
+      <div
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/50 to-transparent pointer-events-none"
+      ></div>
+      <div class="container mx-auto px-6 mb-16 relative z-10 stagger-item">
+        <div
+          class="flex justify-between items-end border-b border-white/5 pb-8"
+        >
+          <div>
+            <h2
+              class="text-5xl font-bold text-white mb-2 font-['IBM_Plex_Sans_Arabic']"
+            >
+              أعمال مختارة
+            </h2>
+            <p class="text-slate-400 text-lg">تحف فنية رقمية صممت لتبقى.</p>
+          </div>
+          <a
+            class="hidden md:flex items-center gap-2 text-sky-400 hover:text-sky-300 transition-colors group"
+            href="#"
+          >
+            <span>جميع المشاريع</span>
+            <span
+              class="material-symbols-outlined group-hover:-translate-x-1 transition-transform"
+              >arrow_back</span
+            >
+          </a>
+        </div>
+      </div>
+      <div class="container mx-auto px-6 relative z-10">
+        <div class="flex flex-col gap-32">
+          <div
+            class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item"
+          >
+            <div class="lg:col-span-8 relative">
+              <div
+                class="project-glow-bg absolute -inset-4 bg-sky-500/20 blur-2xl rounded-[40px]"
+              ></div>
+              <div
+                class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl"
+              >
+                <img
+                  alt="Nova Bank Mockup"
+                  class="project-card-image w-full h-full object-cover"
+                  src="assets/images/project-nova.jpg"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"
+                ></div>
+              </div>
+            </div>
+            <div class="lg:col-span-4 text-right relative lg:-mr-12 z-20">
+              <div
+                class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-sky-500/30 transition-colors duration-500"
+              >
+                <span
+                  class="text-sky-400 font-mono text-sm tracking-widest mb-4 block"
+                  >01 — FINTECH</span
+                >
+                <h3 class="text-4xl font-bold text-white mb-4">نوفا بانك</h3>
+                <p class="text-slate-400 leading-relaxed mb-8">
+                  إعادة تعريف التجربة المصرفية عبر واجهة انسيابية ونظام أمان
+                  متطور يعمل بالذكاء الاصطناعي.
+                </p>
+                <div class="flex gap-3 flex-wrap mb-8">
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >React</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >Node.js</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >Security</span
+                  >
+                </div>
+                <button
+                  class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all"
+                >
+                  <span>عرض المشروع</span>
+                  <span class="material-symbols-outlined text-sky-400"
+                    >arrow_back</span
+                  >
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item"
+          >
+            <div
+              class="lg:col-span-4 order-2 lg:order-1 text-right relative lg:-ml-12 z-20"
+            >
+              <div
+                class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-purple-500/30 transition-colors duration-500"
+              >
+                <span
+                  class="text-purple-400 font-mono text-sm tracking-widest mb-4 block"
+                  >02 — ART &amp; CULTURE</span
+                >
+                <h3 class="text-4xl font-bold text-white mb-4">معرض ميوز</h3>
+                <p class="text-slate-400 leading-relaxed mb-8">
+                  منصة تفاعلية ثلاثية الأبعاد تمكن الزوار من التجول افتراضياً في
+                  المعارض الفنية العالمية.
+                </p>
+                <div class="flex gap-3 flex-wrap mb-8">
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >WebGL</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >Three.js</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >UX Design</span
+                  >
+                </div>
+                <button
+                  class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all"
+                >
+                  <span>عرض المشروع</span>
+                  <span class="material-symbols-outlined text-purple-400"
+                    >arrow_back</span
+                  >
+                </button>
+              </div>
+            </div>
+            <div class="lg:col-span-8 order-1 lg:order-2 relative">
+              <div
+                class="project-glow-bg absolute -inset-4 bg-purple-500/20 blur-2xl rounded-[40px]"
+              ></div>
+              <div
+                class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl"
+              >
+                <img
+                  alt="Muse Gallery Mockup"
+                  class="project-card-image w-full h-full object-cover"
+                  src="assets/images/project-muse.jpg"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="project-card-container group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center stagger-item"
+          >
+            <div class="lg:col-span-8 relative">
+              <div
+                class="project-glow-bg absolute -inset-4 bg-teal-500/20 blur-2xl rounded-[40px]"
+              ></div>
+              <div
+                class="relative rounded-[32px] overflow-hidden aspect-[16/10] border border-white/10 shadow-2xl"
+              >
+                <img
+                  alt="Shield Net Mockup"
+                  class="project-card-image w-full h-full object-cover"
+                  src="assets/images/project-shield.jpg"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500"
+                ></div>
+              </div>
+            </div>
+            <div class="lg:col-span-4 text-right relative lg:-mr-12 z-20">
+              <div
+                class="bg-black/80 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:border-teal-500/30 transition-colors duration-500"
+              >
+                <span
+                  class="text-teal-400 font-mono text-sm tracking-widest mb-4 block"
+                  >03 — SECURITY</span
+                >
+                <h3 class="text-4xl font-bold text-white mb-4">شيلد نت</h3>
+                <p class="text-slate-400 leading-relaxed mb-8">
+                  لوحة تحكم مركزية للأمن السيبراني، توفر تحليلات لحظية للتهديدات
+                  وحماية استباقية.
+                </p>
+                <div class="flex gap-3 flex-wrap mb-8">
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >Python</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >AI Models</span
+                  >
+                  <span
+                    class="px-3 py-1 bg-white/5 rounded-full text-xs text-slate-300 border border-white/5"
+                    >Dashboard</span
+                  >
+                </div>
+                <button
+                  class="magnetic-btn flex items-center gap-3 text-white font-bold group-hover:gap-5 transition-all"
+                >
+                  <span>عرض المشروع</span>
+                  <span class="material-symbols-outlined text-teal-400"
+                    >arrow_back</span
+                  >
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="py-24 relative bg-black/50" id="stats">
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-sky-900/5 via-transparent to-purple-900/5"
+      ></div>
+      <div class="container mx-auto px-6 relative z-10">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div
+            class="relative p-6 border-r border-white/5 text-center group stagger-item"
+            style="animation-delay: 0.2s"
+          >
+            <div
+              class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              50+
+            </div>
+            <div
+              class="text-sky-400 text-sm font-bold uppercase tracking-widest mb-2"
+            >
+              مشروع ناجح
+            </div>
+            <div
+              class="w-12 h-1 bg-gradient-to-r from-transparent via-sky-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"
+            ></div>
+          </div>
+          <div
+            class="relative p-6 border-r border-white/5 text-center group stagger-item"
+            style="animation-delay: 0.35s"
+          >
+            <div
+              class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              10M+
+            </div>
+            <div
+              class="text-purple-400 text-sm font-bold uppercase tracking-widest mb-2"
+            >
+              مستخدم نشط
+            </div>
+            <div
+              class="w-12 h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"
+            ></div>
+          </div>
+          <div
+            class="relative p-6 border-r border-white/5 text-center group stagger-item"
+            style="animation-delay: 0.5s"
+          >
+            <div
+              class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              98%
+            </div>
+            <div
+              class="text-teal-400 text-sm font-bold uppercase tracking-widest mb-2"
+            >
+              نسبة الرضا
+            </div>
+            <div
+              class="w-12 h-1 bg-gradient-to-r from-transparent via-teal-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"
+            ></div>
+          </div>
+          <div
+            class="relative p-6 text-center group stagger-item"
+            style="animation-delay: 0.65s"
+          >
+            <div
+              class="stat-number text-6xl font-bold mb-2 group-hover:scale-110 transition-transform duration-500 ease-[cubic-bezier(0.6,0.05,0.01,0.99)]"
+            >
+              24/7
+            </div>
+            <div
+              class="text-amber-400 text-sm font-bold uppercase tracking-widest mb-2"
+            >
+              دعم فني
+            </div>
+            <div
+              class="w-12 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto opacity-50 group-hover:w-24 transition-all duration-500"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <footer
+      class="pt-32 pb-12 relative overflow-hidden bg-gradient-to-t from-black to-[#0a0a0a]"
+    >
+      <div
+        class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"
+      ></div>
+      <div class="container mx-auto px-6 relative z-10">
+        <div class="text-center mb-24 stagger-item">
+          <h2
+            class="text-5xl md:text-7xl font-extrabold mb-8 tracking-tight font-['IBM_Plex_Sans_Arabic']"
+          >
+            <span class="text-gold">لنبني المستقبل معاً</span>
+          </h2>
+          <p class="text-slate-400 mb-12 text-xl max-w-2xl mx-auto">
+            نحن جاهزون لتحويل رؤيتك إلى واقع رقمي استثنائي.
+          </p>
+          <a
+            class="magnetic-btn inline-flex items-center gap-4 bg-white text-black px-8 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform"
+            href="https://wa.me/967781152674"
+          >
+            <span>تواصل معنا</span>
+            <span class="material-symbols-outlined">arrow_back</span>
+          </a>
+        </div>
+        <div
+          class="grid grid-cols-2 md:grid-cols-4 gap-12 text-right border-t border-white/5 pt-16 stagger-item"
+        >
+          <div>
+            <h5
+              class="font-bold text-white mb-6 uppercase tracking-widest text-sm"
+            >
+              الشركة
+            </h5>
+            <ul class="space-y-4 text-slate-500 text-sm">
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >من نحن</a
+                >
+              </li>
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >الوظائف</a
+                >
+              </li>
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >المدونة</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h5
+              class="font-bold text-white mb-6 uppercase tracking-widest text-sm"
+            >
+              الخدمات
+            </h5>
+            <ul class="space-y-4 text-slate-500 text-sm">
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >تطوير المواقع</a
+                >
+              </li>
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >تطبيقات الجوال</a
+                >
+              </li>
+              <li>
+                <a class="hover:text-sky-400 transition-colors" href="#"
+                  >حلول الذكاء الاصطناعي</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h5
+              class="font-bold text-white mb-6 uppercase tracking-widest text-sm"
+            >
+              تواصل
+            </h5>
+            <ul class="space-y-4 text-slate-500 text-sm">
+              <li>hello@tayyar.com</li>
+              <li>+966 50 000 0000</li>
+              <li>الرياض، المملكة العربية السعودية</li>
+            </ul>
+          </div>
+          <div>
+            <h5
+              class="font-bold text-white mb-6 uppercase tracking-widest text-sm"
+            >
+              اجتماعي
+            </h5>
+            <div class="flex gap-4">
+              <a
+                class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white hover:text-black transition-colors"
+                href="#"
+              >
+                <span class="material-symbols-outlined text-sm"
+                  >alternate_email</span
+                >
+              </a>
+              <a
+                class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-white hover:text-black transition-colors"
+                href="#"
+              >
+                <span class="material-symbols-outlined text-sm">share</span>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          class="mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-600"
+        >
+          <p>© 2024 تيار للحلول التقنية. جميع الحقوق محفوظة.</p>
+          <div class="flex items-center gap-2">
+            <span>صنع بشغف في الرياض</span>
+            <span class="material-symbols-outlined text-red-500 text-xs"
+              >favorite</span
+            >
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
 </html>
