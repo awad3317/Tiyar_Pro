@@ -1,0 +1,28 @@
+{
+  "projects": [
+    {
+      "id": "wajhah",
+      "title": "وجهه",
+      "category": "MOBILE APP",
+      "description": "تطبيق وجهة لعرض الأماكن والفعاليات مع تجربة مستخدم مخصّصة وواجهة أنيقة.",
+      "tags": ["Flutter", "Laravel", "UI/UX"],
+      "image": "assets/images/projectes/wajhah/wajha.png"
+    },
+    {
+      "id": "shop",
+      "title": "متجر السعادة",
+      "category": "WEB",
+      "description": "منصة تجارة إلكترونية لصناعة الحلويات ومستلزماتها.",
+      "tags": ["HTML", "Laravel", "Tailwind CSS"],
+      "image": "assets/images/projectes/shop/shop.png"
+    },
+    {
+      "id": "transport",
+      "title": "الزاجل",
+      "category": "LOGISTICS",
+      "description": "نظام توصيل ذكي لإدارة الشحن وتتبع الطرود في الوقت الحقيقي.",
+      "tags": ["Node.js", "WebGL", "UX Design"],
+      "image": "assets/images/projectes/trsport/transport.png"
+    }
+  ]
+}
