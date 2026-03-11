@@ -21,6 +21,11 @@ const translations = {
         ser2Desc: "واجهات مستخدم تدمج الجمالية بالوظيفة، مصممة بدقة البكسل لتأسر المستخدمين.",
         ser3Title: "البنية السحابية",
         ser3Desc: "حلول سحابية آمنة ومرنة تمكن أعمالك من النمو دون قيود البنية التحتية.",
+        heroBadge: "مستقبل الرقمنة",
+        heroTitle1: "تيار.. نصنع",
+        heroTitle2: "المستحيل.",
+        heroDesc: "حيث تلتقي التكنولوجيا بالفن. نحن نصمم تجارب رقمية غامرة تعيد تعريف حدود الويب وتضع علامتك التجارية في الصدارة.",
+        heroBtn: "ابدأ مشروعك",
         heroStat: "معالجة",
         fCtaTitle: "لنبني المستقبل معاً",
         fCtaDesc: "نحن جاهزون لتحويل رؤيتك إلى واقع رقمي استثنائي.",
@@ -65,7 +70,8 @@ const translations = {
         p3Tag: "03 — تطبيق",
         p3Title: "وجهه",
         p3Desc: "تطبيق وجهة لعرض الأماكن والفعاليات مع تجربة مستخدم مخصّصة وواجهة أنيقة جذابة.",
-        langBtn: "English"
+        langBtn: "English",
+        dir: "rtl"
     },
     en: {
         brand: "Tiyar",
@@ -89,6 +95,11 @@ const translations = {
         ser2Desc: "User interfaces that merge aesthetics with function, pixel-perfectly designed to captivate users.",
         ser3Title: "Cloud Infrastructure",
         ser3Desc: "Secure and flexible cloud solutions that enable your business to grow without infrastructure constraints.",
+        heroBadge: "Digital Future",
+        heroTitle1: "Tiyar.. We Create",
+        heroTitle2: "The Impossible.",
+        heroDesc: "Where technology meets art. We design immersive digital experiences that redefine web boundaries and put your brand in the lead.",
+        heroBtn: "Start Your Project",
         heroStat: "Processing",
         fCtaTitle: "Let's Build the Future Together",
         fCtaDesc: "We are ready to transform your vision into an exceptional digital reality.",
@@ -133,97 +144,110 @@ const translations = {
         p3Tag: "03 — APP",
         p3Title: "Wajhah",
         p3Desc: "Wajhah application for displaying places and events with a customized user experience and an elegant interface.",
-        langBtn: "العربية"
+        langBtn: "العربية",
+        dir: "ltr"
     }
 };
 
 const langBtn = document.getElementById('lang-switch');
 let currentLang = 'ar';
 
-function updateContent() {
-    const t = translations[currentLang];
-    
-    document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = currentLang;
-    langBtn.innerText = t.langBtn;
-
-    const elementsToUpdate = {
-        'brand-name': t.brand,
-        'nav-home': t.navHome,
-        'nav-services': t.navServices,
-        'nav-about': t.navAbout,
-        'nav-portfolio': t.navPortfolio,
-        'btn-start-nav': t.btnStart,
-        'hero-badge': t.heroBadge,
-        'hero-1': t.hero1,
-        'hero-2': t.hero2,
-        'hero-desc': t.heroDesc,
-        'btn-start-hero': t.btnHero,
-        'ser-tag': t.serTag,
-        'ser-title-main': t.serTitleMain,
-        'ser-title-sub': t.serTitleSub,
-        'ser-desc': t.serDesc,
-        'ser-1-title': t.ser1Title,
-        'ser-1-desc': t.ser1Desc,
-        'ser-2-title': t.ser2Title,
-        'ser-2-desc': t.ser2Desc,
-        'ser-3-title': t.ser3Title,
-        'ser-3-desc': t.ser3Desc,
-        'about-tag': t.aboutTag,
-        'about-title-main': t.aboutTitleMain,
-        'about-title-sub': t.aboutTitleSub,
-        'step-1-title': t.step1Title,
-        'step-1-desc': t.step1Desc,
-        'step-2-title': t.step2Title,
-        'step-2-desc': t.step2Desc,
-        'step-3-title': t.step3Title,
-        'step-3-desc': t.step3Desc,
-        'step-4-title': t.step4Title,
-        'step-4-desc': t.step4Desc,
-        'stat-1-label': t.stat1,
-        'stat-2-label': t.stat2,
-        'stat-3-label': t.stat3,
-        'stat-4-label': t.stat4,
-        'port-title': t.portTitle,
-        'port-subtitle': t.portSubtitle,
-        'p1-tag': t.p1Tag,
-        'p1-title': t.p1Title,
-        'p1-desc': t.p1Desc,
-        'p2-tag': t.p2Tag,
-        'p2-title': t.p2Title,
-        'p2-desc': t.p2Desc,
-        'p3-tag': t.p3Tag,
-        'p3-title': t.p3Title,
-        'p3-desc': t.p3Desc,
-        'footer-cta-title': t.fCtaTitle,
-        'footer-cta-desc': t.fCtaDesc,
-        'footer-btn-contact': t.fBtnContact,
-        'f-col1-title': t.fCol1,
-        'f-link-about': t.fAbout,
-        'f-link-jobs': t.fJobs,
-        'f-link-blog': t.fBlog,
-        'f-col2-title': t.fCol2,
-        'f-link-web': t.fWeb,
-        'f-link-mobile': t.fMobile,
-        'f-link-ai': t.fAi,
-        'f-col3-title': t.fCol3,
-        'f-location': t.fLocation,
-        'f-col4-title': t.fCol4,
-        'f-copyright': t.fCopyright,
-        'f-made-with': t.fMadeWith
-    };
-
-    for (const [id, value] of Object.entries(elementsToUpdate)) {
-        const el = document.getElementById(id);
-        if (el) el.innerText = value;
-    }
-
-    document.querySelectorAll('.project-view-btn').forEach(btn => {
-        btn.innerText = t.viewProject;
-    });
-}
-
 langBtn.addEventListener('click', () => {
     currentLang = currentLang === 'ar' ? 'en' : 'ar';
-    updateContent();
+    
+    // 1. تحديث اتجاه الصفحة
+    document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = currentLang;
+    if (currentLang === 'ar') {
+        langBtn.innerText = 'English';
+    } else {
+        langBtn.innerText = 'العربية';
+    }
+
+    // 2. تحديث النصوص باستخدام IDs
+    document.getElementById('port-title').innerText = translations[currentLang].portTitle;
+    document.getElementById('port-subtitle').innerText = translations[currentLang].portSubtitle;
+    document.getElementById('p1-tag').innerText = translations[currentLang].p1Tag;
+    document.getElementById('p1-title').innerText = translations[currentLang].p1Title;
+    document.getElementById('p1-desc').innerText = translations[currentLang].p1Desc;
+    document.getElementById('p2-tag').innerText = translations[currentLang].p2Tag;
+    document.getElementById('p2-title').innerText = translations[currentLang].p2Title;
+    document.getElementById('p2-desc').innerText = translations[currentLang].p2Desc;
+    document.getElementById('p3-tag').innerText = translations[currentLang].p3Tag;
+    document.getElementById('p3-title').innerText = translations[currentLang].p3Title;
+    document.getElementById('p3-desc').innerText = translations[currentLang].p3Desc;
+    document.querySelectorAll('.project-view-btn').forEach(btn => {
+        btn.innerText = translations[currentLang].viewProject;
+    });
+    document.getElementById('stat-1-label').innerText = translations[currentLang].stat1;
+    document.getElementById('stat-2-label').innerText = translations[currentLang].stat2;
+    document.getElementById('stat-3-label').innerText = translations[currentLang].stat3;
+    document.getElementById('stat-4-label').innerText = translations[currentLang].stat4;
+    document.getElementById('about-tag').innerText = translations[currentLang].aboutTag;
+    document.getElementById('about-title-main').innerText = translations[currentLang].aboutTitleMain;
+    document.getElementById('about-title-sub').innerText = translations[currentLang].aboutTitleSub;
+    document.getElementById('step-1-title').innerText = translations[currentLang].step1Title;
+    document.getElementById('step-1-desc').innerText = translations[currentLang].step1Desc;
+    document.getElementById('step-2-title').innerText = translations[currentLang].step2Title;
+    document.getElementById('step-2-desc').innerText = translations[currentLang].step2Desc;
+    document.getElementById('step-3-title').innerText = translations[currentLang].step3Title;
+    document.getElementById('step-3-desc').innerText = translations[currentLang].step3Desc;
+    document.getElementById('step-4-title').innerText = translations[currentLang].step4Title;
+    document.getElementById('step-4-desc').innerText = translations[currentLang].step4Desc;
+    document.getElementById('footer-cta-title').innerText = translations[currentLang].fCtaTitle;
+    document.getElementById('footer-cta-desc').innerText = translations[currentLang].fCtaDesc;
+    document.getElementById('footer-btn-contact').innerText = translations[currentLang].fBtnContact;
+    document.getElementById('f-col1-title').innerText = translations[currentLang].fCol1;
+    document.getElementById('f-link-about').innerText = translations[currentLang].fAbout;
+    document.getElementById('f-link-jobs').innerText = translations[currentLang].fJobs;
+    document.getElementById('f-link-blog').innerText = translations[currentLang].fBlog;
+    document.getElementById('f-col2-title').innerText = translations[currentLang].fCol2;
+    document.getElementById('f-link-web').innerText = translations[currentLang].fWeb;
+    document.getElementById('f-link-mobile').innerText = translations[currentLang].fMobile;
+    document.getElementById('f-link-ai').innerText = translations[currentLang].fAi;
+    document.getElementById('f-col3-title').innerText = translations[currentLang].fCol3;
+    document.getElementById('f-location').innerText = translations[currentLang].fLocation;
+    document.getElementById('f-col4-title').innerText = translations[currentLang].fCol4;
+    document.getElementById('f-copyright').innerText = translations[currentLang].fCopyright;
+    document.getElementById('f-made-with').innerText = translations[currentLang].fMadeWith;
+    document.getElementById('hero-badge').innerText = translations[currentLang].heroBadge;
+    document.getElementById('hero-title-1').innerText = translations[currentLang].heroTitle1;
+    document.getElementById('hero-title-2').innerText = translations[currentLang].heroTitle2;
+    document.getElementById('hero-desc').innerText = translations[currentLang].heroDesc;
+    document.getElementById('hero-btn-main').innerText = translations[currentLang].heroBtn;
+    document.getElementById('hero-stat-label').innerText = translations[currentLang].heroStat;
+    document.getElementById('ser-tag').innerText = translations[currentLang].serTag;
+    document.getElementById('ser-title-main').innerText = translations[currentLang].serTitleMain;
+    document.getElementById('ser-title-sub').innerText = translations[currentLang].serTitleSub;
+    document.getElementById('ser-desc').innerText = translations[currentLang].serDesc;
+    document.getElementById('ser-1-title').innerText = translations[currentLang].ser1Title;
+    document.getElementById('ser-1-desc').innerText = translations[currentLang].ser1Desc;
+    document.getElementById('ser-2-title').innerText = translations[currentLang].ser2Title;
+    document.getElementById('ser-2-desc').innerText = translations[currentLang].ser2Desc;
+    document.getElementById('ser-3-title').innerText = translations[currentLang].ser3Title;
+    document.getElementById('ser-3-desc').innerText = translations[currentLang].ser3Desc;
+    document.getElementById('brand-name').innerText = translations[currentLang].brand;
+    document.getElementById('nav-home').innerText = translations[currentLang].navHome;
+    document.getElementById('nav-services').innerText = translations[currentLang].navServices;
+    document.getElementById('nav-about').innerText = translations[currentLang].navAbout;
+    document.getElementById('nav-portfolio').innerText = translations[currentLang].navPortfolio;
+    document.getElementById('btn-start-nav').innerText = translations[currentLang].btnStart;
+    document.getElementById('hero-badge').innerText = translations[currentLang].heroBadge;
+    document.getElementById('hero-1').innerText = translations[currentLang].hero1;
+    document.getElementById('hero-2').innerText = translations[currentLang].hero2;
+    document.getElementById('hero-desc').innerText = translations[currentLang].heroDesc;
+    document.getElementById('btn-start-hero').innerText = translations[currentLang].btnHero;
+    
+    // تحديث نص زر اللغة نفسه
+    langBtn.innerText = translations[currentLang].langBtn;
+    updatePageContent();
+    function updatePageContent() {
+    // مثال لتغيير نص آخر عند تبديل اللغة
+    const navHome = document.getElementById('nav-home');
+    if (navHome) {
+        navHome.innerText = currentLang === 'ar' ? 'الرئيسية' : 'Home';
+    }
+    
+    // يمكنك إضافة بقية العناصر هنا...
+}
 });
