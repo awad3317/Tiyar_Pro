@@ -52,7 +52,7 @@
             </div>
 
             <div class="hero-float-entrance flex items-center gap-6 pt-6">
-              <a href="https://wa.me/967780261952" target="_blank">
+              <a href="https://wa.me/967776023837" target="_blank">
                 <button
                   id="hero-btn-main"
                   class="magnetic-btn px-8 py-4 rounded-xl bg-white text-black font-bold text-lg shadow-[0_0_30px_rgba(255,255,255,0.2)]"
