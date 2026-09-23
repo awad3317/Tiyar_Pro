@@ -34,5 +34,11 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'httpsms' => [
+        'base_url' => env('HTTPSMS_BASE_URL', 'https://abdaa.tiyar.cc/v1'),
+        'api_key'  => env('HTTPSMS_API_KEY'),
+        'sim'      => env('HTTPSMS_DEFAULT_SIM', 'SIM2'),
+    ],
 
 ];
