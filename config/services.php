@@ -42,4 +42,10 @@ return [
         'from_phone' => env('HTTPSMS_FROM_PHONE', '+967781152674'),
     ],
 
+    'evolution' => [
+        'url'           => env('EVOLUTION_API_URL', 'http://127.0.0.1:8080'),
+        'instance_name' => env('EVOLUTION_INSTANCE_NAME', 'awad'),
+        'api_key'       => env('EVOLUTION_API_KEY', ''),
+    ],
+
 ];

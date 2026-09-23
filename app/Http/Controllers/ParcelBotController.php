@@ -154,18 +154,7 @@ class ParcelBotController extends Controller
         ];
     }
 
-    /**
-     * تجهيز القالب واستدعاء خدمة httpSMS للإرسال ببيانات المكتب
-     */
-    /**
-     * تجهيز القالب واستدعاء خدمة httpSMS للإرسال ببيانات المكتب
-     */
-    /**
-     * تجهيز القالب واستدعاء خدمة httpSMS للإرسال ببيانات المكتب (بدون رقم السند)
-     */
-    /**
-     * تجهيز القالب المخصص للمكتب واستدعاء خدمة httpSMS للإرسال
-     */
+    
     protected function sendParcelSms(array $parcel, Office $office): array
     {
         // القالب الافتراضي في حال لم يحدد المكتب قالباً خاصاً به
@@ -213,11 +202,16 @@ class ParcelBotController extends Controller
     protected function sendWhatsAppMessage(string $phone, string $message): bool
     {
         try {
-            $evolutionUrl = env('EVOLUTION_API_URL', 'http://127.0.0.1:8080');
-            $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
-            $apiKey       = env('EVOLUTION_API_KEY', '');
+            $evolutionUrl = config('services.evolution.url');
+            $instanceName = config('services.evolution.instance_name');
+            $apiKey       = config('services.evolution.api_key');
 
             $formattedPhone = preg_replace('/[^0-9]/', '', $phone);
+
+            // التأكد من وجود رمز الدولة 967 إذا كان الرقم يمنياً
+            if (!str_starts_with($formattedPhone, '967') && strlen($formattedPhone) == 9) {
+                $formattedPhone = '967' . $formattedPhone;
+            }
 
             $response = Http::withHeaders([
                 'apikey'       => $apiKey,
@@ -227,7 +221,13 @@ class ParcelBotController extends Controller
                 'text'   => $message,
             ]);
 
-            return $response->successful();
+            if (!$response->successful()) {
+                Log::error("Evolution API Send Error [{$response->status()}]: " . $response->body());
+                return false;
+            }
+
+            Log::info("WhatsApp message sent successfully to {$formattedPhone}");
+            return true;
         } catch (\Throwable $e) {
             Log::error("Failed to send WhatsApp message: " . $e->getMessage());
             return false;
