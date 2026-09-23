@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use App\Services\HttpSmsService;
 use App\Models\Office;
 
@@ -54,17 +55,19 @@ class ParcelBotController extends Controller
             $msgNode = $data['Message'] ?? $data['message'] ?? [];
 
             // استخراج النص أو الـ Caption المصاحب للصورة
-            $messageText = $msgNode['conversation'] 
+            $messageText = trim(
+                $msgNode['conversation'] 
                 ?? $msgNode['extendedTextMessage']['text'] 
-                ?? $msgNode['imageMessage']['caption']
-                ?? $msgNode['buttonsResponseMessage']['selectedDisplayText']
-                ?? $msgNode['templateButtonReplyMessage']['selectedDisplayText']
-                ?? '';
+                ?? $msgNode['imageMessage']['caption'] 
+                ?? $msgNode['buttonsResponseMessage']['selectedDisplayText'] 
+                ?? $msgNode['templateButtonReplyMessage']['selectedDisplayText'] 
+                ?? ''
+            );
 
             // فحص هل الرسالة تحتوي على صورة
             $isImage = isset($msgNode['imageMessage']);
 
-            if (!$rawPhone || (empty(trim($messageText)) && !$isImage)) {
+            if (!$rawPhone || (empty($messageText) && !$isImage)) {
                 return response()->json(['status' => 'ignored_empty', 'data' => null]);
             }
 
@@ -74,51 +77,7 @@ class ParcelBotController extends Controller
             $senderPhone = preg_replace('/[^0-9]/', '', $cleanJid);
 
             // =========================================================
-            // 🤖 معالجة الصور عبر Gemini 1.5 Flash (بشرط وجود كلمة "طرود")
-            // =========================================================
-            if ($isImage) {
-                // فحص الكلمة المفتاحية لتوفير التوكن
-                if (!Str::contains($messageText, ['طرود', 'طرد'])) {
-                    Log::info("Image received without 'طرود' keyword, skipped AI.");
-                    return response()->json(['status' => 'ignored_image_without_keyword']);
-                }
-
-                $this->sendWhatsAppMessage($senderPhone, "⏳ جاري قراءة الكشف واستخراج الطرود بواسطة الذكاء الاصطناعي...");
-
-                // استخراج الصورة من Evolution API وتحويلها لـ Base64
-                $imageBase64 = $this->fetchImageBase64($data);
-
-                if (!$imageBase64) {
-                    $this->sendWhatsAppMessage($senderPhone, "❌ تعذر تحميل الصورة، يرجى إعادة إرسالها بوضوح.");
-                    return response()->json(['status' => 'failed_to_download_image']);
-                }
-
-                // تحليل الصورة باستخدام Gemini Flash
-                $aiExtractedText = $this->extractParcelsFromImageWithGemini($imageBase64);
-
-                if (empty($aiExtractedText)) {
-                    $this->sendWhatsAppMessage($senderPhone, "⚠️ لم يتم العثور على أرقام هواتف أو طرود واضحة في الصورة.");
-                    return response()->json(['status' => 'ai_no_parcels_found']);
-                }
-
-                // نعتمد النص المستخرج من الصورة لمواصلة المعالجة
-                $messageText = $aiExtractedText;
-            }
-
-            // =========================================================
-            // 📦 استخراج قائمة الطرود (طرد واحد أو كشف متعدد)
-            // =========================================================
-            $parcels = $this->extractParcelsList($messageText);
-
-            if (empty($parcels)) {
-                return response()->json([
-                    'status' => 'ignored_not_a_parcel',
-                    'data'   => null
-                ]);
-            }
-
-            // =========================================================
-            // 🏢 التحقق من هوية المكتب وصلاحيته من قاعدة البيانات
+            // 🏢 التحقق أولاً من هوية المكتب وصلاحيته من قاعدة البيانات
             // =========================================================
             $office = Office::where('whatsapp_sender_phone', 'LIKE', "%{$senderPhone}%")
                             ->where('is_active', true)
@@ -134,76 +93,108 @@ class ParcelBotController extends Controller
             }
 
             // =========================================================
-            // 🚀 إرسال الـ SMS لجميع الطرود دفعة واحدة
+            // ✅ فحص أوامر التأكيد والإلغاء للطرود المعلقة
             // =========================================================
-            $successCount = 0;
-            $failedCount  = 0;
-            $details      = [];
+            $pendingCacheKey = "pending_parcels_{$senderPhone}";
 
-            $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-            $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
-
-            foreach ($parcels as $parcel) {
-                $smsBody = str_replace(
-                    ['{office}', '{branch}', '{package}'],
-                    [
-                        $office->name,
-                        $office->branch_name ?? '',
-                        $parcel['package_type']
-                    ],
-                    $template
-                );
-
-                $smsBody = str_replace(' ()', '', $smsBody);
-
-                $result = $this->smsService->send(
-                    $parcel['recipient'],
-                    $smsBody,
-                    $office->httpsms_api_key,
-                    $office->httpsms_from_phone
-                );
-
-                if ($result['success']) {
-                    $successCount++;
-                    $details[] = "✅ {$parcel['recipient']} ({$parcel['package_type']})";
-                } else {
-                    $failedCount++;
-                    $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
+            // 1. حالة الإلغاء
+            if (in_array(mb_strtolower($messageText), ['الغاء', 'إلغاء', 'cancel'])) {
+                if (Cache::has($pendingCacheKey)) {
+                    Cache::forget($pendingCacheKey);
+                    $this->sendWhatsAppMessage($senderPhone, "❌ تم إلغاء العملية ولم يتم إرسال أي رسائل SMS.");
+                    return response()->json(['status' => 'cancelled']);
                 }
+            }
 
-                // تأخير بسيط (0.4 ثانية) لحماية الشريحة وبوابة الأندرويد
-                usleep(400000);
+            // 2. حالة الموافقة والتأكيد على الإرسال
+            if (in_array(mb_strtolower($messageText), ['نعم', 'تاكيد', 'تأكيد', 'ارسل', 'أرسل', 'ok', 'yes'])) {
+                $pendingParcels = Cache::get($pendingCacheKey);
+
+                if (!empty($pendingParcels)) {
+                    Cache::forget($pendingCacheKey); // حذفها فوراً لتجنب التكرار
+                    return $this->dispatchParcelsSms($senderPhone, $pendingParcels, $office);
+                }
             }
 
             // =========================================================
-            // 📝 توليد التقرير والرد في الواتساب
+            // 🤖 معالجة الصور عبر Gemini 1.5 Flash (بشرط وجود كلمة "طرود" والحد اليومي 2 مرات)
             // =========================================================
+            if ($isImage) {
+                if (!Str::contains($messageText, ['طرود', 'طرد'])) {
+                    Log::info("Image received without 'طرود' keyword, skipped AI.");
+                    return response()->json(['status' => 'ignored_image_without_keyword']);
+                }
+
+                $usageCacheKey = "ai_usage_{$senderPhone}_" . date('Y-m-d');
+                $usageCount = Cache::get($usageCacheKey, 0);
+
+                if ($usageCount >= 2) {
+                    $limitMsg = "⚠️ عذراً، لقد استنفدت الحد اليومي المسموح به لاستخدام الذكاء الاصطناعي لقراءة الصور (مرتين في اليوم).\n\n💡 يمكنك إرسال الطرود كنص عادي وسيتم تجهيزها فوراً.";
+                    $this->sendWhatsAppMessage($senderPhone, $limitMsg);
+                    return response()->json(['status' => 'ai_limit_reached']);
+                }
+
+                $this->sendWhatsAppMessage($senderPhone, "⏳ جاري قراءة الكشف واستخراج الطرود بواسطة الذكاء الاصطناعي (المحاولة " . ($usageCount + 1) . " من 2)...");
+
+                $imageBase64 = $this->fetchImageBase64($data);
+
+                if (!$imageBase64) {
+                    $this->sendWhatsAppMessage($senderPhone, "❌ تعذر تحميل الصورة، يرجى إعادة إرسالها بوضوح.");
+                    return response()->json(['status' => 'failed_to_download_image']);
+                }
+
+                $aiExtractedText = $this->extractParcelsFromImageWithGemini($imageBase64);
+
+                if (empty($aiExtractedText)) {
+                    $this->sendWhatsAppMessage($senderPhone, "⚠️ لم يتم العثور على أرقام هواتف أو طرود واضحة في الصورة.");
+                    return response()->json(['status' => 'ai_no_parcels_found']);
+                }
+
+                // زيادة عداد الذكاء الاصطناعي حتى نهاية اليوم
+                $secondsUntilEndOfDay = now()->diffInSeconds(now()->endOfDay());
+                Cache::put($usageCacheKey, $usageCount + 1, $secondsUntilEndOfDay);
+
+                $messageText = $aiExtractedText;
+            }
+
+            // =========================================================
+            // 📦 استخراج قائمة الطرود
+            // =========================================================
+            $parcels = $this->extractParcelsList($messageText);
+
+            if (empty($parcels)) {
+                return response()->json([
+                    'status' => 'ignored_not_a_parcel',
+                    'data'   => null
+                ]);
+            }
+
+            // =========================================================
+            // 🛑 حفظ البيانات في الكاش وإرسال رسالة المعاينة والتأكيد للموظف
+            // =========================================================
+            Cache::put($pendingCacheKey, $parcels, now()->addMinutes(5));
+
             $total = count($parcels);
-
-            if ($total === 1) {
-                if ($successCount === 1) {
-                    $reply = "✅ تم إرسال رسالة SMS للعميل بنجاح!\n🏢 المكتب: {$office->name}\n📱 الرقم: {$parcels[0]['recipient']}\n📦 الطرد: {$parcels[0]['package_type']}";
-                } else {
-                    $reply = "❌ فشل إرسال رسالة الـ SMS إلى ({$parcels[0]['recipient']}). تأكد من رصيد شريحة فرع [{$office->name}] أو اتصال الهاتف بالإنترنت.";
-                }
-            } else {
-                $reply = "📊 *تقرير إرسال الإشعارات ({$office->name})*\n"
-                       . "━━━━━━━━━━━━━━━\n"
-                       . "📦 إجمالي الطرود: {$total}\n"
-                       . "✅ الناجحة: {$successCount}\n"
-                       . ($failedCount > 0 ? "⚠️ الفاشلة: {$failedCount}\n" : "")
-                       . "━━━━━━━━━━━━━━━\n"
-                       . implode("\n", $details);
+            $previewList = [];
+            foreach ($parcels as $index => $item) {
+                $num = $index + 1;
+                $previewList[] = "{$num}. 📱 {$item['recipient']} 📦 {$item['package_type']}";
             }
 
-            $this->sendWhatsAppMessage($senderPhone, $reply);
+            $confirmMsg = "📋 *مراجعة بيانات الإرسال ({$office->name})*\n"
+                        . "━━━━━━━━━━━━━━━\n"
+                        . implode("\n", $previewList) . "\n"
+                        . "━━━━━━━━━━━━━━━\n"
+                        . "📦 إجمالي الطرود: *{$total}*\n\n"
+                        . "للإرسال، رد بكلمة: *تأكيد* أو *نعم*\n"
+                        . "للإلغاء، رد بكلمة: *إلغاء*";
+
+            $this->sendWhatsAppMessage($senderPhone, $confirmMsg);
 
             return response()->json([
-                'status'  => 'bulk_parcels_processed',
+                'status'  => 'awaiting_confirmation',
                 'office'  => $office->name,
-                'total'   => $total,
-                'success' => $successCount,
-                'failed'  => $failedCount
+                'total'   => $total
             ]);
 
         } catch (\Exception $e) {
@@ -213,18 +204,82 @@ class ParcelBotController extends Controller
     }
 
     /**
+     * إرسال رسائل الـ SMS للطرود وتوليد التقرير النهائي
+     */
+    protected function dispatchParcelsSms(string $senderPhone, array $parcels, Office $office)
+    {
+        $this->sendWhatsAppMessage($senderPhone, "🚀 تم التأكيد! جاري إرسال رسائل الـ SMS للعملاء...");
+
+        $successCount = 0;
+        $failedCount  = 0;
+        $details      = [];
+
+        $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+        $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+
+        foreach ($parcels as $parcel) {
+            $smsBody = str_replace(
+                ['{office}', '{branch}', '{package}'],
+                [
+                    $office->name,
+                    $office->branch_name ?? '',
+                    $parcel['package_type']
+                ],
+                $template
+            );
+
+            $smsBody = str_replace(' ()', '', $smsBody);
+
+            $result = $this->smsService->send(
+                $parcel['recipient'],
+                $smsBody,
+                $office->httpsms_api_key,
+                $office->httpsms_from_phone
+            );
+
+            if ($result['success']) {
+                $successCount++;
+                $details[] = "✅ {$parcel['recipient']} ({$parcel['package_type']})";
+            } else {
+                $failedCount++;
+                $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
+            }
+
+            usleep(400000); // 0.4 ثانية لحماية الشريحة
+        }
+
+        $total = count($parcels);
+        $report = "📊 *تقرير الإرسال النهائي ({$office->name})*\n"
+                . "━━━━━━━━━━━━━━━\n"
+                . "📦 إجمالي الطرود: {$total}\n"
+                . "✅ الناجحة: {$successCount}\n"
+                . ($failedCount > 0 ? "⚠️ الفاشلة: {$failedCount}\n" : "")
+                . "━━━━━━━━━━━━━━━\n"
+                . implode("\n", $details);
+
+        $this->sendWhatsAppMessage($senderPhone, $report);
+
+        return response()->json([
+            'status'  => 'bulk_parcels_processed',
+            'office'  => $office->name,
+            'total'   => $total,
+            'success' => $successCount,
+            'failed'  => $failedCount
+        ]);
+    }
+
+    /**
      * استخراج الطرود من الصورة عبر Gemini 1.5 Flash
      */
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = config('services.gemini.api_key');
+            $apiKey = config('services.gemini.api_key', env('GEMINI_API_KEY'));
             if (!$apiKey) {
-                Log::error("Gemini API Key is missing in config/services.php");
+                Log::error("Gemini API Key is missing");
                 return null;
             }
 
-            // استخدام موديل Gemini 1.5 Flash
             $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
 
             $prompt = "قم باستخراج بيانات الشحنات والطرود من هذه الصورة (قد تكون سندات، كشوفات أو فواتير شحن).\n"
@@ -253,7 +308,7 @@ class ParcelBotController extends Controller
                     ]
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.1, // دقة عالية لتقليل الهلوسة
+                    'temperature' => 0.1,
                 ]
             ]);
 
@@ -277,16 +332,14 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * جلب وتحويل الصورة إلى Base64 من الـ Payload أو من سيرفر Evolution
+     * جلب وتحويل الصورة إلى Base64
      */
     protected function fetchImageBase64(array $data): ?string
     {
-        // 1. إذا كانت الصورة ممررة كـ base64 مباشرة داخل الـ payload
         if (!empty($data['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $data['base64']);
         }
 
-        // 2. إذا كانت Evolution ترسل رابط وسائط (mediaUrl)
         $msgNode = $data['Message'] ?? $data['message'] ?? [];
         $mediaUrl = $msgNode['imageMessage']['url'] ?? null;
 
@@ -297,7 +350,6 @@ class ParcelBotController extends Controller
             }
         }
 
-        // 3. طلب تحميل الوسائط عبر مسار Evolution API الداخلي
         try {
             $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
             $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
@@ -332,7 +384,7 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج قائمة الطرود من النص (يدعم طرد واحد أو طرود متعددة في أسطر)
+     * استخراج قائمة الطرود من النص
      */
     protected function extractParcelsList(?string $text): array
     {
