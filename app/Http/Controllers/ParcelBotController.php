@@ -274,7 +274,7 @@ class ParcelBotController extends Controller
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = config('services.gemini.api_key', env('GEMINI_API_KEY'));
+            $apiKey = 'AQ.Ab8RN6Lj1UIeo93cacr7m-Wlcmxr4bCP9qluA2DyKH7k9p9_gg';
             if (!$apiKey) {
                 Log::error("Gemini API Key is missing");
                 return null;
