@@ -50,15 +50,21 @@ class ParcelBotController extends Controller
                     ?? null;
             }
 
-            // 3. استخراج نص الرسالة
+            // 3. استخراج العقدة الخاصة بالرسالة
             $msgNode = $data['Message'] ?? $data['message'] ?? [];
+
+            // استخراج النص أو الـ Caption المصاحب للصورة
             $messageText = $msgNode['conversation'] 
                 ?? $msgNode['extendedTextMessage']['text'] 
+                ?? $msgNode['imageMessage']['caption']
                 ?? $msgNode['buttonsResponseMessage']['selectedDisplayText']
                 ?? $msgNode['templateButtonReplyMessage']['selectedDisplayText']
-                ?? null;
+                ?? '';
 
-            if (!$rawPhone || empty(trim($messageText))) {
+            // فحص هل الرسالة تحتوي على صورة
+            $isImage = isset($msgNode['imageMessage']);
+
+            if (!$rawPhone || (empty(trim($messageText)) && !$isImage)) {
                 return response()->json(['status' => 'ignored_empty', 'data' => null]);
             }
 
@@ -68,11 +74,42 @@ class ParcelBotController extends Controller
             $senderPhone = preg_replace('/[^0-9]/', '', $cleanJid);
 
             // =========================================================
-            // 📦 استخراج قائمة الطرود (يدعم طرد واحد أو عدة طرود)
+            // 🤖 معالجة الصور عبر Gemini 1.5 Flash (بشرط وجود كلمة "طرود")
+            // =========================================================
+            if ($isImage) {
+                // فحص الكلمة المفتاحية لتوفير التوكن
+                if (!Str::contains($messageText, ['طرود', 'طرد'])) {
+                    Log::info("Image received without 'طرود' keyword, skipped AI.");
+                    return response()->json(['status' => 'ignored_image_without_keyword']);
+                }
+
+                $this->sendWhatsAppMessage($senderPhone, "⏳ جاري قراءة الكشف واستخراج الطرود بواسطة الذكاء الاصطناعي...");
+
+                // استخراج الصورة من Evolution API وتحويلها لـ Base64
+                $imageBase64 = $this->fetchImageBase64($data);
+
+                if (!$imageBase64) {
+                    $this->sendWhatsAppMessage($senderPhone, "❌ تعذر تحميل الصورة، يرجى إعادة إرسالها بوضوح.");
+                    return response()->json(['status' => 'failed_to_download_image']);
+                }
+
+                // تحليل الصورة باستخدام Gemini Flash
+                $aiExtractedText = $this->extractParcelsFromImageWithGemini($imageBase64);
+
+                if (empty($aiExtractedText)) {
+                    $this->sendWhatsAppMessage($senderPhone, "⚠️ لم يتم العثور على أرقام هواتف أو طرود واضحة في الصورة.");
+                    return response()->json(['status' => 'ai_no_parcels_found']);
+                }
+
+                // نعتمد النص المستخرج من الصورة لمواصلة المعالجة
+                $messageText = $aiExtractedText;
+            }
+
+            // =========================================================
+            // 📦 استخراج قائمة الطرود (طرد واحد أو كشف متعدد)
             // =========================================================
             $parcels = $this->extractParcelsList($messageText);
 
-            // إذا لم تحتوِ الرسالة على أي بيانات طرد صالحة
             if (empty($parcels)) {
                 return response()->json([
                     'status' => 'ignored_not_a_parcel',
@@ -97,13 +134,12 @@ class ParcelBotController extends Controller
             }
 
             // =========================================================
-            // 🚀 معالجة وإرسال الـ SMS لجميع الطرود دفعة واحدة
+            // 🚀 إرسال الـ SMS لجميع الطرود دفعة واحدة
             // =========================================================
             $successCount = 0;
             $failedCount  = 0;
             $details      = [];
 
-            // قالب المكتب أو القالب الافتراضي
             $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
             $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
@@ -118,10 +154,8 @@ class ParcelBotController extends Controller
                     $template
                 );
 
-                // تنظيف أي أقواس فارغة في حال عدم وجود اسم للفرع
                 $smsBody = str_replace(' ()', '', $smsBody);
 
-                // إرسال الـ SMS عبر البوابة
                 $result = $this->smsService->send(
                     $parcel['recipient'],
                     $smsBody,
@@ -137,7 +171,7 @@ class ParcelBotController extends Controller
                     $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
                 }
 
-                // تأخير بسيط (0.4 ثانية) لحماية الشريحة وبوابة الأندرويد من الحظر والضغط
+                // تأخير بسيط (0.4 ثانية) لحماية الشريحة وبوابة الأندرويد
                 usleep(400000);
             }
 
@@ -147,14 +181,12 @@ class ParcelBotController extends Controller
             $total = count($parcels);
 
             if ($total === 1) {
-                // إذا كان طرداً واحداً، إرسال رسالة تأكيد مختصرة
                 if ($successCount === 1) {
                     $reply = "✅ تم إرسال رسالة SMS للعميل بنجاح!\n🏢 المكتب: {$office->name}\n📱 الرقم: {$parcels[0]['recipient']}\n📦 الطرد: {$parcels[0]['package_type']}";
                 } else {
                     $reply = "❌ فشل إرسال رسالة الـ SMS إلى ({$parcels[0]['recipient']}). تأكد من رصيد شريحة فرع [{$office->name}] أو اتصال الهاتف بالإنترنت.";
                 }
             } else {
-                // إذا كانت طرود متعددة، إرسال تقرير إحصائي مفصل
                 $reply = "📊 *تقرير إرسال الإشعارات ({$office->name})*\n"
                        . "━━━━━━━━━━━━━━━\n"
                        . "📦 إجمالي الطرود: {$total}\n"
@@ -181,6 +213,125 @@ class ParcelBotController extends Controller
     }
 
     /**
+     * استخراج الطرود من الصورة عبر Gemini 1.5 Flash
+     */
+    protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
+    {
+        try {
+            $apiKey = config('services.gemini.api_key');
+            if (!$apiKey) {
+                Log::error("Gemini API Key is missing in config/services.php");
+                return null;
+            }
+
+            // استخدام موديل Gemini 1.5 Flash
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+
+            $prompt = "قم باستخراج بيانات الشحنات والطرود من هذه الصورة (قد تكون سندات، كشوفات أو فواتير شحن).\n"
+                    . "المطلوب حصراً: استخراج (رقم هاتف المستلم) و (نوع الطرد/الوصف).\n"
+                    . "أخرج كل طرد في سطر مستقل بالصيغة التالية فقط دون أي كلام جانبي أو مقدمات:\n"
+                    . "[رقم الهاتف] [نوع الطرد]\n"
+                    . "مثال:\n"
+                    . "779525898 كرتون ملابس\n"
+                    . "771234567 كيس قطع غيار\n"
+                    . "إذا لم تجد أي طرد أو رقم، أرجع كلمة: NONE فقط.";
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->timeout(30)->post($url, [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt],
+                            [
+                                'inline_data' => [
+                                    'mime_type' => 'image/jpeg',
+                                    'data'      => $imageBase64
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.1, // دقة عالية لتقليل الهلوسة
+                ]
+            ]);
+
+            if ($response->successful()) {
+                $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
+                
+                if (Str::upper($resultText) === 'NONE' || empty($resultText)) {
+                    return null;
+                }
+
+                return $resultText;
+            }
+
+            Log::error("Gemini Vision API Error: " . $response->body());
+            return null;
+
+        } catch (\Throwable $e) {
+            Log::error("Gemini Vision Exception: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * جلب وتحويل الصورة إلى Base64 من الـ Payload أو من سيرفر Evolution
+     */
+    protected function fetchImageBase64(array $data): ?string
+    {
+        // 1. إذا كانت الصورة ممررة كـ base64 مباشرة داخل الـ payload
+        if (!empty($data['base64'])) {
+            return preg_replace('#^data:image/\w+;base64,#i', '', $data['base64']);
+        }
+
+        // 2. إذا كانت Evolution ترسل رابط وسائط (mediaUrl)
+        $msgNode = $data['Message'] ?? $data['message'] ?? [];
+        $mediaUrl = $msgNode['imageMessage']['url'] ?? null;
+
+        if ($mediaUrl && filter_var($mediaUrl, FILTER_VALIDATE_URL)) {
+            $imgContent = @file_get_contents($mediaUrl);
+            if ($imgContent) {
+                return base64_encode($imgContent);
+            }
+        }
+
+        // 3. طلب تحميل الوسائط عبر مسار Evolution API الداخلي
+        try {
+            $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
+            $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
+            $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
+
+            $messageId = $data['key']['id'] ?? null;
+            if (!$messageId) {
+                return null;
+            }
+
+            $response = Http::withHeaders([
+                'apikey'       => $apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$evolutionUrl}/chat/getBase64FromMediaMessage/{$instanceName}", [
+                'message' => [
+                    'key' => [
+                        'id' => $messageId
+                    ]
+                ],
+                'convertToMp4' => false
+            ]);
+
+            if ($response->successful() && !empty($response->json('base64'))) {
+                return preg_replace('#^data:image/\w+;base64,#i', '', $response->json('base64'));
+            }
+
+        } catch (\Throwable $e) {
+            Log::error("Failed to fetch base64 from evolution: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
      * استخراج قائمة الطرود من النص (يدعم طرد واحد أو طرود متعددة في أسطر)
      */
     protected function extractParcelsList(?string $text): array
@@ -189,7 +340,6 @@ class ParcelBotController extends Controller
             return [];
         }
 
-        // تقسيم النص بناءً على الأسطر (Enter)
         $lines = preg_split('/\r\n|\r|\n/', trim($text));
         $parcels = [];
 
@@ -199,12 +349,10 @@ class ParcelBotController extends Controller
                 continue;
             }
 
-            // البحث عن رقم الهاتف (من 8 إلى 14 رقماً) داخل السطر
             if (preg_match('/(\+?[0-9]{8,14})/', $line, $matches)) {
                 $rawPhone = $matches[1];
                 $recipientPhone = preg_replace('/[^0-9]/', '', $rawPhone);
 
-                // استخراج نوع الطرد بحذف رقم الهاتف وتنظيف الرموز والفواصل
                 $packageType = str_replace($rawPhone, '', $line);
                 $packageType = trim(preg_replace('/^[\s\-\,\،\|]+|[\s\-\,\،\|]+$/u', '', $packageType));
 
@@ -226,13 +374,12 @@ class ParcelBotController extends Controller
     protected function sendWhatsAppMessage(string $phone, string $message): bool
     {
         try {
-            $evolutionUrl = rtrim(config('services.evolution.url'), '/');
-            $apiKey       = config('services.evolution.api_key');
+            $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
+            $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
             $url          = "{$evolutionUrl}/send/text";
 
             $formattedPhone = preg_replace('/[^0-9]/', '', $phone);
 
-            // التأكد من إضافة رمز الدولة لليمن إذا كان الرقم 9 خانات
             if (!str_starts_with($formattedPhone, '967') && strlen($formattedPhone) == 9) {
                 $formattedPhone = '967' . $formattedPhone;
             }
