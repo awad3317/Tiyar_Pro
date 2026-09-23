@@ -27,17 +27,6 @@ class ParcelBotController extends Controller
         try {
             $payload = $request->all();
 
-            // استخراج جذر البيانات
-            $data = $payload['data']['data'] ?? $payload['data'] ?? $payload;
-            $msgNode = $data['Message'] ?? $data['message'] ?? [];
-
-            // إذا كانت الرسالة تحتوي على صورة، نطبع كامل الـ Payload لمعاينته في الـ Log
-            if (isset($msgNode['imageMessage']) || isset($data['imageMessage'])) {
-                Log::info("=== EVOLUTION GO IMAGE PAYLOAD START ===");
-                Log::info(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-                Log::info("=== EVOLUTION GO IMAGE PAYLOAD END ===");
-            }
-
             // استخراج جذر البيانات لدعم مختلف هياكل الـ Payload
             $data = $payload['data']['data'] ?? $payload['data'] ?? $payload;
 
@@ -343,92 +332,26 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * جلب وتحويل الصورة إلى Base64 من سيرفر Evolution GO
+     * جلب وتحويل الصورة إلى Base64 من الـ Payload
      */
     protected function fetchImageBase64(array $data): ?string
     {
-        // 1. إذا كانت الصورة ممررة مباشرة كـ base64 داخل الـ payload
+        // 1. الموقع الدقيق للـ Base64 في Evolution GO: $data['Message']['base64']
+        $msgNode = $data['Message'] ?? $data['message'] ?? [];
+        if (!empty($msgNode['base64'])) {
+            return preg_replace('#^data:image/\w+;base64,#i', '', $msgNode['base64']);
+        }
+
+        // 2. إذا كانت في المسارات البديلة
         if (!empty($data['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $data['base64']);
         }
 
-        $msgNode = $data['Message'] ?? $data['message'] ?? [];
         if (!empty($msgNode['imageMessage']['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $msgNode['imageMessage']['base64']);
         }
 
-        try {
-            $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
-            $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
-            $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
-
-            // استخراج معرف الرسالة ومفتاحها من كائن Info الخاص بـ Evolution GO
-            $info = $data['Info'] ?? [];
-            $messageId = $info['ID'] 
-                ?? $info['Id'] 
-                ?? $data['key']['id'] 
-                ?? $msgNode['key']['id'] 
-                ?? null;
-
-            $remoteJid = $info['Chat'] 
-                ?? $info['Sender'] 
-                ?? $data['key']['remoteJid'] 
-                ?? null;
-
-            $fromMe = filter_var($info['IsFromMe'] ?? $data['key']['fromMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-            if (!$messageId) {
-                Log::error("fetchImageBase64: Message ID not found inside Info: " . json_encode($info));
-                return null;
-            }
-
-            // تجهيز كائن الرسالة المتوافق مع Evolution GO
-            $mediaPayload = [
-                'message' => [
-                    'key' => [
-                        'remoteJid' => $remoteJid,
-                        'fromMe'    => $fromMe,
-                        'id'        => $messageId,
-                    ]
-                ],
-                'convertToMp4' => false
-            ];
-
-            // 1. محاولة مسار Evolution GO القياسي: /chat/find-media-base64/{instance}
-            $response = Http::withHeaders([
-                'apikey'       => $apiKey,
-                'Content-Type' => 'application/json',
-            ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
-
-            // 2. إذا أعاد 404، تجربة مسار /chat/find-media-base64 بدون اسم النسخة
-            if ($response->status() === 404) {
-                $response = Http::withHeaders([
-                    'apikey'       => $apiKey,
-                    'Content-Type' => 'application/json',
-                ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
-            }
-
-            // 3. تجربة مسار download-media كبديل
-            if (!$response->successful() || empty($response->json('base64'))) {
-                $response = Http::withHeaders([
-                    'apikey'       => $apiKey,
-                    'Content-Type' => 'application/json',
-                ])->timeout(25)->post("{$evolutionUrl}/message/download-media/{$instanceName}", $mediaPayload);
-            }
-
-            if ($response->successful()) {
-                $b64 = $response->json('base64') ?? $response->json('data.base64');
-                if ($b64) {
-                    return preg_replace('#^data:image/\w+;base64,#i', '', $b64);
-                }
-            }
-
-            Log::error("Evolution Media Fetch Failed [{$response->status()}]: " . $response->body());
-
-        } catch (\Throwable $e) {
-            Log::error("Exception in fetchImageBase64: " . $e->getMessage());
-        }
-
+        Log::error("fetchImageBase64: Base64 string not found in Message node.");
         return null;
     }
 
