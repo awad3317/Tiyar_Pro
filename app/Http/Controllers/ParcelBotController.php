@@ -68,12 +68,12 @@ class ParcelBotController extends Controller
             $senderPhone = preg_replace('/[^0-9]/', '', $cleanJid);
 
             // =========================================================
-            // 📦 استخراج بيانات الطرد (بدون AI)
+            // 📦 استخراج قائمة الطرود (يدعم طرد واحد أو عدة طرود)
             // =========================================================
-            $parcelData = $this->extractParcelInfo($messageText);
+            $parcels = $this->extractParcelsList($messageText);
 
-            // إذا لم تحتوِ الرسالة على بيانات الطرد، يتم تجاهلها
-            if ($parcelData === null) {
+            // إذا لم تحتوِ الرسالة على أي بيانات طرد صالحة
+            if (empty($parcels)) {
                 return response()->json([
                     'status' => 'ignored_not_a_parcel',
                     'data'   => null
@@ -96,17 +96,82 @@ class ParcelBotController extends Controller
                 ], 403);
             }
 
-            // إرسال رسالة SMS عبر البوابة ببيانات المكتب الخاصة به
-            $smsResult = $this->sendParcelSms($parcelData, $office);
+            // =========================================================
+            // 🚀 معالجة وإرسال الـ SMS لجميع الطرود دفعة واحدة
+            // =========================================================
+            $successCount = 0;
+            $failedCount  = 0;
+            $details      = [];
 
-            // إرسال رد تأكيدي في محادثة الواتساب
-            $this->sendWhatsAppMessage($senderPhone, $smsResult['reply']);
+            // قالب المكتب أو القالب الافتراضي
+            $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+            $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+
+            foreach ($parcels as $parcel) {
+                $smsBody = str_replace(
+                    ['{office}', '{branch}', '{package}'],
+                    [
+                        $office->name,
+                        $office->branch_name ?? '',
+                        $parcel['package_type']
+                    ],
+                    $template
+                );
+
+                // تنظيف أي أقواس فارغة في حال عدم وجود اسم للفرع
+                $smsBody = str_replace(' ()', '', $smsBody);
+
+                // إرسال الـ SMS عبر البوابة
+                $result = $this->smsService->send(
+                    $parcel['recipient'],
+                    $smsBody,
+                    $office->httpsms_api_key,
+                    $office->httpsms_from_phone
+                );
+
+                if ($result['success']) {
+                    $successCount++;
+                    $details[] = "✅ {$parcel['recipient']} ({$parcel['package_type']})";
+                } else {
+                    $failedCount++;
+                    $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
+                }
+
+                // تأخير بسيط (0.4 ثانية) لحماية الشريحة وبوابة الأندرويد من الحظر والضغط
+                usleep(400000);
+            }
+
+            // =========================================================
+            // 📝 توليد التقرير والرد في الواتساب
+            // =========================================================
+            $total = count($parcels);
+
+            if ($total === 1) {
+                // إذا كان طرداً واحداً، إرسال رسالة تأكيد مختصرة
+                if ($successCount === 1) {
+                    $reply = "✅ تم إرسال رسالة SMS للعميل بنجاح!\n🏢 المكتب: {$office->name}\n📱 الرقم: {$parcels[0]['recipient']}\n📦 الطرد: {$parcels[0]['package_type']}";
+                } else {
+                    $reply = "❌ فشل إرسال رسالة الـ SMS إلى ({$parcels[0]['recipient']}). تأكد من رصيد شريحة فرع [{$office->name}] أو اتصال الهاتف بالإنترنت.";
+                }
+            } else {
+                // إذا كانت طرود متعددة، إرسال تقرير إحصائي مفصل
+                $reply = "📊 *تقرير إرسال الإشعارات ({$office->name})*\n"
+                       . "━━━━━━━━━━━━━━━\n"
+                       . "📦 إجمالي الطرود: {$total}\n"
+                       . "✅ الناجحة: {$successCount}\n"
+                       . ($failedCount > 0 ? "⚠️ الفاشلة: {$failedCount}\n" : "")
+                       . "━━━━━━━━━━━━━━━\n"
+                       . implode("\n", $details);
+            }
+
+            $this->sendWhatsAppMessage($senderPhone, $reply);
 
             return response()->json([
-                'status'  => 'parcel_sms_processed',
-                'success' => $smsResult['success'],
+                'status'  => 'bulk_parcels_processed',
                 'office'  => $office->name,
-                'data'    => $parcelData
+                'total'   => $total,
+                'success' => $successCount,
+                'failed'  => $failedCount
             ]);
 
         } catch (\Exception $e) {
@@ -116,84 +181,43 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج معلومات الطرد من نص الرسالة
-     * تُرجع مصفوفة بالبيانات أو NULL إذا لم تكن البيانات مطابقة
+     * استخراج قائمة الطرود من النص (يدعم طرد واحد أو طرود متعددة في أسطر)
      */
-    /**
-     * استخراج رقم المستلم ونوع الطرد فقط
-     */
-    protected function extractParcelInfo(?string $text): ?array
+    protected function extractParcelsList(?string $text): array
     {
-        if (empty($text)) {
-            return null;
+        if (empty(trim($text))) {
+            return [];
         }
 
-        $delimiters = [',', '،', '-', "\n", '|'];
-        $normalized = str_replace($delimiters, '#', trim($text));
-        $parts = array_values(array_filter(array_map('trim', explode('#', $normalized))));
+        // تقسيم النص بناءً على الأسطر (Enter)
+        $lines = preg_split('/\r\n|\r|\n/', trim($text));
+        $parcels = [];
 
-        // يجب أن تحتوي الرسالة على عنصرين على الأقل: (الرقم ونوع الطرد)
-        if (count($parts) < 2) {
-            return null;
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+
+            // البحث عن رقم الهاتف (من 8 إلى 14 رقماً) داخل السطر
+            if (preg_match('/(\+?[0-9]{8,14})/', $line, $matches)) {
+                $rawPhone = $matches[1];
+                $recipientPhone = preg_replace('/[^0-9]/', '', $rawPhone);
+
+                // استخراج نوع الطرد بحذف رقم الهاتف وتنظيف الرموز والفواصل
+                $packageType = str_replace($rawPhone, '', $line);
+                $packageType = trim(preg_replace('/^[\s\-\,\،\|]+|[\s\-\,\،\|]+$/u', '', $packageType));
+
+                if (!empty($packageType)) {
+                    $parcels[] = [
+                        'recipient'    => $recipientPhone,
+                        'package_type' => $packageType,
+                    ];
+                }
+            }
         }
 
-        $recipientPhone = preg_replace('/[^0-9]/', '', $parts[0]);
-        if (strlen($recipientPhone) < 8) {
-            return null;
-        }
-
-        $packageType = $parts[1];
-
-        if (empty($packageType)) {
-            return null;
-        }
-
-        return [
-            'recipient'    => $recipientPhone,
-            'package_type' => $packageType,
-        ];
-    }
-
-    
-    protected function sendParcelSms(array $parcel, Office $office): array
-    {
-        // القالب الافتراضي في حال لم يحدد المكتب قالباً خاصاً به
-        $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-
-        $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
-
-        // استبدال المتغيرات بالبيانات الفعلية
-        $smsBody = str_replace(
-            ['{office}', '{branch}', '{package}'],
-            [
-                $office->name,
-                $office->branch_name ?? '',
-                $parcel['package_type']
-            ],
-            $template
-        );
-
-        // تنظيف أي أقواس فارغة إذا لم يكن هناك اسم فرع
-        $smsBody = str_replace(' ()', '', $smsBody);
-
-        $result = $this->smsService->send(
-            $parcel['recipient'],
-            $smsBody,
-            $office->httpsms_api_key,
-            $office->httpsms_from_phone
-        );
-
-        if ($result['success']) {
-            return [
-                'success' => true,
-                'reply'   => "✅ تم إرسال رسالة SMS للعميل بنجاح!\n🏢 المكتب: {$office->name}\n📱 الرقم: {$parcel['recipient']}\n📦 الطرد: {$parcel['package_type']}"
-            ];
-        }
-
-        return [
-            'success' => false,
-            'reply'   => "❌ فشل إرسال رسالة الـ SMS إلى ({$parcel['recipient']}). تأكد من رصيد شريحة فرع [{$office->name}] أو اتصال الهاتف بالإنترنت."
-        ];
+        return $parcels;
     }
 
     /**
@@ -204,7 +228,7 @@ class ParcelBotController extends Controller
         try {
             $evolutionUrl = rtrim(config('services.evolution.url'), '/');
             $apiKey       = config('services.evolution.api_key');
-            $url = "{$evolutionUrl}/send/text";
+            $url          = "{$evolutionUrl}/send/text";
 
             $formattedPhone = preg_replace('/[^0-9]/', '', $phone);
 
