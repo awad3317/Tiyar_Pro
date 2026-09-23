@@ -27,6 +27,17 @@ class ParcelBotController extends Controller
         try {
             $payload = $request->all();
 
+            // استخراج جذر البيانات
+            $data = $payload['data']['data'] ?? $payload['data'] ?? $payload;
+            $msgNode = $data['Message'] ?? $data['message'] ?? [];
+
+            // إذا كانت الرسالة تحتوي على صورة، نطبع كامل الـ Payload لمعاينته في الـ Log
+            if (isset($msgNode['imageMessage']) || isset($data['imageMessage'])) {
+                Log::info("=== EVOLUTION GO IMAGE PAYLOAD START ===");
+                Log::info(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                Log::info("=== EVOLUTION GO IMAGE PAYLOAD END ===");
+            }
+
             // استخراج جذر البيانات لدعم مختلف هياكل الـ Payload
             $data = $payload['data']['data'] ?? $payload['data'] ?? $payload;
 
