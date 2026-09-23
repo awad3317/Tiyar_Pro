@@ -350,13 +350,30 @@ class ParcelBotController extends Controller
             $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
             $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
 
-            // استخراج معرف الرسالة ومفتاحها
-            $messageId  = $data['Info']['Id'] ?? $data['key']['id'] ?? $msgNode['key']['id'] ?? null;
-            $remoteJid  = $data['Info']['Chat'] ?? $data['key']['remoteJid'] ?? null;
-            $fromMe     = filter_var($data['Info']['IsFromMe'] ?? $data['key']['fromMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            // استخراج معرف الرسالة ومفتاحها من مختلف الهياكل المحتملة في Evolution GO
+            $messageId = $data['Info']['Id'] 
+                ?? $data['key']['id'] 
+                ?? $data['data']['key']['id'] 
+                ?? $msgNode['key']['id'] 
+                ?? $data['id'] 
+                ?? null;
+
+            $remoteJid = $data['Info']['Chat'] 
+                ?? $data['key']['remoteJid'] 
+                ?? $data['data']['key']['remoteJid'] 
+                ?? $data['remoteJid'] 
+                ?? null;
+
+            $fromMe = filter_var(
+                $data['Info']['IsFromMe'] 
+                ?? $data['key']['fromMe'] 
+                ?? $data['data']['key']['fromMe'] 
+                ?? false, 
+                FILTER_VALIDATE_BOOLEAN
+            );
 
             if (!$messageId) {
-                Log::error("fetchImageBase64: Message ID not found in payload");
+                Log::error("fetchImageBase64: Message ID not found. Payload keys: " . json_encode(array_keys($data)));
                 return null;
             }
 
@@ -372,28 +389,28 @@ class ParcelBotController extends Controller
                 'convertToMp4' => false
             ];
 
-            // 1. محاولة مسار find-media-base64
+            // محاولة 1: مسار /chat/find-media-base64 (بدون instance في المسار)
             $response = Http::withHeaders([
                 'apikey'       => $apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(20)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
+            ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
 
-            // 2. إذا أعاد 404، تجربة مسار /chat/find-media-base64/awad
+            // محاولة 2: مسار /chat/find-media-base64/{instance}
             if ($response->status() === 404) {
                 $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
                 $response = Http::withHeaders([
                     'apikey'       => $apiKey,
                     'Content-Type' => 'application/json',
-                ])->timeout(20)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
+                ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
             }
 
-            // 3. إذا لم ينجح، تجربة مسار download-media
+            // محاولة 3: مسار /message/download-media/{instance}
             if (!$response->successful() || empty($response->json('base64'))) {
                 $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
                 $response = Http::withHeaders([
                     'apikey'       => $apiKey,
                     'Content-Type' => 'application/json',
-                ])->timeout(20)->post("{$evolutionUrl}/message/download-media/{$instanceName}", $mediaPayload);
+                ])->timeout(25)->post("{$evolutionUrl}/message/download-media/{$instanceName}", $mediaPayload);
             }
 
             if ($response->successful()) {
