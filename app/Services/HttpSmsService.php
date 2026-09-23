@@ -8,36 +8,31 @@ use Illuminate\Support\Facades\Log;
 class HttpSmsService
 {
     protected string $baseUrl;
-    protected string $apiKey;
-    protected string $fromPhone;
 
     public function __construct()
     {
-        $this->baseUrl   = config('services.httpsms.base_url', 'https://abdaa.tiyar.cc/v1');
-        $this->apiKey    = config('services.httpsms.api_key', env('HTTPSMS_API_KEY'));
-        $this->fromPhone = config('services.httpsms.from_phone', '+967781152674');
+        $this->baseUrl = config('services.httpsms.base_url', 'https://abdaa.tiyar.cc/v1');
     }
 
     /**
-     * إرسال رسالة نصية عبر بوابة httpSMS
+     * إرسال رسالة SMS باستخدام بيانات المكتب المحددة ديناميكياً
      */
-    public function send(string $recipient, string $message): array
+    public function send(string $recipient, string $message, string $apiKey, string $fromPhone): array
     {
-        // حقل to يتطلب أرقاماً فقط بدون + وأقل من 14 خانة
         $toCleaned = $this->formatToNumber($recipient);
 
         try {
             $response = Http::withHeaders([
-                'x-api-key'    => $this->apiKey,
+                'x-api-key'    => $apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(10)->post("{$this->baseUrl}/messages/send", [
-                'from'    => $this->fromPhone,
+                'from'    => $fromPhone,
                 'to'      => $toCleaned,
                 'content' => $message,
             ]);
 
             if ($response->successful()) {
-                Log::info("SMS sent to {$toCleaned} successfully.");
+                Log::info("SMS sent to {$toCleaned} via phone {$fromPhone}");
                 return ['success' => true, 'data' => $response->json()];
             }
 
@@ -50,9 +45,6 @@ class HttpSmsService
         }
     }
 
-    /**
-     * تنظيف رقم المستلم: أرقام فقط مع إضافة رمز الدولة إذا لم يتوفر
-     */
     protected function formatToNumber(string $phone): string
     {
         $cleaned = preg_replace('/[^0-9]/', '', $phone);
