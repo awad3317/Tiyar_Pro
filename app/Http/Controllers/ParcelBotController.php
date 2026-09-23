@@ -282,18 +282,22 @@ class ParcelBotController extends Controller
 
             $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
 
-            $prompt = "قم باستخراج بيانات الشحنات والطرود من هذه الصورة (قد تكون سندات، كشوفات أو فواتير شحن).\n"
-                    . "المطلوب حصراً: استخراج (رقم هاتف المستلم) و (نوع الطرد/الوصف).\n"
-                    . "أخرج كل طرد في سطر مستقل بالصيغة التالية فقط دون أي كلام جانبي أو مقدمات:\n"
-                    . "[رقم الهاتف] [نوع الطرد]\n"
-                    . "مثال:\n"
-                    . "779525898 كرتون ملابس\n"
-                    . "771234567 كيس قطع غيار\n"
-                    . "إذا لم تجد أي طرد أو رقم، أرجع كلمة: NONE فقط.";
+            // برومبت دقيق مخصص لكشوفات واستمارات مكاتب النقل اليمنية المكتوبة بخط اليد
+            $prompt = "هذه صورة استمارة كشف طرود\/شحنات يومي لمكتب نقل (مكتوبة بخط اليد).\n"
+                    . "المطلوب منك استخراج بيانات الطرود المسجلة في الجدول سطر بسطر:\n"
+                    . "1. ابحث عن عمود (رقم المستلم) واستخرج رقم الهاتف المكتوب فيه (أرقام يمنية تبدأ بـ 7 وتتكون من 9 أرقام، قد تكون مكتوبة بالأرقام العربية أو الهندية مثل ٧٧٢٤٥٠١٦٦).\n"
+                    . "2. ابحث عن عمود (نوع الطرد) في نفس السطر (مثل: ظرف، كيس، كرتون، عسل، قطيار، إلخ).\n"
+                    . "3. أخرج النتيجة فقط بالشكل التالي لكل سطر دون أي شرح أو مقدمات:\n"
+                    . "[رقم الهاتف بالأرقام الإنجليزية] [نوع الطرد]\n\n"
+                    . "أمثلة للشكل المطلوب:\n"
+                    . "772450166 ظرف\n"
+                    . "773111225 كيس\n"
+                    . "771401107 كرتون\n\n"
+                    . "إذا لم تجد أي أرقام هواتف واضحة في الجدول، أرجع كلمة: NONE فقط.";
 
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->timeout(30)->post($url, [
+            ])->timeout(35)->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -308,16 +312,22 @@ class ParcelBotController extends Controller
                     ]
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.1,
+                    'temperature' => 0.2,
                 ]
             ]);
 
             if ($response->successful()) {
                 $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
+                Log::info("Gemini Raw Extraction Output:\n" . $resultText);
                 
                 if (Str::upper($resultText) === 'NONE' || empty($resultText)) {
                     return null;
                 }
+
+                // تحويل الأرقام العربية/الهندية (١٢٣...) إلى إنجليزية (123...) لضمان قبولها
+                $arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                $englishDigits = ['0','1','2','3','4','5','6','7','8','9'];
+                $resultText = str_replace($arabicDigits, $englishDigits, $resultText);
 
                 return $resultText;
             }
