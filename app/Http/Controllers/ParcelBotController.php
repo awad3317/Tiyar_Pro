@@ -349,31 +349,25 @@ class ParcelBotController extends Controller
         try {
             $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
             $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
+            $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
 
-            // استخراج معرف الرسالة ومفتاحها من مختلف الهياكل المحتملة في Evolution GO
-            $messageId = $data['Info']['Id'] 
+            // استخراج معرف الرسالة ومفتاحها من كائن Info الخاص بـ Evolution GO
+            $info = $data['Info'] ?? [];
+            $messageId = $info['ID'] 
+                ?? $info['Id'] 
                 ?? $data['key']['id'] 
-                ?? $data['data']['key']['id'] 
                 ?? $msgNode['key']['id'] 
-                ?? $data['id'] 
                 ?? null;
 
-            $remoteJid = $data['Info']['Chat'] 
+            $remoteJid = $info['Chat'] 
+                ?? $info['Sender'] 
                 ?? $data['key']['remoteJid'] 
-                ?? $data['data']['key']['remoteJid'] 
-                ?? $data['remoteJid'] 
                 ?? null;
 
-            $fromMe = filter_var(
-                $data['Info']['IsFromMe'] 
-                ?? $data['key']['fromMe'] 
-                ?? $data['data']['key']['fromMe'] 
-                ?? false, 
-                FILTER_VALIDATE_BOOLEAN
-            );
+            $fromMe = filter_var($info['IsFromMe'] ?? $data['key']['fromMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
             if (!$messageId) {
-                Log::error("fetchImageBase64: Message ID not found. Payload keys: " . json_encode(array_keys($data)));
+                Log::error("fetchImageBase64: Message ID not found inside Info: " . json_encode($info));
                 return null;
             }
 
@@ -389,24 +383,22 @@ class ParcelBotController extends Controller
                 'convertToMp4' => false
             ];
 
-            // محاولة 1: مسار /chat/find-media-base64 (بدون instance في المسار)
+            // 1. محاولة مسار Evolution GO القياسي: /chat/find-media-base64/{instance}
             $response = Http::withHeaders([
                 'apikey'       => $apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
+            ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
 
-            // محاولة 2: مسار /chat/find-media-base64/{instance}
+            // 2. إذا أعاد 404، تجربة مسار /chat/find-media-base64 بدون اسم النسخة
             if ($response->status() === 404) {
-                $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
                 $response = Http::withHeaders([
                     'apikey'       => $apiKey,
                     'Content-Type' => 'application/json',
-                ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
+                ])->timeout(25)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
             }
 
-            // محاولة 3: مسار /message/download-media/{instance}
+            // 3. تجربة مسار download-media كبديل
             if (!$response->successful() || empty($response->json('base64'))) {
-                $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
                 $response = Http::withHeaders([
                     'apikey'       => $apiKey,
                     'Content-Type' => 'application/json',
