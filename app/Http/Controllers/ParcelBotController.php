@@ -332,52 +332,81 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * جلب وتحويل الصورة إلى Base64
+     * جلب وتحويل الصورة إلى Base64 من سيرفر Evolution GO
      */
     protected function fetchImageBase64(array $data): ?string
     {
+        // 1. إذا كانت الصورة ممررة مباشرة كـ base64 داخل الـ payload
         if (!empty($data['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $data['base64']);
         }
 
         $msgNode = $data['Message'] ?? $data['message'] ?? [];
-        $mediaUrl = $msgNode['imageMessage']['url'] ?? null;
-
-        if ($mediaUrl && filter_var($mediaUrl, FILTER_VALIDATE_URL)) {
-            $imgContent = @file_get_contents($mediaUrl);
-            if ($imgContent) {
-                return base64_encode($imgContent);
-            }
+        if (!empty($msgNode['imageMessage']['base64'])) {
+            return preg_replace('#^data:image/\w+;base64,#i', '', $msgNode['imageMessage']['base64']);
         }
 
         try {
             $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
             $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
-            $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
 
-            $messageId = $data['key']['id'] ?? null;
+            // استخراج معرف الرسالة ومفتاحها
+            $messageId  = $data['Info']['Id'] ?? $data['key']['id'] ?? $msgNode['key']['id'] ?? null;
+            $remoteJid  = $data['Info']['Chat'] ?? $data['key']['remoteJid'] ?? null;
+            $fromMe     = filter_var($data['Info']['IsFromMe'] ?? $data['key']['fromMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
             if (!$messageId) {
+                Log::error("fetchImageBase64: Message ID not found in payload");
                 return null;
             }
 
-            $response = Http::withHeaders([
-                'apikey'       => $apiKey,
-                'Content-Type' => 'application/json',
-            ])->post("{$evolutionUrl}/chat/getBase64FromMediaMessage/{$instanceName}", [
+            // تجهيز كائن الرسالة المتوافق مع Evolution GO
+            $mediaPayload = [
                 'message' => [
                     'key' => [
-                        'id' => $messageId
+                        'remoteJid' => $remoteJid,
+                        'fromMe'    => $fromMe,
+                        'id'        => $messageId,
                     ]
                 ],
                 'convertToMp4' => false
-            ]);
+            ];
 
-            if ($response->successful() && !empty($response->json('base64'))) {
-                return preg_replace('#^data:image/\w+;base64,#i', '', $response->json('base64'));
+            // 1. محاولة مسار find-media-base64
+            $response = Http::withHeaders([
+                'apikey'       => $apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(20)->post("{$evolutionUrl}/chat/find-media-base64", $mediaPayload);
+
+            // 2. إذا أعاد 404، تجربة مسار /chat/find-media-base64/awad
+            if ($response->status() === 404) {
+                $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
+                $response = Http::withHeaders([
+                    'apikey'       => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])->timeout(20)->post("{$evolutionUrl}/chat/find-media-base64/{$instanceName}", $mediaPayload);
             }
 
+            // 3. إذا لم ينجح، تجربة مسار download-media
+            if (!$response->successful() || empty($response->json('base64'))) {
+                $instanceName = env('EVOLUTION_INSTANCE_NAME', 'awad');
+                $response = Http::withHeaders([
+                    'apikey'       => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])->timeout(20)->post("{$evolutionUrl}/message/download-media/{$instanceName}", $mediaPayload);
+            }
+
+            if ($response->successful()) {
+                $b64 = $response->json('base64') ?? $response->json('data.base64');
+                if ($b64) {
+                    return preg_replace('#^data:image/\w+;base64,#i', '', $b64);
+                }
+            }
+
+            Log::error("Evolution Media Fetch Failed [{$response->status()}]: " . $response->body());
+
         } catch (\Throwable $e) {
-            Log::error("Failed to fetch base64 from evolution: " . $e->getMessage());
+            Log::error("Exception in fetchImageBase64: " . $e->getMessage());
         }
 
         return null;
