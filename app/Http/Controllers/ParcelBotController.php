@@ -274,18 +274,13 @@ class ParcelBotController extends Controller
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = 'AQ.Ab8RN6KQ29nlGlKRPc0STL1SMUJHBJg_PSYJ7PeHRzl20kal0w';
+            $apiKey = 'AQ.Ab8RN6JXOB76NOeh49FeTdyocy5RZB0IbJ91u8tJeWF1sG6X9Q';
             if (!$apiKey) {
                 Log::error("Gemini API Key is missing");
                 return null;
             }
 
-            // الروابط المباشرة بدون تمرير key في الرابط
-            $endpoints = [
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
-            ];
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
 
             $prompt = "You are an OCR expert specializing in handwritten Arabic delivery manifests.\n"
                     . "Look at the table in the image:\n"
@@ -299,7 +294,9 @@ class ParcelBotController extends Controller
                     . "773111225 كيس\n"
                     . "Do not write any introductory text, markdown, or explanations. Only output the lines or the word NONE.";
 
-            $requestBody = [
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->timeout(35)->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -316,24 +313,9 @@ class ParcelBotController extends Controller
                 'generationConfig' => [
                     'temperature' => 0.1,
                 ]
-            ];
+            ]);
 
-            $response = null;
-
-            foreach ($endpoints as $url) {
-                // إرسال المفتاح في الـ Headers ليدعم مفاتيح AQ والمفاتيح العادية
-                $response = Http::withHeaders([
-                    'Content-Type'   => 'application/json',
-                    'Authorization'  => 'Bearer ' . $apiKey,
-                    'x-goog-api-key' => $apiKey,
-                ])->timeout(35)->post($url, $requestBody);
-
-                if ($response->successful()) {
-                    break;
-                }
-            }
-
-            if ($response && $response->successful()) {
+            if ($response->successful()) {
                 $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
                 Log::info("Gemini OCR Extracted Content:\n" . $resultText);
 
@@ -341,7 +323,6 @@ class ParcelBotController extends Controller
                     return null;
                 }
 
-                // تحويل أي أرقام شرقية متبقية إلى غربية
                 $easternDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
                 $westernDigits = ['0','1','2','3','4','5','6','7','8','9'];
                 $resultText = str_replace($easternDigits, $westernDigits, $resultText);
@@ -349,7 +330,7 @@ class ParcelBotController extends Controller
                 return $resultText;
             }
 
-            Log::error("Gemini Vision API Error: " . ($response ? $response->body() : 'No response'));
+            Log::error("Gemini Vision API Error: " . $response->body());
             return null;
 
         } catch (\Throwable $e) {
