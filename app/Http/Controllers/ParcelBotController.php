@@ -269,7 +269,7 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج الطرود من الصورة عبر Gemini 1.5 Flash
+     * استخراج الطرود من الصورة عبر Gemini Flash
      */
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
@@ -280,24 +280,27 @@ class ParcelBotController extends Controller
                 return null;
             }
 
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+            // قائمة بالنماذج والإصدارات المعتمدة في Google AI Studio
+            $endpoints = [
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={$apiKey}",
+                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={$apiKey}",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$apiKey}",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={$apiKey}",
+            ];
 
-            // برومبت دقيق مخصص لكشوفات واستمارات مكاتب النقل اليمنية المكتوبة بخط اليد
-            $prompt = "هذه صورة استمارة كشف طرود\/شحنات يومي لمكتب نقل (مكتوبة بخط اليد).\n"
-                    . "المطلوب منك استخراج بيانات الطرود المسجلة في الجدول سطر بسطر:\n"
-                    . "1. ابحث عن عمود (رقم المستلم) واستخرج رقم الهاتف المكتوب فيه (أرقام يمنية تبدأ بـ 7 وتتكون من 9 أرقام، قد تكون مكتوبة بالأرقام العربية أو الهندية مثل ٧٧٢٤٥٠١٦٦).\n"
-                    . "2. ابحث عن عمود (نوع الطرد) في نفس السطر (مثل: ظرف، كيس، كرتون، عسل، قطيار، إلخ).\n"
-                    . "3. أخرج النتيجة فقط بالشكل التالي لكل سطر دون أي شرح أو مقدمات:\n"
-                    . "[رقم الهاتف بالأرقام الإنجليزية] [نوع الطرد]\n\n"
-                    . "أمثلة للشكل المطلوب:\n"
+            $prompt = "You are an OCR expert specializing in handwritten Arabic delivery manifests.\n"
+                    . "Look at the table in the image:\n"
+                    . "Extract each row's recipient phone number from the column 'رقم المستلم' and package description from 'نوع الطرد'.\n"
+                    . "Rules:\n"
+                    . "1. Convert any Arabic/Indic numerals (like ٧٧٢٤٥٠١٦٦) to standard English numbers (772450166).\n"
+                    . "2. Ensure the phone number starts with 7 and is 9 digits long.\n"
+                    . "3. Output each parcel on a separate line in this exact format: PHONE PACKAGE_TYPE\n"
+                    . "Example format:\n"
                     . "772450166 ظرف\n"
                     . "773111225 كيس\n"
-                    . "771401107 كرتون\n\n"
-                    . "إذا لم تجد أي أرقام هواتف واضحة في الجدول، أرجع كلمة: NONE فقط.";
+                    . "Do not write any introductory text, markdown, or explanations. Only output the lines or the word NONE.";
 
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->timeout(35)->post($url, [
+            $requestBody = [
                 'contents' => [
                     [
                         'parts' => [
@@ -312,27 +315,39 @@ class ParcelBotController extends Controller
                     ]
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.2,
+                    'temperature' => 0.1,
                 ]
-            ]);
+            ];
 
-            if ($response->successful()) {
+            $response = null;
+
+            foreach ($endpoints as $url) {
+                $response = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                ])->timeout(35)->post($url, $requestBody);
+
+                if ($response->successful()) {
+                    break;
+                }
+            }
+
+            if ($response && $response->successful()) {
                 $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
-                Log::info("Gemini Raw Extraction Output:\n" . $resultText);
-                
-                if (Str::upper($resultText) === 'NONE' || empty($resultText)) {
+                Log::info("Gemini OCR Extracted Content:\n" . $resultText);
+
+                if (empty($resultText) || Str::contains(Str::upper($resultText), 'NONE')) {
                     return null;
                 }
 
-                // تحويل الأرقام العربية/الهندية (١٢٣...) إلى إنجليزية (123...) لضمان قبولها
-                $arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-                $englishDigits = ['0','1','2','3','4','5','6','7','8','9'];
-                $resultText = str_replace($arabicDigits, $englishDigits, $resultText);
+                // تحويل أي أرقام شرقية متبقية إلى غربية
+                $easternDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                $westernDigits = ['0','1','2','3','4','5','6','7','8','9'];
+                $resultText = str_replace($easternDigits, $westernDigits, $resultText);
 
                 return $resultText;
             }
 
-            Log::error("Gemini Vision API Error: " . $response->body());
+            Log::error("Gemini Vision API Error: " . ($response ? $response->body() : 'No response'));
             return null;
 
         } catch (\Throwable $e) {
