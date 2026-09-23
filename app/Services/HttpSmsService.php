@@ -9,13 +9,13 @@ class HttpSmsService
 {
     protected string $baseUrl;
     protected string $apiKey;
-    protected string $sim;
+    protected string $fromPhone;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.httpsms.base_url');
-        $this->apiKey  = config('services.httpsms.api_key');
-        $this->sim     = config('services.httpsms.sim');
+        $this->baseUrl   = config('services.httpsms.base_url', 'https://abdaa.tiyar.cc/v1');
+        $this->apiKey    = config('services.httpsms.api_key', env('HTTPSMS_API_KEY'));
+        $this->fromPhone = env('HTTPSMS_FROM_PHONE', '+967781152674');
     }
 
     /**
@@ -23,20 +23,21 @@ class HttpSmsService
      */
     public function send(string $recipient, string $message): array
     {
-        $formattedRecipient = $this->formatYemenNumber($recipient);
+        // حقل to يتطلب أرقاماً فقط بدون + وأقل من 14 خانة
+        $toCleaned = $this->formatToNumber($recipient);
 
         try {
             $response = Http::withHeaders([
                 'x-api-key'    => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(10)->post("{$this->baseUrl}/messages/send", [
-                'recipient' => $formattedRecipient,
-                'content'   => $message,
-                'sim'       => $this->sim,
+                'from'    => $this->fromPhone,
+                'to'      => $toCleaned,
+                'content' => $message,
             ]);
 
             if ($response->successful()) {
-                Log::info("SMS sent to {$formattedRecipient} via {$this->sim}");
+                Log::info("SMS sent to {$toCleaned} successfully.");
                 return ['success' => true, 'data' => $response->json()];
             }
 
@@ -50,9 +51,9 @@ class HttpSmsService
     }
 
     /**
-     * توحيد صيغة أرقام الهواتف اليمنية لتناسب البوابة (+967XXXXXXXXX)
+     * تنظيف رقم المستلم: أرقام فقط مع إضافة رمز الدولة إذا لم يتوفر
      */
-    protected function formatYemenNumber(string $phone): string
+    protected function formatToNumber(string $phone): string
     {
         $cleaned = preg_replace('/[^0-9]/', '', $phone);
 
@@ -64,6 +65,6 @@ class HttpSmsService
             $cleaned = '967' . $cleaned;
         }
 
-        return '+' . $cleaned;
+        return $cleaned;
     }
 }
