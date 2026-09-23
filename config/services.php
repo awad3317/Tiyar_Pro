@@ -39,6 +39,7 @@ return [
         'base_url' => env('HTTPSMS_BASE_URL', 'https://abdaa.tiyar.cc/v1'),
         'api_key'  => env('HTTPSMS_API_KEY'),
         'sim'      => env('HTTPSMS_DEFAULT_SIM', 'SIM2'),
+        'from_phone' => env('HTTPSMS_FROM_PHONE', '+967781152674'),
     ],
 
 ];

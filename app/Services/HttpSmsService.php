@@ -15,7 +15,7 @@ class HttpSmsService
     {
         $this->baseUrl   = config('services.httpsms.base_url', 'https://abdaa.tiyar.cc/v1');
         $this->apiKey    = config('services.httpsms.api_key', env('HTTPSMS_API_KEY'));
-        $this->fromPhone = env('HTTPSMS_FROM_PHONE', '+967781152674');
+        $this->fromPhone = config('services.httpsms.from_phone', '+967781152674');
     }
 
     /**
