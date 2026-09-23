@@ -202,34 +202,41 @@ class ParcelBotController extends Controller
     protected function sendWhatsAppMessage(string $phone, string $message): bool
     {
         try {
-            $evolutionUrl = config('services.evolution.url');
-            $instanceName = config('services.evolution.instance_name');
+            $evolutionUrl = rtrim(config('services.evolution.url'), '/');
             $apiKey       = config('services.evolution.api_key');
+            $url = "{$evolutionUrl}/send/text";
 
             $formattedPhone = preg_replace('/[^0-9]/', '', $phone);
 
-            // التأكد من وجود رمز الدولة 967 إذا كان الرقم يمنياً
+            // التأكد من إضافة رمز الدولة لليمن إذا كان الرقم 9 خانات
             if (!str_starts_with($formattedPhone, '967') && strlen($formattedPhone) == 9) {
                 $formattedPhone = '967' . $formattedPhone;
             }
 
+            $randomDelay = rand(1500, 2000);
+
             $response = Http::withHeaders([
                 'apikey'       => $apiKey,
                 'Content-Type' => 'application/json',
-            ])->post("{$evolutionUrl}/message/sendText/{$instanceName}", [
-                'number' => $formattedPhone,
-                'text'   => $message,
+            ])->post($url, [
+                'number'  => $formattedPhone,
+                'text'    => $message,
+                'delay'   => $randomDelay,
+                'options' => [
+                    'presence' => 'composing',
+                ],
             ]);
 
-            if (!$response->successful()) {
-                Log::error("Evolution API Send Error [{$response->status()}]: " . $response->body());
-                return false;
+            if ($response->successful()) {
+                Log::info("WhatsApp reply sent successfully to {$formattedPhone}");
+                return true;
             }
 
-            Log::info("WhatsApp message sent successfully to {$formattedPhone}");
-            return true;
-        } catch (\Throwable $e) {
-            Log::error("Failed to send WhatsApp message: " . $e->getMessage());
+            Log::error("WhatsApp SendText Error: " . $response->body());
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error("WhatsApp SendText Exception: " . $e->getMessage());
             return false;
         }
     }
