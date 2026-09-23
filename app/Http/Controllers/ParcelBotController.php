@@ -274,18 +274,17 @@ class ParcelBotController extends Controller
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = 'AQ.Ab8RN6Lj1UIeo93cacr7m-Wlcmxr4bCP9qluA2DyKH7k9p9_gg';
+            $apiKey = 'AQ.Ab8RN6KQ29nlGlKRPc0STL1SMUJHBJg_PSYJ7PeHRzl20kal0w';
             if (!$apiKey) {
                 Log::error("Gemini API Key is missing");
                 return null;
             }
 
-            // قائمة بالنماذج والإصدارات المعتمدة في Google AI Studio
+            // الروابط المباشرة بدون تمرير key في الرابط
             $endpoints = [
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={$apiKey}",
-                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={$apiKey}",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$apiKey}",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={$apiKey}",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
             ];
 
             $prompt = "You are an OCR expert specializing in handwritten Arabic delivery manifests.\n"
@@ -322,8 +321,11 @@ class ParcelBotController extends Controller
             $response = null;
 
             foreach ($endpoints as $url) {
+                // إرسال المفتاح في الـ Headers ليدعم مفاتيح AQ والمفاتيح العادية
                 $response = Http::withHeaders([
-                    'Content-Type' => 'application/json',
+                    'Content-Type'   => 'application/json',
+                    'Authorization'  => 'Bearer ' . $apiKey,
+                    'x-goog-api-key' => $apiKey,
                 ])->timeout(35)->post($url, $requestBody);
 
                 if ($response->successful()) {
