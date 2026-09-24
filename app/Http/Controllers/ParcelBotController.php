@@ -264,7 +264,7 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج الطرود من الصورة عبر Gemini Flash
+     * استخراج الطرود من الصورة عبر Gemini مع معالجة خطأ 503 تلقائياً
      */
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
@@ -275,24 +275,39 @@ class ParcelBotController extends Controller
                 return null;
             }
 
-            // استخدام الموديلات المتاحة والنشطة في حسابك
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}";
+            // قائمة بنماذج الرؤية النشطة لتجاوز ضغط السيرفرات (503)
+            $models = [
+                'gemini-2.5-flash-lite',
+                'gemini-flash-lite-latest',
+                'gemini-flash-latest',
+                'gemini-2.5-flash',
+            ];
 
-            $prompt = "You are an OCR expert specializing in handwritten Arabic delivery manifests.\n"
-                    . "Look at the table in the image:\n"
-                    . "Extract each row's recipient phone number from the column 'رقم المستلم' and package description from 'نوع الطرد'.\n"
-                    . "Rules:\n"
-                    . "1. Convert any Arabic/Indic numerals (like ٧٧٢٤٥٠١٦٦) to standard English numbers (772450166).\n"
-                    . "2. Ensure the phone number starts with 7 and is 9 digits long.\n"
-                    . "3. Output each parcel on a separate line in this exact format: PHONE PACKAGE_TYPE\n"
-                    . "Example format:\n"
-                    . "772450166 ظرف\n"
-                    . "773111225 كيس\n"
-                    . "Do not write any introductory text, markdown, or explanations. Only output the lines or the word NONE.";
+            $prompt = <<<PROMPT
+أنت خبير تدقيق وتحليل كشوفات واستمارات الشحن والنقل البري في اليمن المكتوبة بخط اليد.
+المهمة: استخراج قائمة الشحنات المسجلة في الجدول العلوي فقط (الأسطر المكتوبة بخط اليد من الرقم 1 فما بعد).
 
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->timeout(40)->post($url, [
+قواعد قراءة الجدول:
+1. عمود "رقم المستلم":
+   - يحتوي على رقم هاتف جوال يمني مكون من 9 أرقام، يبدأ دائماً بـ 7 (مثل: 77XXXXXXX أو 73XXXXXXX أو 71XXXXXXX أو 70XXXXXXX).
+   - الأرقام مكتوبة بالأرقام العربية المشرقية (١ ٢ ٣ ٤ ٥ ٦ ٧ ٨ ٩ ٠).
+   - انتبه للفروقات: لا تخلط بين (٢) و (٥) أو (٧)، ورقم (٤) يكتب كرمز ع مائل.
+   - حوّل كل رقم هاتف إلى أرقام إنجليزية نظامية (مثال: 772450166).
+
+2. عمود "نوع الطرد":
+   - اقرأ النص المكتوب في خانة "نوع الطرد" لنفس السطر (ظرف، كيس، كرتون، بكت، باغة، إلخ).
+   - لا تخلط بين عمود "نوع الطرد" وعمود "مكان التسليم" أو "اسم المستلم".
+
+3. تجاهل الأرقام المطبوعة أسفل الصفحة (أرقام المكاتب) والأسطر الفارغة.
+
+صيغة الإخراج المطلوبة:
+أخرج سطراً لكل شحنة يحتوي فقط على:
+[رقم_الهاتف] [نوع_الطرد]
+
+ملاحظة: لا تكتب أي مقدمات أو شروحات إضافية إطلاقاً. فقط الأسطر المطلوبة.
+PROMPT;
+
+            $requestPayload = [
                 'contents' => [
                     [
                         'parts' => [
@@ -307,36 +322,31 @@ class ParcelBotController extends Controller
                     ]
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.1,
+                    'temperature'     => 0.0,
+                    'maxOutputTokens' => 1024,
                 ]
-            ]);
+            ];
 
-            // في حال واجه أي بطء نقوم بتجربة الموديل البديل المتاح في حسابك
-            if (!$response->successful()) {
-                $fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}";
+            $response = null;
+
+            // التبديل بين النماذج تلقائياً في حال واجه أحدهم ضغطاً (503) أو خطأ
+            foreach ($models as $model) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+                
                 $response = Http::withHeaders([
                     'Content-Type' => 'application/json',
-                ])->timeout(40)->post($fallbackUrl, [
-                    'contents' => [
-                        [
-                            'parts' => [
-                                ['text' => $prompt],
-                                [
-                                    'inline_data' => [
-                                        'mime_type' => 'image/jpeg',
-                                        'data'      => $imageBase64
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ],
-                    'generationConfig' => [
-                        'temperature' => 0.1,
-                    ]
-                ]);
+                ])->timeout(35)->post($url, $requestPayload);
+
+                if ($response->successful()) {
+                    Log::info("Gemini Vision Succeeded using model: {$model}");
+                    break;
+                }
+
+                Log::warning("Gemini model {$model} returned [{$response->status()}], trying next model...");
+                usleep(500000); // نصف ثانية قبل تجربة الموديل التالي
             }
 
-            if ($response->successful()) {
+            if ($response && $response->successful()) {
                 $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
                 Log::info("Gemini OCR Extracted Content:\n" . $resultText);
 
@@ -344,7 +354,7 @@ class ParcelBotController extends Controller
                     return null;
                 }
 
-                // تحويل أي أرقام مشرقية إلى إنجليزية
+                // تحويل أي أرقام مشرقية متبقية إلى أرقام غربية
                 $easternDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
                 $westernDigits = ['0','1','2','3','4','5','6','7','8','9'];
                 $resultText = str_replace($easternDigits, $westernDigits, $resultText);
@@ -352,7 +362,7 @@ class ParcelBotController extends Controller
                 return $resultText;
             }
 
-            Log::error("Gemini Vision API Error: " . $response->body());
+            Log::error("All Gemini Vision endpoints failed: " . ($response ? $response->body() : 'No response'));
             return null;
 
         } catch (\Throwable $e) {
