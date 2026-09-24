@@ -313,7 +313,7 @@ class ParcelBotController extends Controller
 
             // في حال واجه أي بطء نقوم بتجربة الموديل البديل المتاح في حسابك
             if (!$response->successful()) {
-                $fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={$apiKey}";
+                $fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}";
                 $response = Http::withHeaders([
                     'Content-Type' => 'application/json',
                 ])->timeout(40)->post($fallbackUrl, [
