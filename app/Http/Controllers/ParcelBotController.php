@@ -39,17 +39,16 @@ class ParcelBotController extends Controller
                 FILTER_VALIDATE_BOOLEAN
             );
 
-            // 2. استخراج رقم المحادثة / الراسل الحقيقي
+            // تجاهل الرسائل الصادرة من نفس رقم البوت لتجنب التكرار
             if ($isFromMe) {
-                $rawPhone = $data['Info']['Chat'] 
-                    ?? $data['key']['remoteJid'] 
-                    ?? null;
-            } else {
-                $rawPhone = $data['Info']['Sender'] 
-                    ?? $data['Info']['Chat'] 
-                    ?? $data['key']['remoteJid'] 
-                    ?? null;
+                return response()->json(['status' => 'ignored_self_message']);
             }
+
+            // 2. استخراج رقم الراسل الحقيقي
+            $rawPhone = $data['Info']['Sender'] 
+                ?? $data['Info']['Chat'] 
+                ?? $data['key']['remoteJid'] 
+                ?? null;
 
             // 3. استخراج العقدة الخاصة بالرسالة
             $msgNode = $data['Message'] ?? $data['message'] ?? [];
@@ -68,36 +67,33 @@ class ParcelBotController extends Controller
             $isImage = isset($msgNode['imageMessage']);
 
             if (!$rawPhone || (empty($messageText) && !$isImage)) {
-                return response()->json(['status' => 'ignored_empty', 'data' => null]);
+                return response()->json(['status' => 'ignored_empty']);
             }
 
-            // تنظيف رقم هاتف الراسل (المكتب/الموظف)
+            // تنظيف رقم هاتف الراسل
             $cleanJid = explode('@', $rawPhone)[0];
             $cleanJid = explode(':', $cleanJid)[0];
             $senderPhone = preg_replace('/[^0-9]/', '', $cleanJid);
 
             // =========================================================
-            // 🏢 التحقق أولاً من هوية المكتب وصلاحيته من قاعدة البيانات
+            // 🏢 1. التحقق من هوية المكتب (إذا كان غريباً نتجاهله بصمت)
             // =========================================================
             $office = Office::where('whatsapp_sender_phone', 'LIKE', "%{$senderPhone}%")
                             ->where('is_active', true)
                             ->first();
 
+            // إذا كان الرقم غير مسجل، يتم التجاهل التام دون إرسال أي رد
             if (!$office) {
-                Log::warning("Unauthorized office sender: {$senderPhone}");
-                $this->sendWhatsAppMessage($senderPhone, "⚠️ عذراً، رقمك غير مسجل ضمن المكاتب المصرح لها بإرسال الرسائل عبر النظام.");
-                return response()->json([
-                    'status'  => 'unauthorized_sender',
-                    'message' => 'Office not found or inactive'
-                ], 403);
+                Log::info("Ignored message from unauthorized phone: {$senderPhone}");
+                return response()->json(['status' => 'ignored_unauthorized_sender']);
             }
 
             // =========================================================
-            // ✅ فحص أوامر التأكيد والإلغاء للطرود المعلقة
+            // ✅ 2. فحص أوامر التأكيد والإلغاء للطرود المعلقة
             // =========================================================
             $pendingCacheKey = "pending_parcels_{$senderPhone}";
 
-            // 1. حالة الإلغاء
+            // حالة الإلغاء
             if (in_array(mb_strtolower($messageText), ['الغاء', 'إلغاء', 'cancel'])) {
                 if (Cache::has($pendingCacheKey)) {
                     Cache::forget($pendingCacheKey);
@@ -106,30 +102,30 @@ class ParcelBotController extends Controller
                 }
             }
 
-            // 2. حالة الموافقة والتأكيد على الإرسال
+            // حالة التأكيد
             if (in_array(mb_strtolower($messageText), ['نعم', 'تاكيد', 'تأكيد', 'ارسل', 'أرسل', 'ok', 'yes'])) {
                 $pendingParcels = Cache::get($pendingCacheKey);
 
                 if (!empty($pendingParcels)) {
-                    Cache::forget($pendingCacheKey); // حذفها فوراً لتجنب التكرار
+                    Cache::forget($pendingCacheKey);
                     return $this->dispatchParcelsSms($senderPhone, $pendingParcels, $office);
                 }
             }
 
             // =========================================================
-            // 🤖 معالجة الصور عبر Gemini 1.5 Flash (بشرط وجود كلمة "طرود" والحد اليومي 2 مرات)
+            // 🤖 3. معالجة الصور عبر الذكاء الاصطناعي (فقط مع كلمة طرود)
             // =========================================================
             if ($isImage) {
+                // إذا أرسل صورة بدون كلمة "طرود"، يتم تجاهلها ليتعامل معها الدعم الفني
                 if (!Str::contains($messageText, ['طرود', 'طرد'])) {
-                    Log::info("Image received without 'طرود' keyword, skipped AI.");
-                    return response()->json(['status' => 'ignored_image_without_keyword']);
+                    return response()->json(['status' => 'ignored_normal_image_for_support']);
                 }
 
                 $usageCacheKey = "ai_usage_{$senderPhone}_" . date('Y-m-d');
                 $usageCount = Cache::get($usageCacheKey, 0);
 
                 if ($usageCount >= 2) {
-                    $limitMsg = "⚠️ عذراً، لقد استنفدت الحد اليومي المسموح به لاستخدام الذكاء الاصطناعي لقراءة الصور (مرتين في اليوم).\n\n💡 يمكنك إرسال الطرود كنص عادي وسيتم تجهيزها فوراً.";
+                    $limitMsg = "⚠️ استنفدت الحد اليومي المسموح به لاستخدام الذكاء الاصطناعي (مرتين باليوم).\n💡 يمكنك إرسال الطرود كنص عادي وسيعالجها النظام فوراً.";
                     $this->sendWhatsAppMessage($senderPhone, $limitMsg);
                     return response()->json(['status' => 'ai_limit_reached']);
                 }
@@ -150,7 +146,7 @@ class ParcelBotController extends Controller
                     return response()->json(['status' => 'ai_no_parcels_found']);
                 }
 
-                // زيادة عداد الذكاء الاصطناعي حتى نهاية اليوم
+                // تسجيل الاستخدام حتى نهاية اليوم
                 $secondsUntilEndOfDay = now()->diffInSeconds(now()->endOfDay());
                 Cache::put($usageCacheKey, $usageCount + 1, $secondsUntilEndOfDay);
 
@@ -158,19 +154,18 @@ class ParcelBotController extends Controller
             }
 
             // =========================================================
-            // 📦 استخراج قائمة الطرود
+            // 📦 4. استخراج بيانات الطرود والتحقق منها
             // =========================================================
             $parcels = $this->extractParcelsList($messageText);
 
+            // إذا كانت الرسالة نصاً عادياً (محادثة عامة مثل "كيف الحال")، يتم التجاهل تماماً ليرد الدعم الفني
             if (empty($parcels)) {
-                return response()->json([
-                    'status' => 'ignored_not_a_parcel',
-                    'data'   => null
-                ]);
+                Log::info("Ignored non-parcel message from {$senderPhone}: '{$messageText}' (Left for human support)");
+                return response()->json(['status' => 'ignored_normal_text_for_support']);
             }
 
             // =========================================================
-            // 🛑 حفظ البيانات في الكاش وإرسال رسالة المعاينة والتأكيد للموظف
+            // 🛑 5. حفظ البيانات مؤقتاً وإرسال المعاينة للتأكيد
             // =========================================================
             Cache::put($pendingCacheKey, $parcels, now()->addMinutes(5));
 
@@ -245,7 +240,7 @@ class ParcelBotController extends Controller
                 $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
             }
 
-            usleep(400000); // 0.4 ثانية لحماية الشريحة
+            usleep(400000); // تأخير 0.4 ثانية لحماية الشريحة
         }
 
         $total = count($parcels);
@@ -274,7 +269,7 @@ class ParcelBotController extends Controller
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = 'AQ.Ab8RN6KLw-MMLIWNjfNbB-v6Jmk2mVxeIOBBu_hrh4mHeLXboA';
+            $apiKey = trim(config('services.gemini.api_key') ?: env('GEMINI_API_KEY'));
             if (!$apiKey) {
                 Log::error("Gemini API Key is missing");
                 return null;
@@ -344,13 +339,11 @@ class ParcelBotController extends Controller
      */
     protected function fetchImageBase64(array $data): ?string
     {
-        // 1. الموقع الدقيق للـ Base64 في Evolution GO: $data['Message']['base64']
         $msgNode = $data['Message'] ?? $data['message'] ?? [];
         if (!empty($msgNode['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $msgNode['base64']);
         }
 
-        // 2. إذا كانت في المسارات البديلة
         if (!empty($data['base64'])) {
             return preg_replace('#^data:image/\w+;base64,#i', '', $data['base64']);
         }
@@ -381,11 +374,12 @@ class ParcelBotController extends Controller
                 continue;
             }
 
-            if (preg_match('/(\+?[0-9]{8,14})/', $line, $matches)) {
-                $rawPhone = $matches[1];
-                $recipientPhone = preg_replace('/[^0-9]/', '', $rawPhone);
+            // البحث عن رقم هاتف صحيح يبدأ بـ 7 ومكون من 9 خانات (أو مع مفتاح الدولة 967)
+            if (preg_match('/(967)?(7[0-9]{8})/', $line, $matches)) {
+                $recipientPhone = $matches[2]; // أخذ الرقم المحلي (9 خانات تبدأ بـ 7)
 
-                $packageType = str_replace($rawPhone, '', $line);
+                // استخراج نوع الطرد بحذف الرقم والرموز الفاصلة
+                $packageType = str_replace($matches[0], '', $line);
                 $packageType = trim(preg_replace('/^[\s\-\,\،\|]+|[\s\-\,\،\|]+$/u', '', $packageType));
 
                 if (!empty($packageType)) {
