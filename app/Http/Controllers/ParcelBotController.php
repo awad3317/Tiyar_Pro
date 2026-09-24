@@ -264,34 +264,35 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج الطرود من الصورة عبر Groq Vision (Llama 3.2 Vision)
+     * استخراج الطرود من الصورة عبر OpenRouter
      */
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = trim(env('GROQ_API_KEY'));
+            $apiKey = trim(env('OPENROUTER_API_KEY'));
+            $model  = env('OPENROUTER_VISION_MODEL', 'google/gemini-2.0-flash-001');
+
             if (!$apiKey) {
-                Log::error("Groq API Key is missing in .env");
+                Log::error("OpenRouter API Key is missing in .env");
                 return null;
             }
 
-            $url = "https://api.groq.com/openai/v1/chat/completions";
+            $url = "https://openrouter.ai/api/v1/chat/completions";
 
             $prompt = <<<PROMPT
 أنت خبير تدقيق وتحليل كشوفات واستمارات الشحن والنقل البري في اليمن المكتوبة بخط اليد.
-المهمة: استخراج قائمة الشحنات المسجلة في الجدول العلوي فقط (الأسطر المكتوبة بخط اليد من الرقم 1 فما بعد).
+المهمة: استخراج قائمة الشحنات المسجلة في الجدول فقط (الأسطر المكتوبة بخط اليد).
 
 قواعد قراءة الجدول:
 1. عمود "رقم المستلم":
    - يحتوي على رقم هاتف جوال يمني مكون من 9 أرقام، يبدأ دائماً بـ 7 (مثل: 77XXXXXXX أو 73XXXXXXX أو 71XXXXXXX).
-   - الأرقام مكتوبة بالأرقام العربية المشرقية (١ ٢ ٣ ٤ ٥ ٦ ٧ ٨ ٩ ٠).
    - حوّل كل رقم هاتف إلى أرقام إنجليزية نظامية (مثال: 772450166).
 
 2. عمود "نوع الطرد":
-   - اقرأ بدقة النص المكتوب في خانة "نوع الطرد" فقط لنفس السطر (ظرف، كيس، كرتون، بكت، باغة، إلخ).
+   - اقرأ بدقة نوع الطرد لنفس السطر (ظرف، كيس، كرتون، بكت، باغة، إلخ).
    - لا تخلط بين عمود "نوع الطرد" وعمود "مكان التسليم" أو "اسم المستلم".
 
-3. تجاهل الأرقام المطبوعة أسفل الصفحة (أرقام مكاتب عدن وسيئون) وتجاهل الأسطر الفارغة.
+3. تجاهل الأرقام المطبوعة أسفل الصفحة وتجاهل الأسطر الفارغة.
 
 صيغة الإخراج المطلوبة بدقة متناهية:
 أخرج سطراً لكل شحنة يحتوي فقط على:
@@ -307,9 +308,11 @@ PROMPT;
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
+                'HTTP-Referer'  => config('app.url', 'http://localhost'), // مطلوب ومفضل لدى OpenRouter
+                'X-Title'       => config('app.name', 'Tiyar Pro'),
                 'Content-Type'  => 'application/json',
             ])->timeout(35)->post($url, [
-                'model' => 'meta-llama/llama-4-scenic',
+                'model' => $model,
                 'messages' => [
                     [
                         'role' => 'user',
@@ -333,7 +336,7 @@ PROMPT;
 
             if ($response->successful()) {
                 $resultText = trim($response->json('choices.0.message.content') ?? '');
-                Log::info("Groq Vision OCR Result:\n" . $resultText);
+                Log::info("OpenRouter Vision OCR Result:\n" . $resultText);
 
                 if (empty($resultText) || Str::contains(Str::upper($resultText), 'NONE')) {
                     return null;
@@ -347,11 +350,11 @@ PROMPT;
                 return $resultText;
             }
 
-            Log::error("Groq Vision API Error [{$response->status()}]: " . $response->body());
+            Log::error("OpenRouter Vision API Error [{$response->status()}]: " . $response->body());
             return null;
 
         } catch (\Throwable $e) {
-            Log::error("Groq Vision Exception: " . $e->getMessage());
+            Log::error("OpenRouter Vision Exception: " . $e->getMessage());
             return null;
         }
     }
