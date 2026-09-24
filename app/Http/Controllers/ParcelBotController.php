@@ -309,7 +309,7 @@ PROMPT;
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type'  => 'application/json',
             ])->timeout(35)->post($url, [
-                'model' => 'llama-3.2-11b-vision-preview',
+                'model' => 'llama-3.2-90b-vision-preview',
                 'messages' => [
                     [
                         'role' => 'user',
