@@ -275,7 +275,8 @@ class ParcelBotController extends Controller
                 return null;
             }
 
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+            // استخدام الموديلات المتاحة والنشطة في حسابك
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}";
 
             $prompt = "You are an OCR expert specializing in handwritten Arabic delivery manifests.\n"
                     . "Look at the table in the image:\n"
@@ -291,7 +292,7 @@ class ParcelBotController extends Controller
 
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->timeout(35)->post($url, [
+            ])->timeout(40)->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -310,6 +311,30 @@ class ParcelBotController extends Controller
                 ]
             ]);
 
+            // في حال واجه أي بطء نقوم بتجربة الموديل البديل المتاح في حسابك
+            if (!$response->successful()) {
+                $fallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={$apiKey}";
+                    'Content-Type' => 'application/json',
+                ])->timeout(40)->post($fallbackUrl, [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt],
+                                [
+                                    'inline_data' => [
+                                        'mime_type' => 'image/jpeg',
+                                        'data'      => $imageBase64
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.1,
+                    ]
+                ]);
+            }
+
             if ($response->successful()) {
                 $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
                 Log::info("Gemini OCR Extracted Content:\n" . $resultText);
@@ -318,6 +343,7 @@ class ParcelBotController extends Controller
                     return null;
                 }
 
+                // تحويل أي أرقام مشرقية إلى إنجليزية
                 $easternDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
                 $westernDigits = ['0','1','2','3','4','5','6','7','8','9'];
                 $resultText = str_replace($easternDigits, $westernDigits, $resultText);
