@@ -264,24 +264,18 @@ class ParcelBotController extends Controller
     }
 
     /**
-     * استخراج الطرود من الصورة عبر Gemini مع معالجة خطأ 503 تلقائياً
+     * استخراج الطرود من الصورة عبر Groq Vision (Llama 3.2 Vision)
      */
     protected function extractParcelsFromImageWithGemini(string $imageBase64): ?string
     {
         try {
-            $apiKey = trim(config('services.gemini.api_key') ?: env('GEMINI_API_KEY'));
+            $apiKey = trim(env('GROQ_API_KEY'));
             if (!$apiKey) {
-                Log::error("Gemini API Key is missing");
+                Log::error("Groq API Key is missing in .env");
                 return null;
             }
 
-            // قائمة بنماذج الرؤية النشطة لتجاوز ضغط السيرفرات (503)
-            $models = [
-                'gemini-2.5-flash-lite',
-                'gemini-flash-lite-latest',
-                'gemini-flash-latest',
-                'gemini-2.5-flash',
-            ];
+            $url = "https://api.groq.com/openai/v1/chat/completions";
 
             $prompt = <<<PROMPT
 أنت خبير تدقيق وتحليل كشوفات واستمارات الشحن والنقل البري في اليمن المكتوبة بخط اليد.
@@ -289,72 +283,63 @@ class ParcelBotController extends Controller
 
 قواعد قراءة الجدول:
 1. عمود "رقم المستلم":
-   - يحتوي على رقم هاتف جوال يمني مكون من 9 أرقام، يبدأ دائماً بـ 7 (مثل: 77XXXXXXX أو 73XXXXXXX أو 71XXXXXXX أو 70XXXXXXX).
+   - يحتوي على رقم هاتف جوال يمني مكون من 9 أرقام، يبدأ دائماً بـ 7 (مثل: 77XXXXXXX أو 73XXXXXXX أو 71XXXXXXX).
    - الأرقام مكتوبة بالأرقام العربية المشرقية (١ ٢ ٣ ٤ ٥ ٦ ٧ ٨ ٩ ٠).
-   - انتبه للفروقات: لا تخلط بين (٢) و (٥) أو (٧)، ورقم (٤) يكتب كرمز ع مائل.
    - حوّل كل رقم هاتف إلى أرقام إنجليزية نظامية (مثال: 772450166).
 
 2. عمود "نوع الطرد":
-   - اقرأ النص المكتوب في خانة "نوع الطرد" لنفس السطر (ظرف، كيس، كرتون، بكت، باغة، إلخ).
+   - اقرأ بدقة النص المكتوب في خانة "نوع الطرد" فقط لنفس السطر (ظرف، كيس، كرتون، بكت، باغة، إلخ).
    - لا تخلط بين عمود "نوع الطرد" وعمود "مكان التسليم" أو "اسم المستلم".
 
-3. تجاهل الأرقام المطبوعة أسفل الصفحة (أرقام المكاتب) والأسطر الفارغة.
+3. تجاهل الأرقام المطبوعة أسفل الصفحة (أرقام مكاتب عدن وسيئون) وتجاهل الأسطر الفارغة.
 
-صيغة الإخراج المطلوبة:
+صيغة الإخراج المطلوبة بدقة متناهية:
 أخرج سطراً لكل شحنة يحتوي فقط على:
 [رقم_الهاتف] [نوع_الطرد]
 
-ملاحظة: لا تكتب أي مقدمات أو شروحات إضافية إطلاقاً. فقط الأسطر المطلوبة.
+مثال على المخرجات:
+772450166 ظرف
+773111225 كيس
+771401107 كرتون
+
+ملاحظة: لا تكتب أي شروحات أو مقدمات إطلاقاً.
 PROMPT;
 
-            $requestPayload = [
-                'contents' => [
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type'  => 'application/json',
+            ])->timeout(35)->post($url, [
+                'model' => 'llama-3.2-11b-vision-preview',
+                'messages' => [
                     [
-                        'parts' => [
-                            ['text' => $prompt],
+                        'role' => 'user',
+                        'content' => [
                             [
-                                'inline_data' => [
-                                    'mime_type' => 'image/jpeg',
-                                    'data'      => $imageBase64
+                                'type' => 'text',
+                                'text' => $prompt
+                            ],
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => "data:image/jpeg;base64,{$imageBase64}"
                                 ]
                             ]
                         ]
                     ]
                 ],
-                'generationConfig' => [
-                    'temperature'     => 0.0,
-                    'maxOutputTokens' => 1024,
-                ]
-            ];
+                'temperature' => 0.0,
+                'max_tokens'  => 1024,
+            ]);
 
-            $response = null;
-
-            // التبديل بين النماذج تلقائياً في حال واجه أحدهم ضغطاً (503) أو خطأ
-            foreach ($models as $model) {
-                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
-                
-                $response = Http::withHeaders([
-                    'Content-Type' => 'application/json',
-                ])->timeout(35)->post($url, $requestPayload);
-
-                if ($response->successful()) {
-                    Log::info("Gemini Vision Succeeded using model: {$model}");
-                    break;
-                }
-
-                Log::warning("Gemini model {$model} returned [{$response->status()}], trying next model...");
-                usleep(500000); // نصف ثانية قبل تجربة الموديل التالي
-            }
-
-            if ($response && $response->successful()) {
-                $resultText = trim($response->json('candidates.0.content.parts.0.text') ?? '');
-                Log::info("Gemini OCR Extracted Content:\n" . $resultText);
+            if ($response->successful()) {
+                $resultText = trim($response->json('choices.0.message.content') ?? '');
+                Log::info("Groq Vision OCR Result:\n" . $resultText);
 
                 if (empty($resultText) || Str::contains(Str::upper($resultText), 'NONE')) {
                     return null;
                 }
 
-                // تحويل أي أرقام مشرقية متبقية إلى أرقام غربية
+                // تحويل أي أرقام مشرقية متبقية إلى أرقام إنجليزية
                 $easternDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
                 $westernDigits = ['0','1','2','3','4','5','6','7','8','9'];
                 $resultText = str_replace($easternDigits, $westernDigits, $resultText);
@@ -362,11 +347,11 @@ PROMPT;
                 return $resultText;
             }
 
-            Log::error("All Gemini Vision endpoints failed: " . ($response ? $response->body() : 'No response'));
+            Log::error("Groq Vision API Error [{$response->status()}]: " . $response->body());
             return null;
 
         } catch (\Throwable $e) {
-            Log::error("Gemini Vision Exception: " . $e->getMessage());
+            Log::error("Groq Vision Exception: " . $e->getMessage());
             return null;
         }
     }
