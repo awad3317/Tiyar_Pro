@@ -243,7 +243,7 @@ class ParcelBotController extends Controller
                 $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
             }
 
-            sleep(3); // تأخير 3 ثوانٍ بين كل عملية إرسال للهاتف
+            sleep(2); // تأخير 2 ثانية بين كل عملية إرسال للهاتف
         }
 
         $total = count($parcels);
