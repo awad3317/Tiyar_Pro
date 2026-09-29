@@ -2,163 +2,152 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Office;
+use App\Services\HttpSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Office;
 
 class HttpSmsWebhookController extends Controller
 {
+    protected HttpSmsService $smsService;
+
+    public function __construct(HttpSmsService $smsService)
+    {
+        $this->smsService = $smsService;
+    }
+
+    /**
+     * معالجة أحداث الويب هوك من httpSMS
+     */
     public function handle(Request $request)
     {
-        $payload = $request->all();
-        $event = $payload['event'] ?? ($payload['type'] ?? null);
-        $data = $payload['data'] ?? $payload;
+        $event = $request->input('event');
+        $data  = $request->input('data', []);
 
-        Log::info("httpSMS Universal Webhook Received: {$event}", ['data' => $data]);
+        Log::info("🔔 [STEP 1] Webhook Hit: Event received [{$event}]", [
+            'owner'   => $data['owner'] ?? null,
+            'contact' => $data['contact'] ?? null,
+        ]);
 
-        // استخراج رقم هاتف المرسل (المكتب) وتنظيفه
-        $senderPhone = $data['phone_number'] ?? ($data['owner'] ?? ($data['from'] ?? null));
-        $cleanSender = $senderPhone ? preg_replace('/[^0-9]/', '', $senderPhone) : null;
-
-        // =========================================================
-        // 1. مراقبة حالة اتصال الهاتف (Online / Offline)
-        // =========================================================
-        if ($event === 'phone.heartbeat.online') {
-            if ($cleanSender) {
-                Cache::put("httpsms_status_{$cleanSender}", 'online', now()->addHours(24));
-                Log::info("httpSMS: Office Phone {$cleanSender} is ONLINE.");
-            }
-            return response()->json(['status' => 'acknowledged', 'state' => 'online']);
-        }
-
-        if ($event === 'phone.heartbeat.offline') {
-            if ($cleanSender) {
-                Cache::put("httpsms_status_{$cleanSender}", 'offline', now()->addHours(24));
-                Log::warning("httpSMS: Office Phone {$cleanSender} is OFFLINE.");
-            }
-            return response()->json(['status' => 'acknowledged', 'state' => 'offline']);
-        }
-
-        // =========================================================
-        // 2. إذا نجح الإرسال أو تم التسليم: تسجيل النجاح وتصفير المحاولات
-        // =========================================================
-        if (in_array($event, ['message.phone.sent', 'message.phone.delivered'])) {
-            $recipient = $data['contact'] ?? ($data['to'] ?? null);
-            if ($recipient && $cleanSender) {
-                $cleanRecipient = preg_replace('/[^0-9]/', '', $recipient);
-
-                // وسم النجاح: يمنع أي محاولة إعادة لاحقة لهذا الرقم خلال 12 ساعة
-                Cache::put("sms_delivered_{$cleanSender}_{$cleanRecipient}", true, now()->addHours(12));
-
-                // تصفير عداد المحاولات وقفل الأمان
-                Cache::forget("sms_retry_{$cleanSender}_{$cleanRecipient}");
-                Cache::forget("sms_lock_{$cleanSender}_{$cleanRecipient}");
-
-                Log::info("SMS successfully sent/delivered to {$recipient}. Cleaned retry state.");
-            }
-            return response()->json(['status' => 'acknowledged', 'state' => 'delivered']);
-        }
-
-        // =========================================================
-        // 3. معالجة الرسائل الفاشلة أو منتهية الصلاحية بأمان قطعي
-        // =========================================================
+        // معالجة الرسائل التي فشلت أو انتهت صلاحيتها فقط
         if (in_array($event, ['message.send.failed', 'message.send.expired'])) {
-            $recipient = $data['contact'] ?? ($data['to'] ?? null);
-            $content = $data['content'] ?? null;
-            $sender = $senderPhone;
-
-            if ($recipient && $sender && $content) {
-                $cleanRecipient = preg_replace('/[^0-9]/', '', $recipient);
-
-                // الفحص 1: هل الرسالة وصلت بالفعل مسبقاً؟
-                if (Cache::has("sms_delivered_{$cleanSender}_{$cleanRecipient}")) {
-                    Log::info("Ignoring retry for {$recipient}: Already marked as delivered.");
-                    return response()->json(['status' => 'ignored_already_delivered']);
-                }
-
-                // الفحص 2: قفل ذري (Atomic Lock) لمنع التكرار اللحظي المتزامن
-                $lockKey = "sms_lock_{$cleanSender}_{$cleanRecipient}";
-                $lockAcquired = Cache::add($lockKey, true, 30); // قفل لمدة 30 ثانية
-                if (!$lockAcquired) {
-                    Log::warning("Retry request for {$recipient} is already being processed. Skipped duplicate trigger.");
-                    return response()->json(['status' => 'in_progress']);
-                }
-
-                $retryKey = "sms_retry_{$cleanSender}_{$cleanRecipient}";
-                $retryCount = (int) Cache::get($retryKey, 0);
-
-                $office = $this->resolveOfficeBySender($cleanSender);
-
-                // السماح بمحاولتين كحد أقصى (1 ثم 2 فقط)
-                if ($retryCount < 2) {
-                    $newCount = $retryCount + 1;
-                    Cache::put($retryKey, $newCount, now()->addHours(2));
-
-                    Log::warning("Retrying SMS to {$recipient} via office {$cleanSender} (Attempt #{$newCount})");
-
-                    $this->dispatchSms($office, $sender, $recipient, $content);
-
-                    // تحرير القفل بعد الإرسال
-                    Cache::forget($lockKey);
-
-                    return response()->json(['status' => 'retrying', 'attempt' => $newCount]);
-                }
-
-                // بعد فشل محاولتين نهائياً:
-                Cache::forget($retryKey);
-                Cache::forget($lockKey);
-                Log::error("SMS to {$recipient} permanently failed on office {$cleanSender}. Marking as unreachable.");
-
-                if ($office) {
-                    $this->markParcelAsUnreachable($office->id, $cleanRecipient);
-                }
-            }
+            Log::info("⚙️ [STEP 2] Event [{$event}] matches retry policy. Starting evaluation...");
+            $this->handleFailedOrExpiredMessage($data, $event);
+        } else {
+            Log::info("ℹ️ [STEP 2] Event [{$event}] ignored (not failed/expired).");
         }
 
         return response()->json(['status' => 'success']);
     }
 
     /**
-     * البحث عن المكتب حسب رقم شريحة الإرسال
+     * منطق إعادة المحاولة (مرتين كحد أقصى)
      */
-    protected function resolveOfficeBySender($cleanSender)
+    protected function handleFailedOrExpiredMessage(array $data, string $event)
     {
-        if (!$cleanSender) return null;
+        $contact = $data['contact'] ?? null;
+        $owner   = $data['owner'] ?? null;
+        $content = $data['content'] ?? null;
 
-        return Office::where('whatsapp_sender_phone', 'LIKE', "%{$cleanSender}%")
-            ->where('is_active', true)
-            ->first();
-    }
+        Log::info("🔍 [STEP 3] Extracting message payload: Contact=[{$contact}], Owner=[{$owner}]");
 
-    /**
-     * إرسال الرسالة باستخدام API Key الخاص بالمكتب
-     */
-    protected function dispatchSms($office, $from, $to, $content)
-    {
+        if (!$contact || !$owner || empty($content)) {
+            Log::warning("⚠️ [STEP 3] Aborted: Missing required fields (contact, owner, or content).");
+            return;
+        }
+
+        $cleanRecipient = preg_replace('/[^0-9]/', '', $contact);
+        $cleanOwner     = preg_replace('/[^0-9]/', '', $owner);
+
+        // مفاتيح الكاش لعزل الحالة لكل رسالة ومستلم
+        $retryKey     = "sms_retry_count_{$cleanOwner}_{$cleanRecipient}";
+        $lockKey      = "sms_lock_{$cleanOwner}_{$cleanRecipient}";
+        $deliveredKey = "sms_delivered_{$cleanOwner}_{$cleanRecipient}";
+
+        Log::info("🔑 [STEP 4] Cache Keys initialized:", [
+            'retryKey'     => $retryKey,
+            'lockKey'      => $lockKey,
+            'deliveredKey' => $deliveredKey,
+        ]);
+
+        // 1. إذا كانت الرسالة قد وصلت بالفعل مسبقاً، نتجاهل أي إشعار متأخر
+        if (Cache::has($deliveredKey)) {
+            Log::info("🛑 [STEP 5] Skipped: Message was previously marked as delivered for +{$cleanRecipient}.");
+            return;
+        }
+        Log::info("✅ [STEP 5] Passed delivery check (Message not yet delivered).");
+
+        // 2. قفل ذري (Atomic Lock) لمنع التكرار في حال أرسل السيرفر طلبين في نفس الثانية
+        $lockAcquired = Cache::add($lockKey, true, now()->addSeconds(30));
+        if (!$lockAcquired) {
+            Log::warning("🔒 [STEP 6] Lock Active: Another retry request for +{$cleanRecipient} is currently running. Skipped duplicate trigger.");
+            return;
+        }
+        Log::info("🔓 [STEP 6] Atomic lock successfully acquired for 30s.");
+
         try {
-            $apiKey = $office->httpsms_api_key ?? config('services.httpsms.key');
-            $apiUrl = config('services.httpsms.url', 'https://api.httpsms.com');
+            $attemptCount = Cache::get($retryKey, 0);
+            Log::info("📊 [STEP 7] Current retry count for +{$cleanRecipient} is [{$attemptCount}] out of max 2.");
 
-            Http::withHeaders([
-                'x-api-key'    => $apiKey,
-                'Content-Type' => 'application/json',
-            ])->timeout(10)->post(rtrim($apiUrl, '/') . '/v1/messages/send', [
-                'content' => $content,
-                'from'    => $from,
-                'to'      => $to,
-            ]);
-        } catch (\Exception $e) {
-            Log::error("Failed to re-dispatch SMS for Office {$from}: " . $e->getMessage());
+            // الشرط: يحاول مرتين فقط (المحاولة 1 ثم المحاولة 2)
+            if ($attemptCount < 2) {
+                $newAttempt = $attemptCount + 1;
+                Cache::put($retryKey, $newAttempt, now()->addHours(1));
+                Log::info("📈 [STEP 8] Counter incremented to [{$newAttempt}]. Stored in cache for 1 hour.");
+
+                Log::warning("🔄 [STEP 9] Triggering SMS Retry to +{$cleanRecipient} via office {$cleanOwner} (Attempt #{$newAttempt})");
+
+                // جلب المكتب لاستخراج الـ API Key
+                Log::info("🏢 [STEP 10] Resolving office from database for sender [{$cleanOwner}]...");
+                $office = $this->resolveOfficeBySender($cleanOwner);
+
+                if ($office) {
+                    Log::info("🏢 [STEP 10] Office found: [{$office->name}] (ID: {$office->id})");
+                } else {
+                    Log::error("❌ [STEP 10] Office NOT found in DB matching sender phone [{$cleanOwner}].");
+                }
+
+                if ($office && !empty($office->httpsms_api_key)) {
+                    Log::info("🚀 [STEP 11] Invoking HttpSmsService->send() to {$cleanRecipient}...");
+                    
+                    $result = $this->smsService->send(
+                        $cleanRecipient,
+                        $content,
+                        $office->httpsms_api_key,
+                        $owner
+                    );
+
+                    if ($result['success'] ?? false) {
+                        Log::info("🎉 [STEP 12] HttpSmsService returned SUCCESS for attempt #{$newAttempt}.");
+                    } else {
+                        Log::error("❌ [STEP 12] HttpSmsService returned FAILURE: " . ($result['error'] ?? 'Unknown error'));
+                    }
+                } else {
+                    Log::error("🚫 [STEP 11] Aborted dispatch: Office missing or httpsms_api_key is empty.");
+                }
+            } else {
+                // استنفد المحاولتين وفشلت الثانية -> إهمال تام مع نفسه
+                Log::error("🛑 [DROP] SMS to +{$cleanRecipient} reached maximum attempts ({$attemptCount}). Permanently dropping message.");
+                
+                // مسح العداد لتنظيف الذاكرة
+                Cache::forget($retryKey);
+                Log::info("🧹 [DROP] Retry counter key [{$retryKey}] cleared from cache.");
+            }
+        } finally {
+            // تحرير القفل الذري
+            Cache::forget($lockKey);
+            Log::info("🔓 [FINALLY] Atomic lock [{$lockKey}] released.");
         }
     }
 
     /**
-     * تحديث حالة الطرد في النظام كـ خارج التغطية
+     * البحث عن المكتب حسب رقم شريحة الإرسال
      */
-    protected function markParcelAsUnreachable($officeId, $cleanRecipient)
+    protected function resolveOfficeBySender(string $cleanSender)
     {
-        // تحديث جدول الطرود لديك لتثبيت عدم وصول الإشعار
+        return Office::where('whatsapp_sender_phone', 'LIKE', "%{$cleanSender}%")
+            ->where('is_active', true)
+            ->first();
     }
 }
