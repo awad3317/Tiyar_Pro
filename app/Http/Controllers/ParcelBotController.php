@@ -89,12 +89,13 @@ class ParcelBotController extends Controller
             }
 
             // =========================================================
-            // ✅ 2. فحص أوامر التأكيد والإلغاء للطرود المعلقة
+            // ✅ 2. فحص أوامر التأكيد والإلغاء (فقط إن وُجد كشف معلق)
             // =========================================================
             $pendingCacheKey = "pending_parcels_{$senderPhone}";
+            $normalizedText  = mb_strtolower($messageText);
 
-            // حالة الإلغاء
-            if (in_array(mb_strtolower($messageText), ['الغاء', 'إلغاء', 'cancel'])) {
+            // حالة الإلغاء (فقط إذا كان هناك كشف معلق في الكاش)
+            if (in_array($normalizedText, ['الغاء', 'إلغاء', 'cancel'])) {
                 if (Cache::has($pendingCacheKey)) {
                     Cache::forget($pendingCacheKey);
                     $this->sendWhatsAppMessage($senderPhone, "❌ تم إلغاء العملية ولم يتم إرسال أي رسائل SMS.");
@@ -102,8 +103,8 @@ class ParcelBotController extends Controller
                 }
             }
 
-            // حالة التأكيد
-            if (in_array(mb_strtolower($messageText), ['نعم', 'تاكيد', 'تأكيد', 'ارسل', 'أرسل', 'ok', 'yes'])) {
+            // حالة التأكيد (فقط إذا كان هناك كشف معلق في الكاش)
+            if (in_array($normalizedText, ['نعم', 'تاكيد', 'تأكيد', 'ارسل', 'أرسل', 'ok', 'yes'])) {
                 $pendingParcels = Cache::get($pendingCacheKey);
 
                 if (!empty($pendingParcels)) {
@@ -158,7 +159,7 @@ class ParcelBotController extends Controller
             // =========================================================
             $parcels = $this->extractParcelsList($messageText);
 
-            // إذا كانت الرسالة نصاً عادياً (محادثة عامة مثل "كيف الحال")، يتم التجاهل تماماً ليرد الدعم الفني
+            // إذا كانت الرسالة نصاً عادياً (محادثة عامة مثل "كيف الحال" أو "نعم" عادية)، يتم التجاهل ليرد الدعم البشري
             if (empty($parcels)) {
                 Log::info("Ignored non-parcel message from {$senderPhone}: '{$messageText}' (Left for human support)");
                 return response()->json(['status' => 'ignored_normal_text_for_support']);
@@ -167,7 +168,8 @@ class ParcelBotController extends Controller
             // =========================================================
             // 🛑 5. حفظ البيانات مؤقتاً وإرسال المعاينة للتأكيد
             // =========================================================
-            Cache::put($pendingCacheKey, $parcels, now()->addMinutes(5));
+            // مدة الصلاحية 20 دقيقة
+            Cache::put($pendingCacheKey, $parcels, now()->addMinutes(20));
 
             $total = count($parcels);
             $previewList = [];
@@ -182,14 +184,15 @@ class ParcelBotController extends Controller
                         . "━━━━━━━━━━━━━━━\n"
                         . "📦 إجمالي الطرود: *{$total}*\n\n"
                         . "للإرسال، رد بكلمة: *تأكيد* أو *نعم*\n"
-                        . "للإلغاء، رد بكلمة: *إلغاء*";
+                        . "للإلغاء، رد بكلمة: *إلغاء*\n\n"
+                        . "⏱️ _صلاحية هذا الكشف 20 دقيقة._";
 
             $this->sendWhatsAppMessage($senderPhone, $confirmMsg);
 
             return response()->json([
-                'status'  => 'awaiting_confirmation',
-                'office'  => $office->name,
-                'total'   => $total
+                'status' => 'awaiting_confirmation',
+                'office' => $office->name,
+                'total'  => $total
             ]);
 
         } catch (\Exception $e) {
@@ -240,7 +243,7 @@ class ParcelBotController extends Controller
                 $details[] = "❌ {$parcel['recipient']} (فشل الإرسال)";
             }
 
-            usleep(400000); // تأخير 0.4 ثانية لحماية الشريحة
+            sleep(3); // تأخير 3 ثوانٍ بين كل عملية إرسال للهاتف
         }
 
         $total = count($parcels);
