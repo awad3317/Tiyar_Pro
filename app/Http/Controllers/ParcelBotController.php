@@ -169,7 +169,8 @@ class ParcelBotController extends Controller
             // 🛑 5. حفظ البيانات مؤقتاً وإرسال المعاينة للتأكيد
             // =========================================================
             // مدة الصلاحية 20 دقيقة
-            Cache::put($pendingCacheKey, $parcels, now()->addMinutes(20));
+            Cache::forget($pendingCacheKey);
+            Cache::put($pendingCacheKey, $parcels, now()->addMinutes(5));
 
             $total = count($parcels);
             $previewList = [];
@@ -185,7 +186,7 @@ class ParcelBotController extends Controller
                         . "📦 إجمالي الطرود: *{$total}*\n\n"
                         . "للإرسال، رد بكلمة: *تأكيد* أو *نعم*\n"
                         . "للإلغاء، رد بكلمة: *إلغاء*\n\n"
-                        . "⏱️ _صلاحية هذا الكشف 20 دقيقة._";
+                        . "⏱️ _صلاحية هذا الكشف 5 دقائق._";
 
             $this->sendWhatsAppMessage($senderPhone, $confirmMsg);
 

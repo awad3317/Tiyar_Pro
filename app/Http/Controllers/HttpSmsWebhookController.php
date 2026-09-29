@@ -127,9 +127,8 @@ class HttpSmsWebhookController extends Controller
     {
         if (!$cleanSender) return null;
 
-        return Office::where('phone', 'LIKE', "%{$cleanSender}%")
-            ->orWhere('whatsapp_sender_phone', 'LIKE', "%{$cleanSender}%")
-            ->orWhere('httpsms_phone', 'LIKE', "%{$cleanSender}%")
+        return Office::where('whatsapp_sender_phone', 'LIKE', "%{$cleanSender}%")
+            ->where('is_active', true)
             ->first();
     }
 
