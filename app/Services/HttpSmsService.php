@@ -29,6 +29,7 @@ class HttpSmsService
                 'from'    => $fromPhone,
                 'to'      => $toCleaned,
                 'content' => $message,
+                'expired_at' => now()->addMinutes(5)->toIso8601String(),
             ]);
 
             if ($response->successful()) {
