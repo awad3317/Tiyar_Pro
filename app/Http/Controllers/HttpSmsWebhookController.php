@@ -22,12 +22,20 @@ class HttpSmsWebhookController extends Controller
      */
     public function handle(Request $request)
     {
-        $event = $request->input('event');
-        $data  = $request->input('data', []);
+        $payload = $request->all();
+
+        // فحص مختلف الأماكن التي قد يرسل فيها httpSMS نوع الحدث
+        $event = $request->input('event')
+            ?? $request->input('type')
+            ?? $request->input('event_type')
+            ?? $payload['data']['event'] 
+            ?? $request->header('x-event-type')
+            ?? 'unknown';
+
+        $data = $payload['data'] ?? $payload;
 
         Log::info("🔔 [STEP 1] Webhook Hit: Event received [{$event}]", [
-            'owner'   => $data['owner'] ?? null,
-            'contact' => $data['contact'] ?? null,
+            'raw_payload' => $payload, // تسجيل الـ JSON كاملاً لنراه بوضوح
         ]);
 
         // معالجة الرسائل التي فشلت أو انتهت صلاحيتها فقط
