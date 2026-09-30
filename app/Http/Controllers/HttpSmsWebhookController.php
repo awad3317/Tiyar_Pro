@@ -136,12 +136,13 @@ class HttpSmsWebhookController extends Controller
                     Log::error("🚫 [STEP 11] Aborted dispatch: Office missing or httpsms_api_key is empty.");
                 }
             } else {
-                // استنفد المحاولتين وفشلت الثانية -> إهمال تام وإرسال تقرير على واتسابك
+                // استنفد المحاولتين وفشلت نهائياً
                 Log::error("🛑 [DROP] SMS to +{$cleanRecipient} reached maximum attempts ({$attemptCount}). Permanently dropping message.");
-                
-                // مسح العداد لتنظيف الذاكرة
-                Cache::forget($retryKey);
-                Log::info("🧹 [DROP] Retry counter key [{$retryKey}] cleared from cache.");
+    
+                // ✅ الحل: قفل العداد لمدة يوم كامل لمنع أي إعادة محاولة مستقبلية لهذا الرقم
+                Cache::put($retryKey, 99, now()->addDay());
+    
+                Log::info("🔒 [DROP] Retry counter key [{$retryKey}] locked for 24 hours.");
 
                 // إرسال تقرير المراقبة الفوري لرقمك الشخصي
                 $this->notifyAdminFailedSms($office, $cleanRecipient, $cleanOwner, $content, $event);
