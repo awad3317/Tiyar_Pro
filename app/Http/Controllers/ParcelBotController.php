@@ -259,7 +259,7 @@ class ParcelBotController extends Controller
                 . ($failedCount > 0 ? "⚠️ الفاشلة: {$failedCount}\n" : "")
                 . "━━━━━━━━━━━━━━━\n"
                 . implode("\n", $details) . "\n\n"
-                . "⚠️ *تنبيه مهم للفرع:*\n"
+                . "⚠️ *تنبيه مهم :*\n"
                 . "يجب إبقاء هاتف الإرسال متصلاً بالإنترنت وشاشته نشطة لمدة *{$estimatedMinutes} دقيقة* على الأقل حتى تكتمل وتخرج جميع الرسائل للعملاء بنجاح.";
 
         $this->sendWhatsAppMessage($senderPhone, $report);
