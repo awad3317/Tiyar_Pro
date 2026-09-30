@@ -235,7 +235,6 @@ class ParcelBotController extends Controller
                 $office->httpsms_api_key,
                 $office->httpsms_from_phone
             );
-
             if ($result['success']) {
                 $successCount++;
                 $details[] = "✅ {$parcel['recipient']} ({$parcel['package_type']})";
@@ -248,13 +247,20 @@ class ParcelBotController extends Controller
         }
 
         $total = count($parcels);
+
+        // حساب الوقت التقديري بالدقائق (كل رسالة تأخذ نحو 3 ثوانٍ بين sleep ووقت معالجة الشبكة)
+        // بحد أدنى دقيقة واحدة
+        $estimatedMinutes = max(1, (int) ceil(($total * 3) / 60));
+
         $report = "📊 *تقرير الإرسال النهائي ({$office->name})*\n"
                 . "━━━━━━━━━━━━━━━\n"
                 . "📦 إجمالي الطرود: {$total}\n"
                 . "✅ الناجحة: {$successCount}\n"
                 . ($failedCount > 0 ? "⚠️ الفاشلة: {$failedCount}\n" : "")
                 . "━━━━━━━━━━━━━━━\n"
-                . implode("\n", $details);
+                . implode("\n", $details) . "\n\n"
+                . "⚠️ *تنبيه مهم للفرع:*\n"
+                . "يجب إبقاء هاتف الإرسال متصلاً بالإنترنت وشاشته نشطة لمدة *{$estimatedMinutes} دقيقة* على الأقل حتى تكتمل وتخرج جميع الرسائل للعملاء بنجاح.";
 
         $this->sendWhatsAppMessage($senderPhone, $report);
 
