@@ -6,6 +6,7 @@ use App\Models\Office;
 use App\Services\HttpSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class HttpSmsWebhookController extends Controller
@@ -35,7 +36,7 @@ class HttpSmsWebhookController extends Controller
         $data = $payload['data'] ?? $payload;
 
         Log::info("🔔 [STEP 1] Webhook Hit: Event received [{$event}]", [
-            'raw_payload' => $payload, // تسجيل الـ JSON كاملاً لنراه بوضوح
+            'raw_payload' => $payload,
         ]);
 
         // معالجة الرسائل التي فشلت أو انتهت صلاحيتها فقط
@@ -50,7 +51,7 @@ class HttpSmsWebhookController extends Controller
     }
 
     /**
-     * منطق إعادة المحاولة (مرتين كحد أقصى)
+     * منطق إعادة المحاولة (مرتين كحد أقصى) مع التنبيه الفوري للمسؤول عند الفشل النهائي
      */
     protected function handleFailedOrExpiredMessage(array $data, string $event)
     {
@@ -61,7 +62,7 @@ class HttpSmsWebhookController extends Controller
         Log::info("🔍 [STEP 3] Extracting message payload: Contact=[{$contact}], Owner=[{$owner}]");
 
         if (!$contact || !$owner || empty($content)) {
-            Log::warning("⚠️ [STEP 3] Aborted: Missing required fields (contact, owner, or content).");
+            Log::warning("⚠️️ [STEP 3] Aborted: Missing required fields (contact, owner, or content).");
             return;
         }
 
@@ -98,6 +99,16 @@ class HttpSmsWebhookController extends Controller
             $attemptCount = Cache::get($retryKey, 0);
             Log::info("📊 [STEP 7] Current retry count for +{$cleanRecipient} is [{$attemptCount}] out of max 2.");
 
+            // البحث عن المكتب أولاً ليكون متاحاً سواء في المحاولات أو في تقرير الإسقاط
+            Log::info("🏢 [STEP 10] Resolving office from database for sender [{$cleanOwner}]...");
+            $office = $this->resolveOfficeBySender($cleanOwner);
+
+            if ($office) {
+                Log::info("🏢 [STEP 10] Office found: [{$office->name}] (ID: {$office->id})");
+            } else {
+                Log::error("❌ [STEP 10] Office NOT found in DB matching sender phone [{$cleanOwner}].");
+            }
+
             // الشرط: يحاول مرتين فقط (المحاولة 1 ثم المحاولة 2)
             if ($attemptCount < 2) {
                 $newAttempt = $attemptCount + 1;
@@ -105,16 +116,6 @@ class HttpSmsWebhookController extends Controller
                 Log::info("📈 [STEP 8] Counter incremented to [{$newAttempt}]. Stored in cache for 1 hour.");
 
                 Log::warning("🔄 [STEP 9] Triggering SMS Retry to +{$cleanRecipient} via office {$cleanOwner} (Attempt #{$newAttempt})");
-
-                // جلب المكتب لاستخراج الـ API Key
-                Log::info("🏢 [STEP 10] Resolving office from database for sender [{$cleanOwner}]...");
-                $office = $this->resolveOfficeBySender($cleanOwner);
-
-                if ($office) {
-                    Log::info("🏢 [STEP 10] Office found: [{$office->name}] (ID: {$office->id})");
-                } else {
-                    Log::error("❌ [STEP 10] Office NOT found in DB matching sender phone [{$cleanOwner}].");
-                }
 
                 if ($office && !empty($office->httpsms_api_key)) {
                     Log::info("🚀 [STEP 11] Invoking HttpSmsService->send() to {$cleanRecipient}...");
@@ -135,17 +136,86 @@ class HttpSmsWebhookController extends Controller
                     Log::error("🚫 [STEP 11] Aborted dispatch: Office missing or httpsms_api_key is empty.");
                 }
             } else {
-                // استنفد المحاولتين وفشلت الثانية -> إهمال تام مع نفسه
+                // استنفد المحاولتين وفشلت الثانية -> إهمال تام وإرسال تقرير على واتسابك
                 Log::error("🛑 [DROP] SMS to +{$cleanRecipient} reached maximum attempts ({$attemptCount}). Permanently dropping message.");
                 
                 // مسح العداد لتنظيف الذاكرة
                 Cache::forget($retryKey);
                 Log::info("🧹 [DROP] Retry counter key [{$retryKey}] cleared from cache.");
+
+                // إرسال تقرير المراقبة الفوري لرقمك الشخصي
+                $this->notifyAdminFailedSms($office, $cleanRecipient, $cleanOwner, $content, $event);
             }
         } finally {
             // تحرير القفل الذري
             Cache::forget($lockKey);
             Log::info("🔓 [FINALLY] Atomic lock [{$lockKey}] released.");
+        }
+    }
+
+    /**
+     * إرسال تنبيه فوري عبر الواتساب للمسؤول بتفاصيل الرسالة الفاشلة نهائياً
+     */
+    protected function notifyAdminFailedSms(?Office $office, string $recipient, string $senderPhone, string $content, string $reason)
+    {
+        $adminPhone = '967781152674';
+
+        $officeName = $office ? $office->name : 'غير معروف';
+        $timeNow = now()->format('Y-m-d h:i A');
+
+        $alertMessage = "🚨 *تقرير فشل إرسال SMS نهائياً* 🚨\n"
+            . "━━━━━━━━━━━━━━━\n"
+            . "🏢 *المكتب:* {$officeName}\n"
+            . "📱 *هاتف المكتب (المرسل):* {$senderPhone}\n"
+            . "👤 *رقم المستلم (العميل):* {$recipient}\n"
+            . "⚠️ *حالة الفشل:* {$reason} (بعد محاولتين)\n"
+            . "🕒 *الوقت:* {$timeNow}\n"
+            . "━━━━━━━━━━━━━━━\n"
+            . "📝 *نص الرسالة:*\n"
+            . "{$content}\n\n"
+            . "💡 *ملاحظة:* يرجى فحص هاتف الفرع (الإنترنت أو وضع توفير الطاقة أو شريحة الإرسال).";
+
+        $this->sendWhatsAppAlert($adminPhone, $alertMessage);
+    }
+
+    /**
+     * إرسال رسالة التنبيه عبر Evolution API
+     */
+    protected function sendWhatsAppAlert(string $phone, string $message): bool
+    {
+        try {
+            $evolutionUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL')), '/');
+            $apiKey       = config('services.evolution.api_key', env('EVOLUTION_API_KEY'));
+            $url          = "{$evolutionUrl}/send/text";
+
+            $formattedPhone = preg_replace('/[^0-9]/', '', $phone);
+
+            if (!str_starts_with($formattedPhone, '967') && strlen($formattedPhone) == 9) {
+                $formattedPhone = '967' . $formattedPhone;
+            }
+
+            $response = Http::withHeaders([
+                'apikey'       => $apiKey,
+                'Content-Type' => 'application/json',
+            ])->post($url, [
+                'number'  => $formattedPhone,
+                'text'    => $message,
+                'delay'   => 1200,
+                'options' => [
+                    'presence' => 'composing',
+                ],
+            ]);
+
+            if ($response->successful()) {
+                Log::info("📲 Admin failure alert sent successfully to WhatsApp: {$formattedPhone}");
+                return true;
+            }
+
+            Log::error("❌ Admin WhatsApp Alert Failed: " . $response->body());
+            return false;
+        } catch (\Throwable $e) {
+            Log::error("❌ Admin WhatsApp Alert Exception: " . $e->getMessage());
+            return false;
         }
     }
 
