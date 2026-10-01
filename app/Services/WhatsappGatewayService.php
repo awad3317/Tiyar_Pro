@@ -19,26 +19,23 @@ class WhatsappGatewayService
     /**
      * عميل HTTP جاهز مع الـ Headers المطلوبة
      */
-    protected function client(string $instanceId)
+    protected function client()
     {
         return Http::baseUrl($this->baseUrl)
             ->timeout(15)
             ->withHeaders([
-                'apikey'       => $this->secretToken,
-                'instance'     => $instanceId,
-                'Accept'       => 'application/json',
+                'Apikey'       => $this->secretToken,
+                'Accept'       => 'application/json, text/plain, */*',
                 'Content-Type' => 'application/json',
             ]);
     }
 
-    /**
-     * فحص حالة الاتصال
-     * Endpoint: GET /instance/status
-     */
     public function getStatus(string $instanceId): array
     {
         try {
-            $response = $this->client($instanceId)->get('/instance/status');
+            // الاستدعاء بالمسار المباشر كما في Network DevTools
+            $response = $this->client()->get("/instance/info/{$instanceId}");
+
             return [
                 'success' => $response->successful(),
                 'status'  => $response->status(),
@@ -52,7 +49,6 @@ class WhatsappGatewayService
             ];
         }
     }
-
     /**
      * جلب كود الـ QR
      * Endpoint: GET /instance/qr
