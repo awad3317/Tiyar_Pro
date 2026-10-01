@@ -12,6 +12,7 @@ class WhatsappInstance extends Model
     protected $fillable = [
         'name',
         'instance_id',
+        'instance_token',
         'pin_code',
         'phone_number',
         'is_active',

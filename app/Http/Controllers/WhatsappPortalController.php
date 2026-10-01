@@ -78,69 +78,41 @@ class WhatsappPortalController extends Controller
         return response()->json($res);
     }
 
-    /**
-     * جلب كود الـ QR
-     */
-    public function qr()
+   public function qr()
     {
-        $instanceId = $this->getCurrentInstanceId();
-        if (!$instanceId) {
-            return response()->json(['error' => 'غير مصرح'], 401);
+        $token = session('wa_instance_token');
+        if (!$token) {
+            return response()->json(['error' => 'غير مصرح - لا يوجد توكن'], 401);
         }
 
-        $res = $this->gatewayService->getQrCode($instanceId);
+        $res = $this->gatewayService->getQrCode($token);
         return response()->json($res);
     }
 
-    /**
-     * طلب كود الربط المباشر بالرقم (Pairing Code)
-     */
-    public function pair(Request $request)
-    {
-        $instanceId = $this->getCurrentInstanceId();
-        if (!$instanceId) {
-            return response()->json(['error' => 'غير مصرح'], 401);
-        }
-
-        $request->validate([
-            'phone' => 'required|string',
-        ]);
-
-        // تنظيف الرقم من أي إشارات مثل + أو مسافات
-        $cleanPhone = preg_replace('/[^0-9]/', '', $request->phone);
-
-        $res = $this->gatewayService->requestPairingCode($instanceId, $cleanPhone);
-        return response()->json($res);
-    }
-
-    /**
-     * إعادة محاولة الاتصال
-     */
-    public function reconnect()
-    {
-        $instanceId = $this->getCurrentInstanceId();
-        if (!$instanceId) {
-            return response()->json(['error' => 'غير مصرح'], 401);
-        }
-
-        $res = $this->gatewayService->reconnect($instanceId);
-        return response()->json($res);
-    }
-
-    /**
-     * تسجيل خروج من الواتساب
-     */
     public function logout()
     {
-        $instanceId = $this->getCurrentInstanceId();
-        if (!$instanceId) {
-            return response()->json(['error' => 'غير مصرح'], 401);
+        $token = session('wa_instance_token');
+        if (!$token) {
+            return response()->json(['error' => 'غير مصرح - لا يوجد توكن'], 401);
         }
 
-        $res = $this->gatewayService->logout($instanceId);
+        $res = $this->gatewayService->logout($token);
         return response()->json($res);
     }
 
+    public function pair(Request $request)
+    {
+        $token = session('wa_instance_token');
+        if (!$token) {
+            return response()->json(['error' => 'غير مصرح'], 401);
+        }
+
+        $request->validate(['phone' => 'required|string']);
+        $cleanPhone = preg_replace('/[^0-9]/', '', $request->phone);
+
+        $res = $this->gatewayService->requestPairingCode($token, $cleanPhone);
+        return response()->json($res);
+    }
     /**
      * تسجيل الخروج من البوابة وإنهاء الجلسة
      */

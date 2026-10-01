@@ -8,42 +8,39 @@ use Illuminate\Support\Facades\Log;
 class WhatsappGatewayService
 {
     protected string $baseUrl;
-    protected ?string $secretToken;
+    protected ?string $globalApiKey;
 
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.whatsapp.url', 'http://195.35.24.73:4000'), '/');
-        $this->secretToken = config('services.whatsapp.token');
+        $this->globalApiKey = config('services.whatsapp.token');
     }
 
     /**
-     * عميل HTTP جاهز مع مفتاح الأمان ومعرف الجلسة
+     * عميل HTTP:
+     * إذا تم تمرير توكن الجلسة، يتم اعتماده كـ Apikey للطلب (للعمليات الخاصة بالجلسة)
+     * وإلا يتم استخدام المفتاح الإداري العام
      */
-    protected function client(string $instanceId = null)
+    protected function client(string $instanceToken = null)
     {
-        $headers = [
-            'Apikey'       => $this->secretToken,
-            'Accept'       => 'application/json, text/plain, */*',
-            'Content-Type' => 'application/json',
-        ];
-
-        if ($instanceId) {
-            $headers['instance']   = $instanceId;
-            $headers['instanceId'] = $instanceId;
-        }
+        $keyToUse = !empty($instanceToken) ? $instanceToken : $this->globalApiKey;
 
         return Http::baseUrl($this->baseUrl)
             ->timeout(15)
-            ->withHeaders($headers);
+            ->withHeaders([
+                'Apikey'       => $keyToUse,
+                'Accept'       => 'application/json, text/plain, */*',
+                'Content-Type' => 'application/json',
+            ]);
     }
 
     /**
-     * فحص الحالة
+     * فحص الحالة: يعتمد على المفتاح العام + معرف الـ id
      */
     public function getStatus(string $instanceId): array
     {
         try {
-            $response = $this->client($instanceId)->get("/instance/info/{$instanceId}");
+            $response = $this->client()->get("/instance/info/{$instanceId}");
 
             return [
                 'success' => $response->successful(),
@@ -52,20 +49,17 @@ class WhatsappGatewayService
             ];
         } catch (\Exception $e) {
             Log::error("Whatsapp Gateway getStatus Error: {$e->getMessage()}");
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 
     /**
-     * كود الـ QR
+     * جلب كود الـ QR: يعتمد على توكن الجلسة كـ Apikey
      */
-    public function getQrCode(string $instanceId): array
+    public function getQrCode(string $instanceToken): array
     {
         try {
-            $response = $this->client($instanceId)->get('/instance/qr');
+            $response = $this->client($instanceToken)->get('/instance/qr');
 
             return [
                 'success' => $response->successful(),
@@ -74,20 +68,36 @@ class WhatsappGatewayService
             ];
         } catch (\Exception $e) {
             Log::error("Whatsapp Gateway getQrCode Error: {$e->getMessage()}");
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 
     /**
-     * طلب كود الربط المباشر Pairing Code
+     * فصل الجلسة وتسجيل الخروج: يعتمد على توكن الجلسة كـ Apikey
      */
-    public function requestPairingCode(string $instanceId, string $phoneNumber): array
+    public function logout(string $instanceToken): array
     {
         try {
-            $response = $this->client($instanceId)->post('/instance/pair', [
+            $response = $this->client($instanceToken)->delete('/instance/logout');
+
+            return [
+                'success' => $response->successful(),
+                'status'  => $response->status(),
+                'data'    => $response->json(),
+            ];
+        } catch (\Exception $e) {
+            Log::error("Whatsapp Gateway logout Error: {$e->getMessage()}");
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * طلب كود الربط Pairing Code: يعتمد على توكن الجلسة كـ Apikey
+     */
+    public function requestPairingCode(string $instanceToken, string $phoneNumber): array
+    {
+        try {
+            $response = $this->client($instanceToken)->post('/instance/pair', [
                 'phone' => $phoneNumber,
             ]);
 
@@ -98,52 +108,7 @@ class WhatsappGatewayService
             ];
         } catch (\Exception $e) {
             Log::error("Whatsapp Gateway requestPairingCode Error: {$e->getMessage()}");
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
-        }
-    }
-
-    /**
-     * إعادة الاتصال
-     */
-    public function reconnect(string $instanceId): array
-    {
-        try {
-            $response = $this->client($instanceId)->post('/instance/reconnect');
-
-            return [
-                'success' => $response->successful(),
-                'data'    => $response->json(),
-            ];
-        } catch (\Exception $e) {
-            Log::error("Whatsapp Gateway reconnect Error: {$e->getMessage()}");
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
-        }
-    }
-
-    /**
-     * فصل الجلسة وتسجيل الخروج
-     */
-    public function logout(string $instanceId): array
-    {
-        try {
-            $response = $this->client($instanceId)->delete('/instance/logout');
-
-            return [
-                'success' => $response->successful(),
-                'data'    => $response->json(),
-            ];
-        } catch (\Exception $e) {
-            Log::error("Whatsapp Gateway logout Error: {$e->getMessage()}");
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 }
