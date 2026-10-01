@@ -196,8 +196,12 @@
                 const connState = document.getElementById('connectedState');
                 const qrState = document.getElementById('qrState');
 
-                // فحص إذا كان متصلاً
-                const isConnected = result.data?.state === 'open' || result.data?.status === 'open' || result.data?.connected === true;
+                // قراءة الحقل بدقة مهما كان مستوى التغليف
+                const isConnected = 
+                    result.data?.data?.connected === true ||
+                    result.data?.connected === true ||
+                    result.data?.data?.state === 'open' ||
+                    result.data?.state === 'open';
 
                 if (isConnected) {
                     badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
@@ -217,7 +221,6 @@
                 console.error('Error fetching status', e);
             }
         }
-
         async function fetchQr() {
             const wrapper = document.getElementById('qrImageWrapper');
             try {
