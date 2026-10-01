@@ -17,24 +17,33 @@ class WhatsappGatewayService
     }
 
     /**
-     * عميل HTTP جاهز مع الـ Headers المطلوبة
+     * عميل HTTP جاهز مع مفتاح الأمان ومعرف الجلسة
      */
-    protected function client()
+    protected function client(string $instanceId = null)
     {
+        $headers = [
+            'Apikey'       => $this->secretToken,
+            'Accept'       => 'application/json, text/plain, */*',
+            'Content-Type' => 'application/json',
+        ];
+
+        if ($instanceId) {
+            $headers['instance']   = $instanceId;
+            $headers['instanceId'] = $instanceId;
+        }
+
         return Http::baseUrl($this->baseUrl)
             ->timeout(15)
-            ->withHeaders([
-                'Apikey'       => $this->secretToken,
-                'Accept'       => 'application/json, text/plain, */*',
-                'Content-Type' => 'application/json',
-            ]);
+            ->withHeaders($headers);
     }
 
+    /**
+     * فحص الحالة
+     */
     public function getStatus(string $instanceId): array
     {
         try {
-            // الاستدعاء بالمسار المباشر كما في Network DevTools
-            $response = $this->client()->get("/instance/info/{$instanceId}");
+            $response = $this->client($instanceId)->get("/instance/info/{$instanceId}");
 
             return [
                 'success' => $response->successful(),
@@ -49,14 +58,15 @@ class WhatsappGatewayService
             ];
         }
     }
+
     /**
-     * جلب كود الـ QR
-     * Endpoint: GET /instance/qr
+     * كود الـ QR
      */
     public function getQrCode(string $instanceId): array
     {
         try {
             $response = $this->client($instanceId)->get('/instance/qr');
+
             return [
                 'success' => $response->successful(),
                 'status'  => $response->status(),
@@ -72,8 +82,7 @@ class WhatsappGatewayService
     }
 
     /**
-     * طلب كود الربط المباشر Pairing Code (بدون كاميرا عبر رقم الهاتف)
-     * Endpoint: POST /instance/pair
+     * طلب كود الربط المباشر Pairing Code
      */
     public function requestPairingCode(string $instanceId, string $phoneNumber): array
     {
@@ -81,6 +90,7 @@ class WhatsappGatewayService
             $response = $this->client($instanceId)->post('/instance/pair', [
                 'phone' => $phoneNumber,
             ]);
+
             return [
                 'success' => $response->successful(),
                 'status'  => $response->status(),
@@ -96,13 +106,13 @@ class WhatsappGatewayService
     }
 
     /**
-     * إعادة محاولة الاتصال
-     * Endpoint: POST /instance/reconnect
+     * إعادة الاتصال
      */
     public function reconnect(string $instanceId): array
     {
         try {
             $response = $this->client($instanceId)->post('/instance/reconnect');
+
             return [
                 'success' => $response->successful(),
                 'data'    => $response->json(),
@@ -117,13 +127,13 @@ class WhatsappGatewayService
     }
 
     /**
-     * تسجيل الخروج وفصل الجلسة
-     * Endpoint: DELETE /instance/logout
+     * فصل الجلسة وتسجيل الخروج
      */
     public function logout(string $instanceId): array
     {
         try {
             $response = $this->client($instanceId)->delete('/instance/logout');
+
             return [
                 'success' => $response->successful(),
                 'data'    => $response->json(),
