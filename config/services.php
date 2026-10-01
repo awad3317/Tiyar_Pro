@@ -48,6 +48,11 @@ return [
         'api_key'       => env('EVOLUTION_API_KEY', ''),
     ],
 
+    'whatsapp' => [
+        'url'   => env('WHATSAPP_SERVER_URL', 'http://195.35.24.73:4000'),
+        'token' => env('WHATSAPP_SECRET_TOKEN'),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY', ''),
     ],
