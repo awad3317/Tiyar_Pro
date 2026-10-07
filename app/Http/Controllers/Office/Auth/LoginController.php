@@ -31,12 +31,14 @@ class LoginController extends Controller
         // تنظيف رقم الهاتف المدخل من أي مسافات أو رموز
         $cleanPhone = preg_replace('/[^0-9]/', '', $credentials['phone']);
 
+        $remember = $request->has('remember');
+
         // محاولة الدخول بمطابقة رقم هاتف الواتساب
         $attemptWhatsApp = Auth::guard('office')->attempt([
             'whatsapp_sender_phone' => $cleanPhone,
             'password'              => $credentials['password'],
             'is_active'             => true,
-        ], $request->boolean('remember'));
+        ], $remember);
 
         // إذا لم تنجح، نحاول مطابقة رقم شريحة الإرسال
         $attemptHttpSms = false;
@@ -45,7 +47,7 @@ class LoginController extends Controller
                 'httpsms_from_phone' => $cleanPhone,
                 'password'           => $credentials['password'],
                 'is_active'          => true,
-            ], $request->boolean('remember'));
+            ], $remember);
         }
 
         if ($attemptWhatsApp || $attemptHttpSms) {
