@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-// use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Office extends Authenticatable
 {
@@ -35,8 +35,8 @@ class Office extends Authenticatable
         ];
     }
 
-    // public function parcels(): HasMany
-    // {
-    //     return $this->hasMany(Parcel::class, 'office_id');
-    // }
+    public function parcels(): HasMany
+    {
+        return $this->hasMany(Parcel::class, 'office_id');
+    }
 }

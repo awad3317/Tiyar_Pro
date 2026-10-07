@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Services\HttpSmsService;
 use App\Models\Office;
+use App\Models\Parcel;
 
 class ParcelBotController extends Controller
 {
@@ -217,6 +218,18 @@ class ParcelBotController extends Controller
         $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
         foreach ($parcels as $parcel) {
+            try {
+                Parcel::create([
+                    'office_id'        => $office->id,
+                    'recipient_name'   => $parcel['recipient_name'] ?? null,
+                    'recipient_phone'  => $parcel['recipient'],
+                    'package_type'     => $parcel['package_type'],
+                    'receipt_number'   => $parcel['receipt_number'] ?? null,
+                    'status'           => 'in_office',
+                ]);
+            } catch (\Throwable $e) {
+                Log::error("Failed to store parcel in DB: " . $e->getMessage());
+            }
             $smsBody = str_replace(
                 ['{office}', '{branch}', '{package}'],
                 [

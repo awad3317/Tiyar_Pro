@@ -3,6 +3,7 @@
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\WhatsappPortalController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Office\ParcelController;
 use App\Http\Controllers\Office\Auth\LoginController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
@@ -36,10 +37,19 @@ Route::prefix('office')->name('office.')->group(function () {
     Route::middleware('auth:office')->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
         
-        // لوحة التحكم المبدئية
+        // لوحة التحكم وتطبيق الطرود الرئيسي
+        Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
+        
+        // إعادة توجيه dashboard إلى صفحة الطرود مباشرة لتسهيل الدخول
         Route::get('/dashboard', function () {
-            return view('office.dashboard', ['office' => auth('office')->user()]);
+            return redirect()->route('office.parcels.index');
         })->name('dashboard');
+
+        // 👈 2. مسارات الـ API الخاصة بالمزامنة وقراءة البيانات للـ PWA بدون نت
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::get('/parcels', [ParcelController::class, 'getParcelsData'])->name('parcels');
+            Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');
+        });
     });
 });
 
