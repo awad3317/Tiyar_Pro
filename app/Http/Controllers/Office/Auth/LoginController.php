@@ -11,6 +11,10 @@ class LoginController extends Controller
 {
     public function showLoginForm()
     {
+        if (Auth::guard('office')->check()) {
+            return redirect()->route('office.parcels.index');
+        }
+
         return view('office.auth.login');
     }
 
