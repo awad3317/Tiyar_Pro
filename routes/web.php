@@ -3,6 +3,7 @@
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\WhatsappPortalController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Office\Auth\LoginController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -21,3 +22,26 @@ Route::prefix('whatsapp-portal')->name('whatsapp.')->group(function () {
     Route::delete('/logout', [WhatsappPortalController::class, 'logout'])->name('logout');
     Route::post('/exit', [WhatsappPortalController::class, 'exitPortal'])->name('exit');
 });
+
+
+Route::prefix('office')->name('office.')->group(function () {
+    
+    // مسارات الزوار (غير المسجلين)
+    Route::middleware('guest:office')->group(function () {
+        Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+        Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
+    });
+
+    // مسارات المسجلين (داخل جلسة المكتب)
+    Route::middleware('auth:office')->group(function () {
+        Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+        
+        // لوحة التحكم المبدئية
+        Route::get('/dashboard', function () {
+            return view('office.dashboard', ['office' => auth('office')->user()]);
+        })->name('dashboard');
+    });
+});
+
+
+
