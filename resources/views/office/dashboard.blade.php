@@ -8,7 +8,7 @@
     <!-- المحتوى والبطاقات الإحصائية -->
     <main class="flex-1 p-4 space-y-4">
 
-        <h2 class="text-sm font-bold text-slate-800 pr-1">إحصائيات الشحنات</h2>
+        <h2 class="text-sm font-bold text-slate-800 pr-1">إحصائيات الطرود</h2>
 
         <div class="grid grid-cols-2 gap-3">
             <!-- إجمالي الطرود -->
@@ -56,27 +56,43 @@
         <h2 class="text-sm font-bold text-slate-800 pr-1 pt-2">خدمات قادمة</h2>
 
         <div class="space-y-2.5">
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between opacity-80">
+            <!-- الخدمة الأولى: إشعارات الواتساب -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-                        <span class="material-symbols-outlined">qr_code_scanner</span>
+                    <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">chat</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-xs text-slate-800">ماسح الباركود السريع</h3>
-                        <p class="text-[11px] text-slate-400">تسليم الشحنات بقراءة الكود مباشرة</p>
+                        <h3 class="font-bold text-xs text-slate-800">إشعارات الواتساب للعملاء</h3>
+                        <p class="text-[11px] text-slate-400">إرسال تنبيهات وصول الطرود وروابط الاستلام عبر واتساب</p>
                     </div>
                 </div>
                 <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
             </div>
 
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between opacity-80">
+            <!-- الخدمة الثانية: سندات الاستلام -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-                        <span class="material-symbols-outlined">receipt_long</span>
+                    <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">receipt_long</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-xs text-slate-800">سندات القبض والشحن</h3>
-                        <p class="text-[11px] text-slate-400">إصدار وطباعة بوالص الشحن الإلكترونية</p>
+                        <h3 class="font-bold text-xs text-slate-800">سندات استلام الشحنات</h3>
+                        <p class="text-[11px] text-slate-400">إصدار وتوليد سند استلام رسمي وتوقيع إلكتروني للعميل</p>
+                    </div>
+                </div>
+                <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
+            </div>
+
+            <!-- الخدمة الثالثة: المالية والصندوق -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">account_balance_wallet</span>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-xs text-slate-800">المالية وصندوق المكتب</h3>
+                        <p class="text-[11px] text-slate-400">حساب المبالغ المستلمة من كل طرد  </p>
                     </div>
                 </div>
                 <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
