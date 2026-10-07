@@ -1,7 +1,7 @@
 {{-- بطاقة طرد واحد — تُستخدم داخل <template x-for="p in ..."> وتتطلب وجود المتغير p --}}
 <article class="border border-slate-200/80 rounded-2xl p-3.5 bg-white shadow-sm flex flex-col gap-2">
 
-    <!-- الرأس: نوع الطرد والسند وشارة الحالة مع مؤشر المزامنة المعلقة -->
+    <!-- الرأس: نوع الطرد والسند وشارة الحالة ومدة بقائه في المكتب -->
     <div class="flex justify-between items-start">
         <div class="flex items-center gap-2">
             <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-primary">
@@ -15,9 +15,9 @@
             </div>
         </div>
 
-        <!-- قسم الحالة مع شارة المزامنة الشبيهة بالواتساب -->
-        <div class="flex items-center gap-1.5">
-            <!-- مؤشر المعلق (يظهر فقط إذا كان الطرد في طابور الأوفلاين بانتظار النت) -->
+        <!-- قسم الحالات والمدد الزمنية -->
+        <div class="flex items-center gap-1.5 flex-wrap justify-end">
+            <!-- مؤشر المعلق (يظهر فقط إذا كان الطرد في طابور الأوفلاين) -->
             <template x-if="isPending(p.id)">
                 <span title="بانتظار توفر الإنترنت للمزامنة" 
                       class="flex items-center text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-xs">
@@ -25,6 +25,14 @@
                     <span class="mr-1">معلق</span>
                 </span>
             </template>
+
+            <!-- بادج كم له الطرد في المكتب (يظهر فقط إذا كان بالمكتب) -->
+            <span x-show="p.status === 'in_office' && p.created_at"
+                  class="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70"
+                  :title="'تاريخ الاستلام: ' + formatDate(p.created_at)">
+                <span class="material-symbols-outlined text-[12px]">hourglass_top</span>
+                <span x-text="timeAgo(p.created_at)"></span>
+            </span>
 
             <!-- شارة الحالة الأساسية -->
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-md"
@@ -62,7 +70,7 @@
         </div>
     </div>
 
-    <!-- تاريخ التسليم -->
+    <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->
     <p x-show="p.status === 'delivered' && p.delivered_at"
        class="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1">
         <span class="material-symbols-outlined text-sm">event_available</span>

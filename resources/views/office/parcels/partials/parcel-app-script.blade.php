@@ -403,6 +403,28 @@
         canTransition(parcel, status) {
             return (TRANSITIONS[parcel.status] || []).includes(status);
         },
+        timeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffSec = Math.floor((now - date) / 1000);
+
+            if (diffSec < 60) return 'الآن';
+            
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
+            
+            const diffHours = Math.floor(diffMin / 60);
+            if (diffHours < 24) return `منذ ${diffHours} ساعة`;
+            
+            const diffDays = Math.floor(diffHours / 24);
+            if (diffDays === 1) return 'منذ يوم';
+            if (diffDays === 2) return 'منذ يومين';
+            if (diffDays >= 3 && diffDays <= 10) return `منذ ${diffDays} أيام`;
+            if (diffDays > 10) return `منذ ${diffDays} يوماً`;
+    
+            return `منذ ${diffDays} يوم`;
+        },
 
         /** الإجراءات المتاحة للطرد حسب حالته الحالية */
         actionsFor(parcel) {
