@@ -201,7 +201,7 @@
             await this.loadLocal();
 
             if (this.isOnline) {
-                await this.syncData();
+                this.syncData();
             }
 
             // الاستماع لأمر المزامنة الخلفية القادم من الـ Service Worker عند عودة الاتصال
