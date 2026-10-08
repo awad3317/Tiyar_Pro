@@ -1,11 +1,12 @@
-const CACHE_NAME = 'mursal-pwa-v4';
+const CACHE_NAME = 'mursal-pwa-v5';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
     '/office/parcels',
     '/manifest.json',
+    '/js/tailwind.js',
+    '/js/mursal-core.js',
     'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap',
-    'https://cdn.tailwindcss.com',
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js'
 ];
 

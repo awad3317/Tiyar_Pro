@@ -5,7 +5,7 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 4; // ترقية لدعم الجداول العامة
+    const DB_VERSION = 5; // ترقية لدعم الجداول العامة
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
@@ -92,11 +92,14 @@
     /* ------------------------------------------------------------------
      | 2. طابور المزامنة العام (Generic Sync Queue)
      * ----------------------------------------------------------------*/
+   /* ------------------------------------------------------------------
+     | 2. طابور المزامنة العام (Generic Sync Queue)
+     * ----------------------------------------------------------------*/
     const MursalSync = {
         isSyncing: false,
 
         get csrfToken() {
-            return document.querySelector('meta[name="csrf-token"]')?.content;
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         },
 
         // تسجيل عملية لأي موديول في الطابور
@@ -109,13 +112,11 @@
             };
             await MursalDB.put(STORES.queue, entry);
 
-            // إشعار الـ Service Worker
+            // إشعار الـ Service Worker إن وجد
             if ('serviceWorker' in navigator && 'SyncManager' in window) {
                 navigator.serviceWorker.ready.then((reg) => reg.sync.register('sync-parcels-queue')).catch(() => {});
             }
 
-            // محاولة المزامنة الفورية إذا كان الاتصال متوفراً
-            this.process();
             return entry;
         },
 
@@ -128,36 +129,41 @@
 
             this.isSyncing = true;
 
-            for (const item of queue) {
-                try {
-                    const res = await fetch(item.endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': this.csrfToken
-                        },
-                        body: JSON.stringify(item.payload)
-                    });
+            try {
+                for (const item of queue) {
+                    try {
+                        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                        const res = await fetch(item.endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token || ''
+                            },
+                            body: JSON.stringify(item.payload)
+                        });
 
-                    if (res.status === 401 || res.status === 419) {
-                        this.isSyncing = false;
-                        if (typeof onSessionExpired === 'function') onSessionExpired();
-                        return; // توقف حتى يتم تسجيل الدخول
-                    }
+                        if (res.status === 401 || res.status === 419) {
+                            if (typeof onSessionExpired === 'function') onSessionExpired();
+                            return;
+                        }
 
-                    if (res.ok) {
-                        await MursalDB.delete(STORES.queue, item.seq);
+                        if (res.ok) {
+                            await MursalDB.delete(STORES.queue, item.seq);
+                        } else {
+                            console.error('خطأ مزامنة السيرفر:', await res.json().catch(() => ({})));
+                            break;
+                        }
+                    } catch (err) {
+                        console.warn('Network sync paused:', err);
+                        break;
                     }
-                } catch (err) {
-                    console.warn('Network sync paused:', err);
-                    break; // توقف عند انقطاع الاتصال
                 }
+            } finally {
+                this.isSyncing = false;
             }
-            this.isSyncing = false;
         }
     };
-
     /* ------------------------------------------------------------------
      | 3. الحالة الأساسية المشتركة لواجهات المكتب (officeShell)
      * ----------------------------------------------------------------*/
@@ -165,16 +171,24 @@
         return {
             isOnline: navigator.onLine,
             authRequired: false,
+            syncQueue: [], // 👈 إضافة هذا المتغير ليكون متاحاً في الهيدر بكل الصفحات
             authModal: {
                 open: false,
             },
 
-            init() {
+            async init() {
+                // فتح قاعدة البيانات أولاً
+                if (window.MursalDB) {
+                    await window.MursalDB.open();
+                    // قراءة حالة الطابور فور فتح أي صفحة
+                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                }
+
                 this.watchConnection(() => this.syncData());
 
                 // استقبال إشعار المزامنة التلقائية من الـ Service Worker
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.addEventListener('message', (event) => {
+                    navigator.serviceWorker.addEventListener('message', async (event) => {
                         if (event.data?.type === 'TRIGGER_SYNC') {
                             this.syncData();
                         }
@@ -192,9 +206,12 @@
                 });
             },
 
-            syncData() {
-                // يعاد تعريفها داخل كل موديول (مثل parcelApp)، وهنا كحل افتراضي
-                window.location.reload();
+            async syncData() {
+                // مزامنة الطابور وتحديث العداد في أي صفحة
+                if (window.MursalSync && window.MursalDB) {
+                    await window.MursalSync.process(() => this.handleSessionExpired());
+                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                }
             },
 
             handleSessionExpired() {

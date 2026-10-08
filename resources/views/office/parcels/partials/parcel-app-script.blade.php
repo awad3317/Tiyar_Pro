@@ -193,20 +193,26 @@
         },
 
         async syncData() {
-            if (this.authRequired) return;
+            if (this.authRequired || this.isSyncing) return;
 
             this.isSyncing = true;
             try {
-                // مزامنة كافة العمليات المعلقة عبر المحرك الموحد
+                // مزامنة الطابور
                 await window.MursalSync.process(() => this.handleSessionExpired());
+
+                // قراءة الطابور بعد التفريغ مباشرة
                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
 
-                // جلب أحدث قائمة من السيرفر
+                // تحديث القائمة من السيرفر
                 if (this.isOnline && !this.authRequired) {
                     await this.refreshFromServer();
                 }
+            } catch (e) {
+                console.warn('Sync failed:', e);
             } finally {
                 this.isSyncing = false;
+                // تأكيد تحديث الطابور بعد كل العمليات
+                this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
             }
         },
 
@@ -255,23 +261,28 @@
         async executeStatusChange(parcel, status) {
             const delivered_at = status === 'delivered' ? new Date().toISOString() : null;
 
-            // 1. تحديث الواجهة التفاعلية فوراً (Optimistic UI)
+            // 1. تحديث تفاؤلي فوري في الذاكرة
             Object.assign(parcel, { status, delivered_at });
 
-            // 2. تحديث السجل في IndexedDB
+            // 2. تحديث التخزين المحلي للطرود
             try {
                 await window.MursalDB.put(window.MURSAL_STORES.parcels, parcel);
             } catch (error) {
                 console.warn('IndexedDB write error:', error);
             }
 
-            // 3. إضافة العملية إلى طابور المزامنة العام
+            // 3. إضافة الحركة لطابور المزامنة
             await window.MursalSync.enqueue(ROUTES.sync, {
                 updates: [{ id: parcel.id, status, delivered_at }]
             });
 
-            // 4. تحديث مؤشر الطابور في الواجهة
+            // 4. قراءة حالة الطابور الحالية
             this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+
+            // 5. إذا كان النت متاحاً، ابدأ المزامنة مباشرة وانتظر اكتمالها
+            if (this.isOnline) {
+                await this.syncData();
+            }
         },
 
         isPending(id) {
