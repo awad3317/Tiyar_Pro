@@ -50,6 +50,8 @@
         @yield('content')
 
         @include('office.layouts.bottom-nav')
+
+        @include('office.layouts.partials.auth-expired-modal')
     </div>
 
     <script>
@@ -61,29 +63,43 @@
          * الحالة الأساسية المشتركة لكل صفحات المكتب (حالة الاتصال + زر المزامنة في الهيدر).
          * يمكن لأي صفحة توسيعها عبر: return { ...officeShell(), ... }
          */
-        function officeShell() {
-            return {
-                isOnline: navigator.onLine,
+        /**
+ * الحالة الأساسية المشتركة لكل صفحات المكتب (حالة الاتصال + المودال العام).
+ */
+function officeShell() {
+    return {
+        isOnline: navigator.onLine,
+        authRequired: false,
+        authModal: {
+            open: false,
+        },
 
-                init() {
-                    this.watchConnection();
-                },
+        init() {
+            this.watchConnection();
+        },
 
-                watchConnection(onReconnect = () => {}) {
-                    window.addEventListener('online', () => {
-                        this.isOnline = true;
-                        onReconnect();
-                    });
-                    window.addEventListener('offline', () => {
-                        this.isOnline = false;
-                    });
-                },
+        watchConnection(onReconnect = () => {}) {
+            window.addEventListener('online', () => {
+                this.isOnline = true;
+                onReconnect();
+            });
+            window.addEventListener('offline', () => {
+                this.isOnline = false;
+            });
+        },
 
-                syncData() {
-                    window.location.reload();
-                },
-            };
-        }
+        syncData() {
+            window.location.reload();
+        },
+
+        handleSessionExpired() {
+            this.authRequired = true;
+            if (this.isSyncing !== undefined) this.isSyncing = false;
+            this.authModal.open = true;
+        },
+    };
+}
+window.officeShell = officeShell;
     </script>
 
     @stack('scripts')

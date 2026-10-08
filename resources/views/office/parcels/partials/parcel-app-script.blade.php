@@ -230,19 +230,6 @@
             }
         },
 
-        // التعامل مع انتهاء جلسة تسجيل الدخول
-        handleSessionExpired() {
-            this.authRequired = true;
-            this.isSyncing = false;
-            console.warn('انتهت الجلسة. البيانات محفوظة محلياً في IndexedDB.');
-            
-            // إشعار فوري وتوجيه منظم لصفحة الدخول دون فقدان الطابور
-            const confirmLogin = confirm('انتهت جلسة تسجيل الدخول. تم حفظ جميع التعديلات في جهازك، هل تود الانتقال لتسجيل الدخول الآن؟');
-            if (confirmLogin) {
-                window.location.href = ROUTES.login;
-            }
-        },
-
         // ---------- إدارة مودال الإرجاع ----------
 
         openReturnModal(parcel) {
