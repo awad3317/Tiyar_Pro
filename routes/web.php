@@ -26,6 +26,8 @@ Route::prefix('whatsapp-portal')->name('whatsapp.')->group(function () {
 });
 
 
+Route::get('/login', fn () => redirect()->route('office.login'))->name('login');
+
 Route::prefix('office')->name('office.')->group(function () {
     
     // مسارات الزوار (غير المسجلين)
@@ -40,10 +42,9 @@ Route::prefix('office')->name('office.')->group(function () {
         
         // لوحة التحكم وتطبيق الطرود الرئيسي
         Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
-        
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-        // 👈 2. مسارات الـ API الخاصة بالمزامنة وقراءة البيانات للـ PWA بدون نت
+        // مسارات الـ API الخاصة بالمزامنة وقراءة البيانات للـ PWA بدون نت
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/parcels', [ParcelController::class, 'getParcelsData'])->name('parcels');
             Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');

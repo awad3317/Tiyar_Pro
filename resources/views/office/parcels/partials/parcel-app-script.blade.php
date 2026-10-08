@@ -6,6 +6,7 @@
     const ROUTES = {
         list: @json(route('office.api.parcels')),
         sync: @json(route('office.api.parcels.sync')),
+        login: @json(route('office.login')),
         resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
     };
 
@@ -72,8 +73,7 @@
                         db.createObjectStore(STORES.parcels, { keyPath: 'id' });
                     }
 
-                    // النسخة 3: الطابور يحفظ كل تعديل بالترتيب (seq) بدلاً من آخر تعديل لكل طرد،
-                    // حتى تمر الانتقالات المتتالية (تسليم → مكتب → إرجاع) على السيرفر بنفس الترتيب
+                    // النسخة 3: الطابور يحفظ كل تعديل بالترتيب (seq) بدلاً من آخر تعديل لكل طرد
                     if (event.oldVersion < 3 && db.objectStoreNames.contains(STORES.queue)) {
                         db.deleteObjectStore(STORES.queue);
                     }
@@ -130,10 +130,17 @@
      | التواصل مع السيرفر
      * ----------------------------------------------------------------*/
     const Api = {
-        csrfToken: document.querySelector('meta[name="csrf-token"]')?.content,
+        get csrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.content;
+        },
 
         async fetchParcels() {
             const res = await fetch(ROUTES.list, { headers: { Accept: 'application/json' } });
+            if (res.status === 401 || res.status === 419) {
+                const err = new Error('AUTH_EXPIRED');
+                err.status = res.status;
+                throw err;
+            }
             if (!res.ok) throw new Error(`Fetch parcels failed (${res.status})`);
             return res.json();
         },
@@ -155,7 +162,7 @@
             return data;
         },
 
-        /** @returns {Promise<{count: number, rejected: string[]}>} */
+        /** إرسال التحديثات مع رصد انتهاء الجلسة */
         async sendUpdates(updates) {
             const res = await fetch(ROUTES.sync, {
                 method: 'POST',
@@ -166,6 +173,14 @@
                 },
                 body: JSON.stringify({ updates: plain(updates) }),
             });
+
+            // رصد صريح لانتهاء الجلسة أو تعارض توكن CSRF
+            if (res.status === 401 || res.status === 419) {
+                const err = new Error('AUTH_EXPIRED');
+                err.status = res.status;
+                throw err;
+            }
+
             if (!res.ok) throw new Error(`Sync failed (${res.status})`);
             return res.json();
         },
@@ -183,6 +198,7 @@
         filter: 'all',
         filters: FILTERS,
         isSyncing: false,
+        authRequired: false, // تنبيه عند الحاجة لإعادة الدخول
 
         // تتبع حالة إعادة إرسال رسائل SMS
         sendingSmsId: null,
@@ -211,6 +227,19 @@
                         this.syncData();
                     }
                 });
+            }
+        },
+
+        // التعامل مع انتهاء جلسة تسجيل الدخول
+        handleSessionExpired() {
+            this.authRequired = true;
+            this.isSyncing = false;
+            console.warn('انتهت الجلسة. البيانات محفوظة محلياً في IndexedDB.');
+            
+            // إشعار فوري وتوجيه منظم لصفحة الدخول دون فقدان الطابور
+            const confirmLogin = confirm('انتهت جلسة تسجيل الدخول. تم حفظ جميع التعديلات في جهازك، هل تود الانتقال لتسجيل الدخول الآن؟');
+            if (confirmLogin) {
+                window.location.href = ROUTES.login;
             }
         },
 
@@ -264,7 +293,6 @@
 
         // ---------- البيانات ----------
 
-        /** ترتيب الطرود بحيث يظهر آخر طرد أضيف أولاً (تنازلياً) */
         sortParcels(list) {
             return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         },
@@ -278,38 +306,39 @@
             this.syncQueue = queue;
         },
 
-        /** يرسل التعديلات المعلقة أولاً ثم يجلب أحدث البيانات من السيرفر */
         async syncData() {
+            if (this.authRequired) return;
+
             await this.processSyncQueue();
-            if (this.isOnline) {
+            if (this.isOnline && !this.authRequired) {
                 await this.refreshFromServer();
             }
         },
 
-        /** دمج أحدث الطرود من السيرفر مع التعديلات المحلية المعلقة وتحديث الذاكرة */
         async refreshFromServer() {
             try {
                 const serverParcels = await Api.fetchParcels();
                 const pendingMap = new Map(this.syncQueue.map((item) => [item.id, item]));
 
-                // دمج التعديلات المعلقة محلياً مع بيانات السيرفر
                 const merged = serverParcels.map((p) => {
                     const local = pendingMap.get(p.id);
                     return local ? { ...p, status: local.status, delivered_at: local.delivered_at } : p;
                 });
 
-                // تخزين أحدث الطرود محلياً وفرزها من الأحدث للأقدم
                 await LocalStore.clear(STORES.parcels);
                 await LocalStore.putMany(STORES.parcels, merged);
                 this.parcels = this.sortParcels(merged);
             } catch (error) {
+                if (error.message === 'AUTH_EXPIRED') {
+                    this.handleSessionExpired();
+                    return;
+                }
                 console.info('تعذر جلب البيانات من السيرفر، يتم الاعتماد على البيانات المحلية.', error);
             }
         },
 
         // ---------- تغيير الحالة والمزامنة ----------
 
-        /** طلب تغيير الحالة (إذا كانت مرتجع نفتح المودال، وإلا ننفذ فوراً) */
         async changeStatus(parcel, status) {
             if (!this.canTransition(parcel, status)) return;
 
@@ -321,7 +350,6 @@
             await this.executeStatusChange(parcel, status);
         },
 
-        /** تطبيق التغيير فعلياً على الواجهة وقاعدة البيانات المحلية وطابور المزامنة */
         async executeStatusChange(parcel, status) {
             const update = {
                 seq: nextSeq(),
@@ -340,7 +368,6 @@
 
             await this.enqueue(update);
 
-            // تسجيل المزامنة الخلفية مع نظام التشغيل (Service Worker SyncManager) كخدمة خلفية
             if ('serviceWorker' in navigator && 'SyncManager' in window) {
                 navigator.serviceWorker.ready.then((reg) => {
                     return reg.sync.register('sync-parcels-queue');
@@ -361,7 +388,7 @@
         },
 
         async processSyncQueue() {
-            if (this.isSyncing || !this.isOnline || this.syncQueue.length === 0) return;
+            if (this.isSyncing || !this.isOnline || this.syncQueue.length === 0 || this.authRequired) return;
 
             this.isSyncing = true;
             const batch = plain(this.syncQueue);
@@ -371,29 +398,31 @@
             try {
                 result = await Api.sendUpdates(batch);
 
-                // نحذف فقط ما أُرسل فعلاً؛ أي تعديل أُضيف أثناء الإرسال يبقى في الطابور
                 await LocalStore.deleteMany(STORES.queue, [...sentSeqs]);
                 this.syncQueue = this.syncQueue.filter((item) => !sentSeqs.has(item.seq));
             } catch (error) {
-                console.warn('تعذرت المزامنة حالياً، ستتم المحاولة لاحقاً.', error);
+                if (error.message === 'AUTH_EXPIRED') {
+                    // إيقاف المحاولات فوراً مع ترك البيانات داخل IndexedDB
+                    this.handleSessionExpired();
+                    return;
+                }
+                console.warn('تعذرت المزامنة حالياً (خطأ شبكة/خادم)، ستتم المحاولة لاحقاً.', error);
             } finally {
                 this.isSyncing = false;
             }
 
             if (!result) return;
 
-            // السيرفر رفض انتقالاً (مثلاً تعارض مع جهاز آخر) → نعيد الحالة الصحيحة من السيرفر
             if (result.rejected?.length) {
                 console.warn('رفض السيرفر بعض التعديلات:', result.rejected);
                 await this.refreshFromServer();
             }
 
-            if (this.syncQueue.length > 0) {
+            if (this.syncQueue.length > 0 && !this.authRequired) {
                 await this.processSyncQueue();
             }
         },
 
-        /** فحص هل الطرد يحتوي على تعديلات غير متزامنة مع السيرفر */
         isPending(id) {
             return this.syncQueue.some((item) => item.id === id);
         },
@@ -403,6 +432,7 @@
         canTransition(parcel, status) {
             return (TRANSITIONS[parcel.status] || []).includes(status);
         },
+
         timeAgo(dateStr) {
             if (!dateStr) return '';
             const date = new Date(dateStr);
@@ -426,7 +456,6 @@
             return `منذ ${diffDays} يوم`;
         },
 
-        /** الإجراءات المتاحة للطرد حسب حالته الحالية */
         actionsFor(parcel) {
             return (TRANSITIONS[parcel.status] || [])
                 .filter((status) => ACTIONS[status])
