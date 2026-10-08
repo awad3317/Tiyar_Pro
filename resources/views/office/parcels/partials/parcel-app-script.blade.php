@@ -1,7 +1,7 @@
 <script>
 (() => {
     /* ------------------------------------------------------------------
-     | الإعدادات
+     | 1. الإعدادات والمسارات الخاصة بموديول الطرود
      * ----------------------------------------------------------------*/
     const ROUTES = {
         list: @json(route('office.api.parcels')),
@@ -10,7 +10,7 @@
         resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
     };
 
-    // مصدرها الوحيد App\Enums\ParcelStatus — أي تعديل على القواعد يتم هناك فقط
+    // القواعد مستوردة من الباك إند مباشرة
     const STATUS_LABELS = @json(\App\Enums\ParcelStatus::labels());
     const TRANSITIONS   = @json(\App\Enums\ParcelStatus::transitionMap());
 
@@ -20,7 +20,6 @@
         returned:  'bg-rose-100 text-rose-800',
     };
 
-    // أزرار الإجراءات مفهرسة بالحالة الهدف
     const ACTIONS = {
         delivered: {
             label: () => 'تسليم',
@@ -44,92 +43,12 @@
         ...Object.entries(STATUS_LABELS).map(([key, label]) => ({ key, label })),
     ];
 
-    const DB_NAME = 'MursalDB';
-    const DB_VERSION = 3;
-    const STORES = { parcels: 'parcels', queue: 'syncQueue' };
-
     const dateFormatter = new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 
-    // يحوّل كائنات Alpine التفاعلية (Proxy) إلى كائنات عادية قابلة للتخزين في IndexedDB
-    const plain = (value) => JSON.parse(JSON.stringify(value));
-
-    // مفتاح تصاعدي يحفظ ترتيب التعديلات داخل الطابور
-    const nextSeq = () => performance.timeOrigin + performance.now();
-
     /* ------------------------------------------------------------------
-     | التخزين المحلي (IndexedDB) بواجهة Promise بسيطة
+     | 2. طلبات الشبكة المباشرة الخاصة بالطرود
      * ----------------------------------------------------------------*/
-    const LocalStore = {
-        db: null,
-
-        open() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(DB_NAME, DB_VERSION);
-
-                req.onupgradeneeded = (event) => {
-                    const db = req.result;
-
-                    if (!db.objectStoreNames.contains(STORES.parcels)) {
-                        db.createObjectStore(STORES.parcels, { keyPath: 'id' });
-                    }
-
-                    // النسخة 3: الطابور يحفظ كل تعديل بالترتيب (seq) بدلاً من آخر تعديل لكل طرد
-                    if (event.oldVersion < 3 && db.objectStoreNames.contains(STORES.queue)) {
-                        db.deleteObjectStore(STORES.queue);
-                    }
-                    if (!db.objectStoreNames.contains(STORES.queue)) {
-                        db.createObjectStore(STORES.queue, { keyPath: 'seq' });
-                    }
-                };
-
-                req.onsuccess = () => {
-                    this.db = req.result;
-                    resolve(this);
-                };
-                req.onerror = () => reject(req.error);
-            });
-        },
-
-        transaction(storeName, mode, work) {
-            return new Promise((resolve, reject) => {
-                const tx = this.db.transaction(storeName, mode);
-                const request = work(tx.objectStore(storeName));
-
-                tx.oncomplete = () => resolve(request?.result);
-                tx.onerror = () => reject(tx.error);
-                tx.onabort = () => reject(tx.error);
-            });
-        },
-
-        async getAll(storeName) {
-            return (await this.transaction(storeName, 'readonly', (store) => store.getAll())) || [];
-        },
-
-        put(storeName, value) {
-            return this.putMany(storeName, [value]);
-        },
-
-        putMany(storeName, values) {
-            return this.transaction(storeName, 'readwrite', (store) => {
-                values.forEach((value) => store.put(plain(value)));
-            });
-        },
-
-        deleteMany(storeName, keys) {
-            return this.transaction(storeName, 'readwrite', (store) => {
-                keys.forEach((key) => store.delete(key));
-            });
-        },
-
-        clear(storeName) {
-            return this.transaction(storeName, 'readwrite', (store) => store.clear());
-        },
-    };
-
-    /* ------------------------------------------------------------------
-     | التواصل مع السيرفر
-     * ----------------------------------------------------------------*/
-    const Api = {
+    const ParcelApi = {
         get csrfToken() {
             return document.querySelector('meta[name="csrf-token"]')?.content;
         },
@@ -145,7 +64,6 @@
             return res.json();
         },
 
-        /** إرسال طلب إعادة إرسال SMS للمستلم عبر السيرفر */
         async resendSms(parcelId) {
             const res = await fetch(ROUTES.resendSms(parcelId), {
                 method: 'POST',
@@ -161,33 +79,10 @@
             }
             return data;
         },
-
-        /** إرسال التحديثات مع رصد انتهاء الجلسة */
-        async sendUpdates(updates) {
-            const res = await fetch(ROUTES.sync, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': this.csrfToken,
-                },
-                body: JSON.stringify({ updates: plain(updates) }),
-            });
-
-            // رصد صريح لانتهاء الجلسة أو تعارض توكن CSRF
-            if (res.status === 401 || res.status === 419) {
-                const err = new Error('AUTH_EXPIRED');
-                err.status = res.status;
-                throw err;
-            }
-
-            if (!res.ok) throw new Error(`Sync failed (${res.status})`);
-            return res.json();
-        },
     };
 
     /* ------------------------------------------------------------------
-     | مكوّن Alpine لصفحة الطرود
+     | 3. مكوّن Alpine لصفحة الطرود
      * ----------------------------------------------------------------*/
     window.parcelApp = () => ({
         ...officeShell(),
@@ -198,29 +93,33 @@
         filter: 'all',
         filters: FILTERS,
         isSyncing: false,
-        authRequired: false, // تنبيه عند الحاجة لإعادة الدخول
 
-        // تتبع حالة إعادة إرسال رسائل SMS
+        // تتبع حالة رسائل SMS
         sendingSmsId: null,
         smsFeedback: { show: false, message: '', isError: false },
 
-        // حالة مودال تأكيد الإرجاع
+        // مودال تأكيد الإرجاع
         returnModal: {
             open: false,
             parcel: null,
         },
 
         async init() {
+            // 1. فتح قاعدة البيانات الموحدة بإصدارها الأحدث
+            await window.MursalDB.open();
+
+            // 2. مراقبة الاتصال وبدء المزامنة فور عودة الشبكة
             this.watchConnection(() => this.syncData());
 
-            await LocalStore.open();
+            // 3. تحميل البيانات المخزنة محلياً للعرض الفوري
             await this.loadLocal();
 
+            // 4. مزامنة البيانات وتحديث القائمة في حال توفر اتصال
             if (this.isOnline) {
                 this.syncData();
             }
 
-            // الاستماع لأمر المزامنة الخلفية القادم من الـ Service Worker عند عودة الاتصال
+            // 5. الاستماع لأمر الـ Service Worker للمزامنة بالخلفية
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.addEventListener('message', (event) => {
                     if (event.data?.type === 'TRIGGER_SYNC') {
@@ -250,7 +149,7 @@
             await this.executeStatusChange(parcel, 'returned');
         },
 
-        // ---------- إرسال رسائل SMS المستقلة ----------
+        // ---------- إرسال رسائل SMS ----------
 
         showFeedback(message, isError = false) {
             this.smsFeedback = { show: true, message, isError };
@@ -269,7 +168,7 @@
 
             this.sendingSmsId = parcel.id;
             try {
-                const response = await Api.resendSms(parcel.id);
+                const response = await ParcelApi.resendSms(parcel.id);
                 this.showFeedback(response.message || 'تم إرسال رسالة SMS بنجاح!', false);
             } catch (err) {
                 this.showFeedback(err.message || 'تعذر إرسال رسالة SMS.', true);
@@ -278,7 +177,7 @@
             }
         },
 
-        // ---------- البيانات ----------
+        // ---------- تحميل ومزامنة البيانات ----------
 
         sortParcels(list) {
             return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
@@ -286,8 +185,8 @@
 
         async loadLocal() {
             const [localParcels, queue] = await Promise.all([
-                LocalStore.getAll(STORES.parcels),
-                LocalStore.getAll(STORES.queue),
+                window.MursalDB.getAll(window.MURSAL_STORES.parcels),
+                window.MursalDB.getAll(window.MURSAL_STORES.queue),
             ]);
             this.parcels = this.sortParcels(localParcels);
             this.syncQueue = queue;
@@ -296,35 +195,51 @@
         async syncData() {
             if (this.authRequired) return;
 
-            await this.processSyncQueue();
-            if (this.isOnline && !this.authRequired) {
-                await this.refreshFromServer();
+            this.isSyncing = true;
+            try {
+                // مزامنة كافة العمليات المعلقة عبر المحرك الموحد
+                await window.MursalSync.process(() => this.handleSessionExpired());
+                this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+
+                // جلب أحدث قائمة من السيرفر
+                if (this.isOnline && !this.authRequired) {
+                    await this.refreshFromServer();
+                }
+            } finally {
+                this.isSyncing = false;
             }
         },
 
         async refreshFromServer() {
             try {
-                const serverParcels = await Api.fetchParcels();
-                const pendingMap = new Map(this.syncQueue.map((item) => [item.id, item]));
+                const serverParcels = await ParcelApi.fetchParcels();
+                const pendingUpdates = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                
+                // دمج التعديلات المعلقة محلياً مع بيانات السيرفر لضمان عدم اختفاء التعديلات
+                const pendingMap = new Map();
+                pendingUpdates.forEach((item) => {
+                    const updates = item.payload?.updates || [];
+                    updates.forEach((u) => pendingMap.set(u.id, u));
+                });
 
                 const merged = serverParcels.map((p) => {
                     const local = pendingMap.get(p.id);
                     return local ? { ...p, status: local.status, delivered_at: local.delivered_at } : p;
                 });
 
-                await LocalStore.clear(STORES.parcels);
-                await LocalStore.putMany(STORES.parcels, merged);
+                await window.MursalDB.clear(window.MURSAL_STORES.parcels);
+                await window.MursalDB.putMany(window.MURSAL_STORES.parcels, merged);
                 this.parcels = this.sortParcels(merged);
             } catch (error) {
                 if (error.message === 'AUTH_EXPIRED') {
                     this.handleSessionExpired();
                     return;
                 }
-                console.info('تعذر جلب البيانات من السيرفر، يتم الاعتماد على البيانات المحلية.', error);
+                console.info('تعذر جلب البيانات من السيرفر، يتم الاعتماد على البيانات المحلية.');
             }
         },
 
-        // ---------- تغيير الحالة والمزامنة ----------
+        // ---------- تعديل الحالة والمزامنة ----------
 
         async changeStatus(parcel, status) {
             if (!this.canTransition(parcel, status)) return;
@@ -338,83 +253,35 @@
         },
 
         async executeStatusChange(parcel, status) {
-            const update = {
-                seq: nextSeq(),
-                id: parcel.id,
-                status,
-                delivered_at: status === 'delivered' ? new Date().toISOString() : null,
-            };
+            const delivered_at = status === 'delivered' ? new Date().toISOString() : null;
 
-            Object.assign(parcel, { status: update.status, delivered_at: update.delivered_at });
+            // 1. تحديث الواجهة التفاعلية فوراً (Optimistic UI)
+            Object.assign(parcel, { status, delivered_at });
 
+            // 2. تحديث السجل في IndexedDB
             try {
-                await LocalStore.put(STORES.parcels, parcel);
+                await window.MursalDB.put(window.MURSAL_STORES.parcels, parcel);
             } catch (error) {
                 console.warn('IndexedDB write error:', error);
             }
 
-            await this.enqueue(update);
+            // 3. إضافة العملية إلى طابور المزامنة العام
+            await window.MursalSync.enqueue(ROUTES.sync, {
+                updates: [{ id: parcel.id, status, delivered_at }]
+            });
 
-            if ('serviceWorker' in navigator && 'SyncManager' in window) {
-                navigator.serviceWorker.ready.then((reg) => {
-                    return reg.sync.register('sync-parcels-queue');
-                }).catch(() => {});
-            }
-
-            await this.processSyncQueue();
-        },
-
-        async enqueue(update) {
-            this.syncQueue.push(update);
-
-            try {
-                await LocalStore.put(STORES.queue, update);
-            } catch (error) {
-                console.warn('IndexedDB queue write error:', error);
-            }
-        },
-
-        async processSyncQueue() {
-            if (this.isSyncing || !this.isOnline || this.syncQueue.length === 0 || this.authRequired) return;
-
-            this.isSyncing = true;
-            const batch = plain(this.syncQueue);
-            const sentSeqs = new Set(batch.map((item) => item.seq));
-            let result = null;
-
-            try {
-                result = await Api.sendUpdates(batch);
-
-                await LocalStore.deleteMany(STORES.queue, [...sentSeqs]);
-                this.syncQueue = this.syncQueue.filter((item) => !sentSeqs.has(item.seq));
-            } catch (error) {
-                if (error.message === 'AUTH_EXPIRED') {
-                    // إيقاف المحاولات فوراً مع ترك البيانات داخل IndexedDB
-                    this.handleSessionExpired();
-                    return;
-                }
-                console.warn('تعذرت المزامنة حالياً (خطأ شبكة/خادم)، ستتم المحاولة لاحقاً.', error);
-            } finally {
-                this.isSyncing = false;
-            }
-
-            if (!result) return;
-
-            if (result.rejected?.length) {
-                console.warn('رفض السيرفر بعض التعديلات:', result.rejected);
-                await this.refreshFromServer();
-            }
-
-            if (this.syncQueue.length > 0 && !this.authRequired) {
-                await this.processSyncQueue();
-            }
+            // 4. تحديث مؤشر الطابور في الواجهة
+            this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
         },
 
         isPending(id) {
-            return this.syncQueue.some((item) => item.id === id);
+            return this.syncQueue.some((item) => {
+                const updates = item.payload?.updates || [];
+                return updates.some((u) => u.id === id);
+            });
         },
 
-        // ---------- قواعد الحالة ----------
+        // ---------- القواعد والمساعدات ----------
 
         canTransition(parcel, status) {
             return (TRANSITIONS[parcel.status] || []).includes(status);
@@ -427,19 +294,15 @@
             const diffSec = Math.floor((now - date) / 1000);
 
             if (diffSec < 60) return 'الآن';
-            
             const diffMin = Math.floor(diffSec / 60);
             if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
-            
             const diffHours = Math.floor(diffMin / 60);
             if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-            
             const diffDays = Math.floor(diffHours / 24);
             if (diffDays === 1) return 'منذ يوم';
             if (diffDays === 2) return 'منذ يومين';
             if (diffDays >= 3 && diffDays <= 10) return `منذ ${diffDays} أيام`;
             if (diffDays > 10) return `منذ ${diffDays} يوماً`;
-    
             return `منذ ${diffDays} يوم`;
         },
 
@@ -453,8 +316,6 @@
                     classes: ACTIONS[status].classes,
                 }));
         },
-
-        // ---------- العرض ----------
 
         statusLabel(status) {
             return STATUS_LABELS[status] ?? status;

@@ -6,16 +6,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'بوابة المكاتب') - مُرسَل</title>
 
-    <!-- إعدادات PWA وشريط الحالة -->
     <meta name="theme-color" content="#041627">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 
-    <!-- ملاحظة: روابط الخطوط والمكتبات مطابقة لما يخزّنه sw.js لضمان العمل بدون اتصال -->
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('js/mursal-core.js') }}"></script>
 
     <script>
         tailwind.config = {
@@ -58,50 +56,11 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
         }
-
-        /**
-         * الحالة الأساسية المشتركة لكل صفحات المكتب (حالة الاتصال + زر المزامنة في الهيدر).
-         * يمكن لأي صفحة توسيعها عبر: return { ...officeShell(), ... }
-         */
-        /**
- * الحالة الأساسية المشتركة لكل صفحات المكتب (حالة الاتصال + المودال العام).
- */
-function officeShell() {
-    return {
-        isOnline: navigator.onLine,
-        authRequired: false,
-        authModal: {
-            open: false,
-        },
-
-        init() {
-            this.watchConnection();
-        },
-
-        watchConnection(onReconnect = () => {}) {
-            window.addEventListener('online', () => {
-                this.isOnline = true;
-                onReconnect();
-            });
-            window.addEventListener('offline', () => {
-                this.isOnline = false;
-            });
-        },
-
-        syncData() {
-            window.location.reload();
-        },
-
-        handleSessionExpired() {
-            this.authRequired = true;
-            if (this.isSyncing !== undefined) this.isSyncing = false;
-            this.authModal.open = true;
-        },
-    };
-}
-window.officeShell = officeShell;
     </script>
 
     @stack('scripts')
+
+    <!-- Alpine.js في الأخير لضمان جاهزية المكونات -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </body>
 </html>
