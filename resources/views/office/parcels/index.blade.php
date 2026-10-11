@@ -34,8 +34,14 @@
         </div>
     </main>
 
-    <!-- مودال تأكيد الإرجاع -->
+    <!-- مودال تأكيد الإرجاع للمكتب المرسل -->
     @include('office.parcels.partials.return-confirm-modal')
+
+    <!-- مودال تأكيد إلغاء التسليم وإرجاع الطرد للمكتب الحالي -->
+    @include('office.parcels.partials.undo-delivery-modal')
+
+    <!-- مودال تأكيد التسليم -->
+    @include('office.parcels.partials.delivery-confirm-modal')
 
     <!-- إشعار حالة إرسال الـ SMS -->
     <div x-show="smsFeedback.show"
