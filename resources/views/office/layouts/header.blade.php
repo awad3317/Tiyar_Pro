@@ -33,12 +33,18 @@
             </button>
 
             <!-- زر تسجيل الخروج المباشر -->
-            <form method="POST" action="{{ route('office.logout') }}" class="m-0">
+            <form method="POST" 
+                  action="{{ route('office.logout') }}" 
+                  class="m-0"
+                  x-data="{ isLoggingOut: false }"
+                  @submit="isLoggingOut = true">
                 @csrf
                 <button type="submit" 
+                        :disabled="isLoggingOut"
                         title="تسجيل الخروج"
-                        class="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 flex items-center justify-center text-rose-400 transition-colors">
-                    <span class="material-symbols-outlined text-[19px]">logout</span>
+                        class="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 flex items-center justify-center text-rose-400 transition-colors disabled:opacity-75">
+                    <span x-show="!isLoggingOut" class="material-symbols-outlined text-[19px]">logout</span>
+                    <span x-show="isLoggingOut" x-cloak class="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
                 </button>
             </form>
         </div>
