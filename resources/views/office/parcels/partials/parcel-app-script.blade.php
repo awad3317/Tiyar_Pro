@@ -112,6 +112,22 @@
             filters: FILTERS,
             isSyncing: false,
 
+            normalizeText(str) {
+                if (!str) return '';
+                const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                let normalized = String(str)
+                    .replace(/[٠-٩]/g, d => arabicDigits.indexOf(d))
+                    .replace(/[۰-۹]/g, d => persianDigits.indexOf(d))
+                    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+                return normalized;
+            },
+
+            get detectedParcelsCount() {
+                const text = this.normalizeText(this.quickSms?.rawText || '');
+                return (text.match(/(7[01378]\d{7})/g) || []).length;
+            },
+
             // تتبع حالة رسائل SMS
             sendingSmsId: null,
 

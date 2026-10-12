@@ -250,6 +250,17 @@
                 }
             },
 
+            normalizeText(str) {
+                if (!str) return '';
+                const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                let normalized = String(str)
+                    .replace(/[٠-٩]/g, d => arabicDigits.indexOf(d))
+                    .replace(/[۰-۹]/g, d => persianDigits.indexOf(d))
+                    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+                return normalized;
+            },
+
             cleanDescription(raw) {
                 if (!raw) return 'طرد';
                 let cleaned = raw
@@ -261,32 +272,24 @@
                 return cleaned || 'طرد';
             },
 
-            getPhoneMatches(text) {
-                if (!text) return [];
-                const regex = /(?:^|\s|[^\d])(7[01378]\d{7})(?!\d)/g;
-                const matches = [];
-                let match;
-                while ((match = regex.exec(text)) !== null) {
-                    const fullMatch = match[0];
-                    const phone = match[1];
-                    const phoneStart = match.index + (fullMatch.length - phone.length);
-                    const phoneEnd = phoneStart + phone.length;
-                    matches.push({
-                        phone,
-                        start: phoneStart,
-                        end: phoneEnd,
-                    });
-                }
-                return matches;
-            },
-
             get detectedParcelsCount() {
-                return this.getPhoneMatches(this.quickSms.rawText).length;
+                const text = this.normalizeText(this.quickSms?.rawText || '');
+                return (text.match(/(7[01378]\d{7})/g) || []).length;
             },
 
             parseQuickList() {
-                const text = this.quickSms.rawText || '';
-                const matches = this.getPhoneMatches(text);
+                const raw = this.normalizeText(this.quickSms?.rawText || '');
+                const phoneRegex = /(7[01378]\d{7})/g;
+                const matches = [];
+                let match;
+
+                while ((match = phoneRegex.exec(raw)) !== null) {
+                    matches.push({
+                        phone: match[1],
+                        start: match.index,
+                        end: match.index + match[1].length
+                    });
+                }
 
                 if (matches.length === 0) {
                     this.showFeedback('لم يتم العثور على أرقام هواتف يمنية صالحة (مثال: 779030449).', true);
@@ -298,12 +301,14 @@
                     const currentMatch = matches[i];
                     const nextMatch = matches[i + 1];
 
+                    // استخراج الوصف بين نهاية الرقم الحالي وبداية الرقم التالي (أو نهاية النص)
                     const sliceStart = currentMatch.end;
-                    const sliceEnd = nextMatch ? nextMatch.start : text.length;
-                    let desc = this.cleanDescription(text.substring(sliceStart, sliceEnd));
+                    const sliceEnd = nextMatch ? nextMatch.start : raw.length;
+                    let desc = this.cleanDescription(raw.substring(sliceStart, sliceEnd));
 
+                    // إذا كان طرد واحد فقط والوصف مكتوب قبل الرقم (مثال: "عسل 781152674")
                     if (matches.length === 1 && desc === 'طرد') {
-                        const beforeDesc = this.cleanDescription(text.substring(0, currentMatch.start));
+                        const beforeDesc = this.cleanDescription(raw.substring(0, currentMatch.start));
                         if (beforeDesc && beforeDesc !== 'طرد') {
                             desc = beforeDesc;
                         }
@@ -311,7 +316,7 @@
 
                     items.push({
                         phone: currentMatch.phone,
-                        description: desc,
+                        description: desc || 'طرد',
                     });
                 }
 
