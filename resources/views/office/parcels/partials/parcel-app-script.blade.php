@@ -128,6 +128,22 @@
                 return (text.match(/(7[01378]\d{7})/g) || []).length;
             },
 
+            handleTextInput(event) {
+                if (event && event.target && event.target.value !== undefined) {
+                    this.quickSms.rawText = event.target.value;
+                }
+                const raw = this.quickSms?.rawText || '';
+                const matches = [...this.normalizeText(raw).matchAll(/(7[01378]\d{7})/g)];
+                if (matches.length > 15) {
+                    const cutoffIndex = matches[15].index;
+                    this.quickSms.rawText = raw.substring(0, cutoffIndex).trimEnd();
+                    if (event && event.target) {
+                        event.target.value = this.quickSms.rawText;
+                    }
+                    this.showFeedback('تم الوصول للحد الأقصى (15 طرداً) لكل إرسالية. يرجى إرسال الباقي في كشف منفصل.', true);
+                }
+            },
+
             // تتبع حالة رسائل SMS
             sendingSmsId: null,
 

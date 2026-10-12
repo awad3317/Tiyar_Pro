@@ -224,7 +224,15 @@
                         const text = await navigator.clipboard.readText();
                         if (text) {
                             const current = (this.quickSms.rawText || '').trimEnd();
-                            this.quickSms.rawText = current ? current + '\n' + text.trim() : text.trim();
+                            const combined = current ? current + '\n' + text.trim() : text.trim();
+                            const matches = [...this.normalizeText(combined).matchAll(/(7[01378]\d{7})/g)];
+                            if (matches.length > 15) {
+                                const cutoffIndex = matches[15].index;
+                                this.quickSms.rawText = combined.substring(0, cutoffIndex).trimEnd();
+                                this.showFeedback('تم أخذ أول 15 طرداً فقط (الحد الأقصى لكل إرسالية).', true);
+                            } else {
+                                this.quickSms.rawText = combined;
+                            }
                         }
                     } else {
                         this.showFeedback('خاصية اللصق التلقائي غير مدعومة في المتصفح، يرجى اللصق يدوياً.', true);
@@ -235,7 +243,27 @@
                 }
             },
 
+            handleTextInput(event) {
+                if (event && event.target && event.target.value !== undefined) {
+                    this.quickSms.rawText = event.target.value;
+                }
+                const raw = this.quickSms?.rawText || '';
+                const matches = [...this.normalizeText(raw).matchAll(/(7[01378]\d{7})/g)];
+                if (matches.length > 15) {
+                    const cutoffIndex = matches[15].index;
+                    this.quickSms.rawText = raw.substring(0, cutoffIndex).trimEnd();
+                    if (event && event.target) {
+                        event.target.value = this.quickSms.rawText;
+                    }
+                    this.showFeedback('تم الوصول للحد الأقصى (15 طرداً) لكل إرسالية. يرجى إرسال الباقي في كشف منفصل.', true);
+                }
+            },
+
             appendTag(tag) {
+                if (this.detectedParcelsCount >= 15) {
+                    this.showFeedback('تم الوصول للحد الأقصى (15 طرداً) لكل إرسالية.', true);
+                    return;
+                }
                 if (!this.quickSms.rawText || this.quickSms.rawText.trim() === '') {
                     this.quickSms.rawText = tag + '\n';
                     return;
@@ -248,6 +276,7 @@
                 } else {
                     this.quickSms.rawText += ' ' + tag + '\n';
                 }
+                this.handleTextInput();
             },
 
             normalizeText(str) {
@@ -296,6 +325,11 @@
                     return;
                 }
 
+                if (matches.length > 15) {
+                    this.showFeedback('الحد الأقصى المسموح به هو 15 طرداً لكل إرسالية.', true);
+                    return;
+                }
+
                 const items = [];
                 for (let i = 0; i < matches.length; i++) {
                     const currentMatch = matches[i];
@@ -325,7 +359,7 @@
             },
 
             async submitQuickSms() {
-                if (this.quickSms.items.length === 0 || this.quickSms.isSending) return;
+                if (this.quickSms.items.length === 0 || this.quickSms.items.length > 15 || this.quickSms.isSending) return;
 
                 this.quickSms.isSending = true;
                 const payload = { items: this.quickSms.items };

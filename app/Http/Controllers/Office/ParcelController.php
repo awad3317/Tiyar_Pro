@@ -8,6 +8,7 @@ use App\Models\Parcel;
 use App\Services\HttpSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class ParcelController extends Controller
@@ -153,6 +154,14 @@ class ParcelController extends Controller
     public function quickSendSms(Request $request, HttpSmsService $smsService)
     {
         $office = Auth::guard('office')->user();
+
+        if (!$office) {
+            return response()->json([
+                'success' => false,
+                'message' => 'غير مصرح بالوصول، يرجى تسجيل الدخول مجدداً.'
+            ], 401);
+        }
+
         $items = $request->input('items', []);
 
         if (empty($items) || !is_array($items)) {
@@ -162,29 +171,55 @@ class ParcelController extends Controller
             ], 422);
         }
 
+        if (count($items) > 15) {
+            return response()->json([
+                'success' => false,
+                'message' => 'الحد الأقصى المسموح به هو 15 طرداً لكل إرسالية لضمان سرعة واستقرار الإرسال.'
+            ], 422);
+        }
+
+        // تمديد مهلة تنفيذ السكربت لتفادي timeout بسبب الـ sleep أثناء إرسال دفعات كبيرة
+        set_time_limit(300);
+
         $createdParcels = [];
-        $sentCount = 0;
+        $smsSuccessCount = 0;
+        $smsFailedCount  = 0;
+
+        // تجهيز قالب رسالة الـ SMS
+        $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+        $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+        $hasSmsGatewayConfigured = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
 
         foreach ($items as $item) {
             $phone = trim($item['phone'] ?? '');
-            $desc = trim($item['description'] ?? 'طرد');
+            $desc  = trim($item['description'] ?? 'طرد');
 
             if (empty($phone)) {
                 continue;
             }
 
-            $parcel = Parcel::create([
-                'office_id'       => $office->id,
-                'recipient_phone' => $phone,
-                'package_type'    => $desc ?: 'طرد',
-                'status'          => ParcelStatus::InOffice,
-            ]);
+            // 1. إنشاء الطرد في قاعدة البيانات
+            try {
+                $parcel = Parcel::create([
+                    'office_id'       => $office->id,
+                    'recipient_phone' => $phone,
+                    'package_type'    => $desc ?: 'طرد',
+                    'status'          => defined(ParcelStatus::class . '::InOffice') 
+                                            ? ParcelStatus::InOffice 
+                                            : 'in_office',
+                ]);
 
-            // إرسال SMS إذا كانت بوابة الرسائل مهيأة للمكتب
-            if (!empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone)) {
-                $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-                $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+                $createdParcels[] = $parcel;
+            } catch (\Throwable $e) {
+                Log::error("Quick SMS - فشل حفظ الطرد في قاعدة البيانات: " . $e->getMessage(), [
+                    'phone' => $phone,
+                    'desc'  => $desc
+                ]);
+                continue;
+            }
 
+            // 2. إرسال رسالة SMS عبر البوابة
+            if ($hasSmsGatewayConfigured) {
                 $smsBody = str_replace(
                     ['{office}', '{branch}', '{package}', '{receipt}'],
                     [
@@ -195,29 +230,42 @@ class ParcelController extends Controller
                     ],
                     $template
                 );
+
                 $smsBody = str_replace(' ()', '', $smsBody);
 
                 try {
-                    $smsService->send(
+                    $result = $smsService->send(
                         $parcel->recipient_phone,
                         $smsBody,
                         $office->httpsms_api_key,
                         $office->httpsms_from_phone
                     );
-                } catch (\Throwable $e) {
-                    // المتابعة في حال تعذر إرسال رسالة فردية
-                }
-            }
 
-            $createdParcels[] = $parcel;
-            $sentCount++;
+                    if (!empty($result['success']) || (is_bool($result) && $result)) {
+                        $smsSuccessCount++;
+                    } else {
+                        $smsFailedCount++;
+                        Log::warning("Quick SMS - البوابة لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
+                    }
+                } catch (\Throwable $e) {
+                    $smsFailedCount++;
+                    Log::error("Quick SMS - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
+                }
+
+                // فاصل زمني ثانيتين بين كل رسالة لحماية شريحة الإرسال وبوابة الأندرويد
+                sleep(2);
+            }
         }
 
+        $totalSaved = count($createdParcels);
+
         return response()->json([
-            'success' => true,
-            'count'   => $sentCount,
-            'message' => "تم تسجيل $sentCount طرد بنجاح.",
-            'parcels' => $createdParcels,
+            'success'     => true,
+            'count'       => $totalSaved,
+            'sms_sent'    => $smsSuccessCount,
+            'sms_failed'  => $smsFailedCount,
+            'message'     => "تم تسجيل {$totalSaved} طرد بنجاح وإرسال {$smsSuccessCount} رسالة.",
+            'parcels'     => $createdParcels,
         ]);
     }
 }

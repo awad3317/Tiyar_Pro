@@ -58,40 +58,40 @@
             {{-- منطقة الإدخال --}}
             <div class="px-5 flex-1 flex flex-col gap-3 overflow-y-auto pb-3">
 
-                {{-- حقل النص الكبير --}}
-                <div class="relative flex-1 min-h-[180px]">
-                    <textarea
-                        x-model="quickSms.rawText"
-                        dir="rtl"
-                        rows="8"
-                        placeholder="مثال:&#10;779030449 كيس برتقالي&#10;771234567 كرتون&#10;733456789"
-                        class="w-full h-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder-slate-400 resize-none outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all leading-relaxed"
-                        style="font-size: 16px;"
-                    ></textarea>
-
-                    {{-- زر اللصق من الحافظة --}}
-                    <button type="button"
-                            @click="pasteFromClipboard()"
-                            class="absolute left-3 top-3 flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-secondary hover:border-secondary/40 text-[11px] font-bold shadow-sm transition-all active:scale-95">
-                        <span class="material-symbols-outlined text-sm">content_paste</span>
+                {{-- 1. حقل النص واللصق --}}
+                <div class="relative w-full rounded-2xl border border-amber-400 bg-white p-3 shadow-xs focus-within:ring-2 focus-within:ring-secondary/50">
+                    <button type="button" 
+                            @click="pasteFromClipboard()" 
+                            class="absolute top-2.5 left-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-200 shadow-xs z-10 transition-colors">
+                        <span class="material-symbols-outlined text-[14px]">content_paste</span>
                         <span>لصق</span>
                     </button>
+                    <textarea x-model="quickSms.rawText"
+                              @input="handleTextInput($event)"
+                              dir="rtl"
+                              class="w-full h-40 pt-7 pb-2 px-1 text-xs leading-relaxed outline-none font-mono resize-none bg-transparent overflow-y-auto"
+                              placeholder="779030449 كيس برتقالي..."></textarea>
                 </div>
 
-                {{-- مؤشر عدد الطرود المرصودة مباشرة --}}
-                <div class="flex items-center justify-between px-1">
-                    <span class="text-[11px] text-slate-400">
-                        يمكن الفصل بسطر أو كتابتها في سطر متصل
-                    </span>
-                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all"
-                         :class="detectedParcelsCount > 0 
-                            ? 'bg-secondary/15 text-secondary border border-secondary/30 shadow-sm shadow-secondary/10' 
-                            : 'bg-slate-100 text-slate-400 border border-slate-200'">
-                        <span class="w-2 h-2 rounded-full" 
-                              :class="detectedParcelsCount > 0 ? 'bg-secondary animate-pulse' : 'bg-slate-300'"></span>
-                        <span x-text="'تم رصد ' + detectedParcelsCount + ' طرد'"></span>
-                    </div>
+                {{-- 2. تنبيه الحد الأقصى (مستقل تماماً أسفل الحقل) --}}
+                <div x-show="detectedParcelsCount >= 15" 
+                     x-cloak
+                     class="mt-2.5 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-900 flex items-start gap-1.5 font-bold leading-normal">
+                    <span class="material-symbols-outlined text-base shrink-0 text-amber-600">warning</span>
+                    <span>⚠️ تم الوصول للحد الأقصى (15 طرداً) لكل إرسالية لضمان استقرار الشبكة. يرجى إرسال الباقي في كشف منفصل.</span>
                 </div>
+
+                {{-- 3. مؤشر عدد الطرود المرصودة مباشرة --}}
+                {{-- <div class="mt-2.5 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold"
+                         :class="detectedParcelsCount >= 15 ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-700'">
+                        <span class="w-2 h-2 rounded-full" :class="detectedParcelsCount >= 15 ? 'bg-amber-500 animate-pulse' : 'bg-secondary'"></span>
+                        <span>تم رصد: </span>
+                        <span class="font-extrabold" x-text="detectedParcelsCount"></span>
+                        <span class="text-[10px] text-slate-500">/ 15 طرد</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-bold">يمكن الفصل بسطر أو كتابتها في سطر متصل</span>
+                </div> --}}
 
                 {{-- رقائق الوصف السريع --}}
                 <div>
@@ -100,7 +100,8 @@
                         <template x-for="tag in ['كيس اسود', 'كيس ابيض', 'كيس ازرق', 'كرتون']" :key="tag">
                             <button type="button"
                                     @click="appendTag(tag)"
-                                    class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[11px] font-bold hover:bg-secondary/10 hover:border-secondary/30 hover:text-secondary transition-all active:scale-95">
+                                    :disabled="detectedParcelsCount >= 15"
+                                    class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[11px] font-bold hover:bg-secondary/10 hover:border-secondary/30 hover:text-secondary transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
                                 <span x-text="tag"></span>
                             </button>
                         </template>
@@ -112,7 +113,7 @@
             <div class="px-5 py-4 border-t border-slate-100 bg-white">
                 <button type="button"
                         @click="parseQuickList()"
-                        :disabled="detectedParcelsCount === 0"
+                        :disabled="detectedParcelsCount === 0 || detectedParcelsCount > 15"
                         class="w-full py-3.5 px-4 bg-secondary hover:bg-amber-500 active:scale-[0.98] text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-secondary/25 flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100">
                     <span class="material-symbols-outlined text-lg">checklist</span>
                     <span>مراجعة الكشف</span>
