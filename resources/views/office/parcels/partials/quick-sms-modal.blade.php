@@ -2,6 +2,7 @@
 <div x-show="quickSms.open"
      x-cloak
      class="fixed inset-0 z-50 flex items-end justify-center"
+     @open-quick-sms.window="quickSms.open = true; quickSms.step = 'input'"
      @keydown.escape.window="quickSms.open && resetQuickSms()">
 
     {{-- خلفية التعتيم --}}

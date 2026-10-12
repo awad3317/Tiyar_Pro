@@ -13,7 +13,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
     <script src="{{ asset('js/tailwind.js') }}"></script>
-    <script src="{{ asset('js/mursal-core.js') }}"></script>
+    <script src="{{ asset('js/mursal-core.js') }}?v=6"></script>
 
     <script>
         tailwind.config = {

@@ -26,7 +26,7 @@
 
             <!-- زر الإرسال السريع الموحد (+) -->
             <button type="button"
-                    @click="openQuickSmsModal ? openQuickSmsModal() : (quickSms ? quickSms.open = true : null)"
+                    @click="$dispatch('open-quick-sms')"
                     title="إرسال كشف سريع SMS"
                     class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-[19px] font-bold">add</span>
