@@ -146,4 +146,78 @@ class ParcelController extends Controller
             'message' => 'تعذر إرسال رسالة SMS: ' . ($result['error'] ?? 'خطأ في بوابة الرسائل')
         ], 500);
     }
+
+    /**
+     * إدراج وإرسال دفعة طرود سريعة من خلال الكشف السريع للـ SMS.
+     */
+    public function quickSendSms(Request $request, HttpSmsService $smsService)
+    {
+        $office = Auth::guard('office')->user();
+        $items = $request->input('items', []);
+
+        if (empty($items) || !is_array($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'لم يتم استلام أي بيانات صالحة للإرسال.'
+            ], 422);
+        }
+
+        $createdParcels = [];
+        $sentCount = 0;
+
+        foreach ($items as $item) {
+            $phone = trim($item['phone'] ?? '');
+            $desc = trim($item['description'] ?? 'طرد');
+
+            if (empty($phone)) {
+                continue;
+            }
+
+            $parcel = Parcel::create([
+                'office_id'       => $office->id,
+                'recipient_phone' => $phone,
+                'package_type'    => $desc ?: 'طرد',
+                'status'          => ParcelStatus::InOffice,
+            ]);
+
+            // إرسال SMS إذا كانت بوابة الرسائل مهيأة للمكتب
+            if (!empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone)) {
+                $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+                $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+
+                $smsBody = str_replace(
+                    ['{office}', '{branch}', '{package}', '{receipt}'],
+                    [
+                        $office->name,
+                        $office->branch_name ?? '',
+                        $parcel->package_type,
+                        $parcel->receipt_number ?? ''
+                    ],
+                    $template
+                );
+                $smsBody = str_replace(' ()', '', $smsBody);
+
+                try {
+                    $smsService->send(
+                        $parcel->recipient_phone,
+                        $smsBody,
+                        $office->httpsms_api_key,
+                        $office->httpsms_from_phone
+                    );
+                } catch (\Throwable $e) {
+                    // المتابعة في حال تعذر إرسال رسالة فردية
+                }
+            }
+
+            $createdParcels[] = $parcel;
+            $sentCount++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'count'   => $sentCount,
+            'message' => "تم تسجيل $sentCount طرد بنجاح.",
+            'parcels' => $createdParcels,
+        ]);
+    }
 }

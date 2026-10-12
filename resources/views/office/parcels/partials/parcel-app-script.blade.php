@@ -8,6 +8,7 @@
             sync: @json(route('office.api.parcels.sync')),
             login: @json(route('office.login')),
             resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
+            quickSendSms: @json(route('office.parcels.quick_send_sms')),
         };
 
         // القواعد مستوردة من الباك إند مباشرة
@@ -79,6 +80,23 @@
                 }
                 return data;
             },
+
+            async quickSendSms(items) {
+                const res = await fetch(ROUTES.quickSendSms, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                    },
+                    body: JSON.stringify({ items }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || `تعذر إرسال الدفعة (رمز: ${res.status})`);
+                }
+                return data;
+            },
         };
 
         /* ------------------------------------------------------------------
@@ -96,7 +114,6 @@
 
             // تتبع حالة رسائل SMS
             sendingSmsId: null,
-            smsFeedback: { show: false, message: '', isError: false },
 
             // مودال تأكيد الإرجاع للمكتب المرسل
             returnModal: {

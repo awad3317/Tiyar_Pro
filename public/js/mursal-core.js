@@ -176,6 +176,206 @@
                 open: false,
             },
 
+            // حالة الإرسال السريع لرسائل SMS (كشف جملة)
+            quickSms: {
+                open: false,
+                step: 'input',
+                rawText: '',
+                items: [],
+                isSending: false,
+                successCount: 0,
+            },
+
+            // إشعار التنبيهات
+            smsFeedback: {
+                show: false,
+                message: '',
+                isError: false,
+            },
+
+            openQuickSmsModal() {
+                this.quickSms.open = true;
+                this.quickSms.step = 'input';
+            },
+
+            openQuickSms() {
+                this.openQuickSmsModal();
+            },
+
+            resetQuickSms() {
+                this.quickSms.open = false;
+                this.quickSms.step = 'input';
+                this.quickSms.rawText = '';
+                this.quickSms.items = [];
+                this.quickSms.isSending = false;
+                this.quickSms.successCount = 0;
+            },
+
+            showFeedback(message, isError = false) {
+                this.smsFeedback = { show: true, message, isError };
+                setTimeout(() => {
+                    if (this.smsFeedback) this.smsFeedback.show = false;
+                }, 4000);
+            },
+
+            async pasteFromClipboard() {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                            const current = (this.quickSms.rawText || '').trimEnd();
+                            this.quickSms.rawText = current ? current + '\n' + text.trim() : text.trim();
+                        }
+                    } else {
+                        this.showFeedback('خاصية اللصق التلقائي غير مدعومة في المتصفح، يرجى اللصق يدوياً.', true);
+                    }
+                } catch (err) {
+                    console.warn('Clipboard read error:', err);
+                    this.showFeedback('يرجى منح إذن الوصول للحافظة أو اللصق يدوياً في الحقل.', true);
+                }
+            },
+
+            appendTag(tag) {
+                if (!this.quickSms.rawText || this.quickSms.rawText.trim() === '') {
+                    this.quickSms.rawText = tag + '\n';
+                    return;
+                }
+                const raw = this.quickSms.rawText;
+                if (raw.endsWith('\n')) {
+                    this.quickSms.rawText += tag + '\n';
+                } else if (raw.endsWith(' ')) {
+                    this.quickSms.rawText += tag + '\n';
+                } else {
+                    this.quickSms.rawText += ' ' + tag + '\n';
+                }
+            },
+
+            cleanDescription(raw) {
+                if (!raw) return 'طرد';
+                let cleaned = raw
+                    .replace(/[\r\n]+/g, ' ')
+                    .replace(/^[\s\-_,:،؛.\/\\#*~=+]+/g, '')
+                    .replace(/[\s\-_,:،؛.\/\\#*~=+]+$/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                return cleaned || 'طرد';
+            },
+
+            getPhoneMatches(text) {
+                if (!text) return [];
+                const regex = /(?:^|\s|[^\d])(7[01378]\d{7})(?!\d)/g;
+                const matches = [];
+                let match;
+                while ((match = regex.exec(text)) !== null) {
+                    const fullMatch = match[0];
+                    const phone = match[1];
+                    const phoneStart = match.index + (fullMatch.length - phone.length);
+                    const phoneEnd = phoneStart + phone.length;
+                    matches.push({
+                        phone,
+                        start: phoneStart,
+                        end: phoneEnd,
+                    });
+                }
+                return matches;
+            },
+
+            get detectedParcelsCount() {
+                return this.getPhoneMatches(this.quickSms.rawText).length;
+            },
+
+            parseQuickList() {
+                const text = this.quickSms.rawText || '';
+                const matches = this.getPhoneMatches(text);
+
+                if (matches.length === 0) {
+                    this.showFeedback('لم يتم العثور على أرقام هواتف يمنية صالحة (مثال: 779030449).', true);
+                    return;
+                }
+
+                const items = [];
+                for (let i = 0; i < matches.length; i++) {
+                    const currentMatch = matches[i];
+                    const nextMatch = matches[i + 1];
+
+                    const sliceStart = currentMatch.end;
+                    const sliceEnd = nextMatch ? nextMatch.start : text.length;
+                    let desc = this.cleanDescription(text.substring(sliceStart, sliceEnd));
+
+                    if (matches.length === 1 && desc === 'طرد') {
+                        const beforeDesc = this.cleanDescription(text.substring(0, currentMatch.start));
+                        if (beforeDesc && beforeDesc !== 'طرد') {
+                            desc = beforeDesc;
+                        }
+                    }
+
+                    items.push({
+                        phone: currentMatch.phone,
+                        description: desc,
+                    });
+                }
+
+                this.quickSms.items = items;
+                this.quickSms.step = 'preview';
+            },
+
+            async submitQuickSms() {
+                if (this.quickSms.items.length === 0 || this.quickSms.isSending) return;
+
+                this.quickSms.isSending = true;
+                const payload = { items: this.quickSms.items };
+                const count = this.quickSms.items.length;
+                const endpoint = '/office/parcels/quick-send-sms';
+
+                try {
+                    if (this.isOnline) {
+                        try {
+                            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                            const res = await fetch(endpoint, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': token || ''
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                            if (!res.ok) {
+                                const data = await res.json().catch(() => ({}));
+                                throw new Error(data.message || `تعذر الإرسال (رمز: ${res.status})`);
+                            }
+                            if (typeof this.refreshFromServer === 'function') {
+                                await this.refreshFromServer();
+                            }
+                        } catch (err) {
+                            console.warn('Online quick send failed, enqueuing to offline sync queue:', err);
+                            if (window.MursalSync) {
+                                await window.MursalSync.enqueue(endpoint, payload);
+                                if (window.MursalDB) {
+                                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                                }
+                            }
+                        }
+                    } else {
+                        if (window.MursalSync) {
+                            await window.MursalSync.enqueue(endpoint, payload);
+                            if (window.MursalDB) {
+                                this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                            }
+                        }
+                    }
+
+                    this.quickSms.successCount = count;
+                    this.quickSms.step = 'report';
+                    this.showFeedback(`تم تسجيل وجدولة ${count} طرد بنجاح!`, false);
+                } catch (error) {
+                    console.error('Submit quick SMS error:', error);
+                    this.showFeedback('حدث خطأ أثناء معالجة الرسائل السريعة.', true);
+                } finally {
+                    this.quickSms.isSending = false;
+                }
+            },
+
             async init() {
                 // فتح قاعدة البيانات أولاً
                 if (window.MursalDB) {
