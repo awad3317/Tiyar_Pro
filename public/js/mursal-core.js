@@ -5,7 +5,7 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 5; // ترقية لدعم الجداول العامة
+    const DB_VERSION = 6; // ترقية لدعم الجداول العامة
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
