@@ -179,11 +179,14 @@
             // حالة الإرسال السريع لرسائل SMS (كشف جملة)
             quickSms: {
                 open: false,
-                step: 'input',
+                step: 'input',       // input | streaming
                 rawText: '',
                 items: [],
                 isSending: false,
                 successCount: 0,
+                // حقول الإدخال التدريجي الجديدة
+                phone: '',
+                description: 'طرد',
             },
 
             // إشعار التنبيهات
@@ -196,6 +199,13 @@
             openQuickSmsModal() {
                 this.quickSms.open = true;
                 this.quickSms.step = 'input';
+                this.quickSms.phone = '';
+                this.quickSms.description = 'طرد';
+                // autofocus على حقل الهاتف بعد فتح المودال
+                this.$nextTick(() => {
+                    const phoneInput = document.getElementById('streaming-phone-input');
+                    if (phoneInput) phoneInput.focus();
+                });
             },
 
             openQuickSms() {
@@ -209,6 +219,8 @@
                 this.quickSms.items = [];
                 this.quickSms.isSending = false;
                 this.quickSms.successCount = 0;
+                this.quickSms.phone = '';
+                this.quickSms.description = 'طرد';
             },
 
             showFeedback(message, isError = false) {

@@ -43,6 +43,7 @@ Route::prefix('office')->name('office.')->group(function () {
         // لوحة التحكم وتطبيق الطرود الرئيسي
         Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
         Route::post('/parcels/quick-send-sms', [ParcelController::class, 'quickSendSms'])->name('parcels.quick_send_sms');
+        Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // مسارات الـ API الخاصة بالمزامنة وقراءة البيانات للـ PWA بدون نت

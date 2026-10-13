@@ -9,6 +9,7 @@
             login: @json(route('office.login')),
             resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
             quickSendSms: @json(route('office.parcels.quick_send_sms')),
+            quickSendSingle: @json(route('office.parcels.quick_send_single')),
         };
 
         // القواعد مستوردة من الباك إند مباشرة
@@ -97,6 +98,28 @@
                 }
                 return data;
             },
+
+            async quickSendSingle(phone, description) {
+                const res = await fetch(ROUTES.quickSendSingle, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                    },
+                    body: JSON.stringify({ phone, description }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401 || res.status === 419) {
+                    const err = new Error('AUTH_EXPIRED');
+                    err.status = res.status;
+                    throw err;
+                }
+                if (!res.ok) {
+                    throw new Error(data.message || `تعذر الإرسال (رمز: ${res.status})`);
+                }
+                return data;
+            },
         };
 
         /* ------------------------------------------------------------------
@@ -111,6 +134,10 @@
             filter: 'all',
             filters: FILTERS,
             isSyncing: false,
+
+            // قائمة الإرسال التدريجي الحية
+            streamingQueue: [],
+            streamingIdCounter: 0,
 
             normalizeText(str) {
                 if (!str) return '';
@@ -276,6 +303,85 @@
                 } finally {
                     this.sendingSmsId = null;
                 }
+            },
+
+            // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
+
+            addToStreamingQueue(phone, description) {
+                const id = ++this.streamingIdCounter;
+                const entry = {
+                    id,
+                    phone,
+                    description,
+                    status: 'pending',   // pending | success | failed
+                    message: '',
+                    smsSent: false,
+                };
+                this.streamingQueue.unshift(entry);
+                this.dispatchSingle(entry);
+                return entry;
+            },
+
+            async dispatchSingle(entry) {
+                if (!this.isOnline) {
+                    // Offline: إدراج في طابور المزامنة المحلي
+                    try {
+                        const endpoint = '/office/parcels/quick-send-single';
+                        await window.MursalSync.enqueue(endpoint, {
+                            phone: entry.phone,
+                            description: entry.description,
+                        });
+                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                        entry.status = 'success';
+                        entry.message = 'تم الحفظ محلياً (سيُرسل عند عودة الاتصال)';
+                    } catch (err) {
+                        entry.status = 'failed';
+                        entry.message = 'تعذر الحفظ محلياً';
+                    }
+                    return;
+                }
+
+                try {
+                    const data = await ParcelApi.quickSendSingle(entry.phone, entry.description);
+                    entry.status = 'success';
+                    entry.smsSent = data.sms_sent || false;
+                    entry.message = data.sms_sent ? 'تم الإرسال' : 'تم التسجيل (SMS لم يُرسل)';
+
+                    // تحديث القائمة المحلية تفاؤلياً
+                    if (data.parcel) {
+                        this.parcels.unshift(data.parcel);
+                        if (window.MursalDB) {
+                            try { await window.MursalDB.put(window.MURSAL_STORES.parcels, data.parcel); } catch(e) {}
+                        }
+                    }
+                } catch (err) {
+                    if (err.message === 'AUTH_EXPIRED') {
+                        this.handleSessionExpired();
+                        entry.status = 'failed';
+                        entry.message = 'انتهت الجلسة';
+                        return;
+                    }
+                    entry.status = 'failed';
+                    entry.message = err.message || 'فشل الإرسال';
+                }
+            },
+
+            async retryStreamingEntry(entry) {
+                entry.status = 'pending';
+                entry.message = '';
+                await this.dispatchSingle(entry);
+            },
+
+            get streamingSentCount() {
+                return this.streamingQueue.filter(e => e.status === 'success').length;
+            },
+
+            get streamingPendingCount() {
+                return this.streamingQueue.filter(e => e.status === 'pending').length;
+            },
+
+            get streamingFailedCount() {
+                return this.streamingQueue.filter(e => e.status === 'failed').length;
             },
 
             // ---------- تحميل ومزامنة البيانات ----------
