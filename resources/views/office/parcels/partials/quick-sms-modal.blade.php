@@ -58,82 +58,85 @@
              ═══════════════════════════════════ --}}
         <div class="px-5 pt-3 pb-2 space-y-2.5 bg-white shrink-0 border-b border-slate-50">
 
-            {{-- حقل رقم الهاتف --}}
-            <div>
-                <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم الهاتف</label>
-                <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold select-none">🇾🇪</span>
-                    <input type="tel"
-                           id="streaming-phone-input"
-                           x-model="quickSms.phone"
-                           @input="quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
-                           @keydown.enter.prevent="
-                               if (quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
-                                   $refs.streamingDescInput.focus();
-                               }
-                           "
-                           dir="ltr"
-                           inputmode="numeric"
-                           maxlength="9"
-                           autocomplete="off"
-                           class="w-full py-2.5 px-4 pr-10 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal"
-                           placeholder="7XXXXXXXX" />
-                    
-                    {{-- مؤشر صحة الرقم --}}
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2">
-                        <template x-if="quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))">
-                            <span class="material-symbols-outlined text-base text-emerald-500">check_circle</span>
-                        </template>
-                        <template x-if="quickSms.phone.length > 0 && (quickSms.phone.length < 9 || !/^7[01378]/.test(normalizeText(quickSms.phone)))">
-                            <span class="material-symbols-outlined text-base text-rose-400">error</span>
-                        </template>
-                    </div>
-                </div>
+    {{-- حقل رقم الهاتف --}}
+    <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم الهاتف</label>
+        <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+            
+            {{-- علم اليمن ومؤشر الحالة معاً في الجهة اليمنى --}}
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 select-none pointer-events-none">
+                <span class="text-xs font-bold">🇾🇪</span>
+                
+                {{-- علامة الصح أو الخطأ بجانب العلم مباشرة --}}
+                <template x-if="quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))">
+                    <span class="material-symbols-outlined text-base text-emerald-500 flex items-center">check_circle</span>
+                </template>
+                <template x-if="quickSms.phone.length > 0 && (quickSms.phone.length < 9 || !/^7[01378]/.test(normalizeText(quickSms.phone)))">
+                    <span class="material-symbols-outlined text-base text-rose-400 flex items-center">error</span>
+                </template>
             </div>
 
-            {{-- حقل نوع الطرد --}}
-            <div>
-                <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
-                <input type="text"
-                       x-ref="streamingDescInput"
-                       x-model="quickSms.description"
-                       @keydown.enter.prevent="
-                           const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                           if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                               addToStreamingQueue(phone, quickSms.description || 'طرد');
-                               quickSms.phone = '';
-                               quickSms.description = '';
-                               $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                           } else {
-                               showFeedback('رقم الهاتف غير صالح', true);
-                               document.getElementById('streaming-phone-input').focus();
-                           }
-                       "
-                       dir="rtl"
-                       autocomplete="off"
-                       class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all"
-                       placeholder="طرد" />
-            </div>
-
-            {{-- زر الإضافة اليدوي --}}
-            <button type="button"
-                    @click="
-                        const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                        if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد');
-                            quickSms.phone = '';
-                            quickSms.description = '';
-                            $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                        } else {
-                            showFeedback('أدخل رقم هاتف صالح', true);
-                        }
-                    "
-                    :disabled="quickSms.phone.length < 9"
-                    class="w-full py-2.5 px-4 bg-secondary hover:bg-amber-500 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                <span class="material-symbols-outlined text-base">add_circle</span>
-                <span>إضافة واعتماد الطرد (Enter)</span>
-            </button>
+            <input type="tel"
+                   id="streaming-phone-input"
+                   x-model="quickSms.phone"
+                   @input="quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
+                   @keydown.enter.prevent="
+                       if (quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
+                           $refs.streamingDescInput.focus();
+                       }
+                   "
+                   dir="ltr"
+                   inputmode="numeric"
+                   maxlength="9"
+                   autocomplete="off"
+                   class="w-full py-2.5 px-4 pr-16 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal"
+                   placeholder="7XXXXXXXX" />
         </div>
+    </div>
+
+    {{-- حقل نوع الطرد --}}
+    <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
+        <input type="text"
+               x-ref="streamingDescInput"
+               x-model="quickSms.description"
+               @keydown.enter.prevent="
+                   const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                   if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                       addToStreamingQueue(phone, quickSms.description || 'طرد');
+                       quickSms.phone = '';
+                       quickSms.description = '';
+                       $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                   } else {
+                       showFeedback('رقم الهاتف غير صالح', true);
+                       document.getElementById('streaming-phone-input').focus();
+                   }
+               "
+               dir="rtl"
+               autocomplete="off"
+               class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all"
+               placeholder="طرد" />
+    </div>
+
+    {{-- زر الإضافة اليدوي --}}
+    <button type="button"
+            @click="
+                const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                    addToStreamingQueue(phone, quickSms.description || 'طرد');
+                    quickSms.phone = '';
+                    quickSms.description = '';
+                    $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                } else {
+                    showFeedback('أدخل رقم هاتف صالح', true);
+                }
+            "
+            :disabled="quickSms.phone.length < 9"
+            class="w-full py-2.5 px-4 bg-secondary hover:bg-amber-500 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+        <span class="material-symbols-outlined text-base">add_circle</span>
+        <span>إضافة واعتماد الطرد (Enter)</span>
+    </button>
+</div>
 
         {{-- ═══════════════════════════════════
              3. القائمة الحية (Scrollable Area)
