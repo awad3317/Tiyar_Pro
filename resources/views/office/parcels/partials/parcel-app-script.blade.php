@@ -323,48 +323,60 @@
             },
 
             async dispatchSingle(entry) {
-                if (!this.isOnline) {
-                    // Offline: إدراج في طابور المزامنة المحلي
-                    try {
-                        const endpoint = '/office/parcels/quick-send-single';
-                        await window.MursalSync.enqueue(endpoint, {
-                            phone: entry.phone,
-                            description: entry.description,
-                        });
-                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
-                        entry.status = 'success';
-                        entry.message = 'تم الحفظ محلياً (سيُرسل عند عودة الاتصال)';
-                    } catch (err) {
-                        entry.status = 'failed';
-                        entry.message = 'تعذر الحفظ محلياً';
-                    }
-                    return;
-                }
+    try {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        // استخدام الرابط المباشر كـ Fallback لو كان ROUTES غير معرف
+        const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
+                    ? ROUTES.quickSendSingle 
+                    : '/parcels/quick-send-single';
 
-                try {
-                    const data = await ParcelApi.quickSendSingle(entry.phone, entry.description);
-                    entry.status = 'success';
-                    entry.smsSent = data.sms_sent || false;
-                    entry.message = data.sms_sent ? 'تم الإرسال' : 'تم التسجيل (SMS لم يُرسل)';
-
-                    // تحديث القائمة المحلية تفاؤلياً
-                    if (data.parcel) {
-                        this.parcels.unshift(data.parcel);
-                        if (window.MursalDB) {
-                            try { await window.MursalDB.put(window.MURSAL_STORES.parcels, data.parcel); } catch(e) {}
-                        }
-                    }
-                } catch (err) {
-                    if (err.message === 'AUTH_EXPIRED') {
-                        this.handleSessionExpired();
-                        entry.status = 'failed';
-                        entry.message = 'انتهت الجلسة';
-                        return;
-                    }
-                    entry.status = 'failed';
-                    entry.message = err.message || 'فشل الإرسال';
-                }
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token || ''
             },
+            body: JSON.stringify({
+                phone: entry.phone,
+                description: entry.description
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        // البحث عن العنصر في المصفوفة بواسطة الـ id
+        const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+
+        if (targetIndex !== -1) {
+            if (response.ok && (data.success === true || data.status === 'success')) {
+                // تحديث مباشر داخل المصفوفة
+                this.streamingQueue[targetIndex].status = 'success';
+                this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
+            } else {
+                this.streamingQueue[targetIndex].status = 'failed';
+                this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';
+            }
+            
+            // 👈 السطر السحري لإجبار Alpine على تحديث الشاشة والعدادات فوراً
+            this.streamingQueue = [...this.streamingQueue];
+        }
+
+        // تحديث جدول الطرود بالصفحة إن وُجد
+        if (response.ok && typeof this.refreshFromServer === 'function') {
+            this.refreshFromServer();
+        }
+
+    } catch (err) {
+        console.error('Streaming dispatch error:', err);
+        const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+        if (targetIndex !== -1) {
+            this.streamingQueue[targetIndex].status = 'failed';
+            this.streamingQueue = [...this.streamingQueue];
+        }
+    }
+},
 
             async retryStreamingEntry(entry) {
                 entry.status = 'pending';
@@ -373,16 +385,14 @@
             },
 
             get streamingSentCount() {
-                return this.streamingQueue.filter(e => e.status === 'success').length;
-            },
-
-            get streamingPendingCount() {
-                return this.streamingQueue.filter(e => e.status === 'pending').length;
-            },
-
-            get streamingFailedCount() {
-                return this.streamingQueue.filter(e => e.status === 'failed').length;
-            },
+    return (this.streamingQueue || []).filter(e => e.status === 'success').length;
+},
+get streamingPendingCount() {
+    return (this.streamingQueue || []).filter(e => e.status === 'pending').length;
+},
+get streamingFailedCount() {
+    return (this.streamingQueue || []).filter(e => e.status === 'failed').length;
+},
 
             // ---------- تحميل ومزامنة البيانات ----------
 
