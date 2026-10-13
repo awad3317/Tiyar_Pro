@@ -100,9 +100,9 @@
                        @keydown.enter.prevent="
                            const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                            if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                               addToStreamingQueue(phone, quickSms.description || 'طرد');
+                               addToStreamingQueue(phone, quickSms.description || '');
                                quickSms.phone = '';
-                               quickSms.description = 'طرد';
+                               quickSms.description = '';
                                $nextTick(() => document.getElementById('streaming-phone-input').focus());
                            } else {
                                showFeedback('رقم الهاتف غير صالح', true);
@@ -112,11 +112,11 @@
                        dir="rtl"
                        autocomplete="off"
                        class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all"
-                       placeholder="طرد" />
+                       placeholder="" />
             </div>
 
             {{-- رقائق الوصف السريع --}}
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+            {{-- <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
                 <template x-for="tag in ['طرد', 'كيس', 'كيس أسود', 'كرتون', 'ظرف']" :key="tag">
                     <button type="button"
                             @click="
@@ -135,7 +135,7 @@
                         <span x-text="tag"></span>
                     </button>
                 </template>
-            </div>
+            </div> --}}
 
             {{-- زر الإضافة اليدوي --}}
             <button type="button"
