@@ -25,7 +25,7 @@ class ParcelController extends Controller
         
         $parcels = Parcel::where('office_id', $officeId)
             ->latest('created_at')
-            ->take(150)
+            ->take(500)
             ->get();
 
         return response()->json($parcels);
