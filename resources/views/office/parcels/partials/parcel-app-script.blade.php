@@ -385,14 +385,14 @@
             },
 
             get streamingSentCount() {
-    return (this.streamingQueue || []).filter(e => e.status === 'success').length;
-},
-get streamingPendingCount() {
-    return (this.streamingQueue || []).filter(e => e.status === 'pending').length;
-},
-get streamingFailedCount() {
-    return (this.streamingQueue || []).filter(e => e.status === 'failed').length;
-},
+                return (this.streamingQueue || []).filter(e => e.status === 'success').length;
+            },
+            get streamingPendingCount() {
+                return (this.streamingQueue || []).filter(e => e.status === 'pending').length;
+            },
+            get streamingFailedCount() {
+                return (this.streamingQueue || []).filter(e => e.status === 'failed').length;
+            },
 
             // ---------- تحميل ومزامنة البيانات ----------
 
