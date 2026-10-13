@@ -100,7 +100,7 @@
                        @keydown.enter.prevent="
                            const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                            if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                               addToStreamingQueue(phone, quickSms.description || '');
+                               addToStreamingQueue(phone, quickSms.description || 'طرد');
                                quickSms.phone = '';
                                quickSms.description = '';
                                $nextTick(() => document.getElementById('streaming-phone-input').focus());
@@ -112,30 +112,8 @@
                        dir="rtl"
                        autocomplete="off"
                        class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all"
-                       placeholder="" />
+                       placeholder="طرد" />
             </div>
-
-            {{-- رقائق الوصف السريع --}}
-            {{-- <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                <template x-for="tag in ['طرد', 'كيس', 'كيس أسود', 'كرتون', 'ظرف']" :key="tag">
-                    <button type="button"
-                            @click="
-                                const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                                if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                                    addToStreamingQueue(phone, tag);
-                                    quickSms.phone = '';
-                                    quickSms.description = 'طرد';
-                                    $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                                } else {
-                                    showFeedback('أدخل رقم هاتف صالح أولاً', true);
-                                    document.getElementById('streaming-phone-input').focus();
-                                }
-                            "
-                            class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95">
-                        <span x-text="tag"></span>
-                    </button>
-                </template>
-            </div> --}}
 
             {{-- زر الإضافة اليدوي --}}
             <button type="button"
@@ -144,7 +122,7 @@
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
                             addToStreamingQueue(phone, quickSms.description || 'طرد');
                             quickSms.phone = '';
-                            quickSms.description = 'طرد';
+                            quickSms.description = '';
                             $nextTick(() => document.getElementById('streaming-phone-input').focus());
                         } else {
                             showFeedback('أدخل رقم هاتف صالح', true);
@@ -229,12 +207,25 @@
                             showFeedback('لا يزال هناك طرود قيد الإرسال...', true);
                             return;
                         }
+
+                        // حفظ إحصائيات الإرسال قبل تصفير القائمة
+                        const totalSent = streamingSentCount;
+                        const totalSms = streamingQueue.filter(e => e.status === 'success' && e.smsSent).length;
+
+                        // تحديث قائمة الطرود الرئيسية بالصفحة
                         if (typeof refreshFromServer === 'function' && isOnline) {
                             refreshFromServer();
                         }
+
+                        // إغلاق المودال وتصفير الكشف
                         resetQuickSms();
                         streamingQueue = [];
                         streamingIdCounter = 0;
+
+                        // عرض رسالة التأكيد للمستخدم
+                        if (totalSent > 0) {
+                            showFeedback('✅ تم بنجاح تسجيل ' + totalSent + ' طرد وإرسال ' + totalSms + ' رسالة SMS للمستلمين.', false);
+                        }
                     "
                     class="w-full py-2.5 px-4 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                     :class="streamingPendingCount > 0
