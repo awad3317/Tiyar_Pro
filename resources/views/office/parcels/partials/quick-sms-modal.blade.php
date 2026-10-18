@@ -1,10 +1,11 @@
 {{-- مودال الإرسال السريع التدريجي للـ SMS (شاشة كاملة تتكيف مع الكيبورد) --}}
-<div x-show="quickSms.open" x-cloak class="fixed inset-0 z-50 flex flex-col bg-white"
-    @open-quick-sms.window="openQuickSmsModal()" @keydown.escape.window="quickSms.open && resetQuickSms()">
+<div x-data="{ isClosing: false }" x-show="quickSms.open" x-cloak class="fixed inset-0 z-50 flex flex-col bg-white"
+    @open-quick-sms.window="isClosing = false; openQuickSmsModal()"
+    @keydown.escape.window="if (quickSms.open && !isClosing && streamingPendingCount === 0) resetQuickSms()">
 
     {{-- خلفية التعتيم للشاشات الكبيرة (Desktop) --}}
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity md:block hidden"
-        x-show="quickSms.open" @click="resetQuickSms()">
+        x-show="quickSms.open" @click="if (!isClosing && streamingPendingCount === 0) resetQuickSms()">
     </div>
 
     {{-- بطاقة المودال: شاشة كاملة على الجوال (h-[100dvh]) وبطاقة مركزية على الديسكتوب --}}
@@ -36,15 +37,15 @@
                 <template x-if="streamingQueue.length > 0">
                     <div class="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-100">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"
-                            :class="streamingPendingCount > 0 && 'animate-pulse bg-amber-500'"></span>
+                            :class="(streamingPendingCount > 0 || isClosing) && 'animate-pulse bg-amber-500'"></span>
                         <span class="text-[10px] font-extrabold text-emerald-700" x-text="streamingSentCount"></span>
                         <span class="text-[10px] text-slate-400">/</span>
                         <span class="text-[10px] font-bold text-slate-500" x-text="streamingQueue.length"></span>
                     </div>
                 </template>
 
-                <button type="button" @click="resetQuickSms()"
-                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors">
+                <button type="button" @click="if (!isClosing) resetQuickSms()" :disabled="isClosing"
+                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
             </div>
@@ -78,14 +79,14 @@
                         </template>
                     </div>
 
-                    <input type="tel" id="streaming-phone-input" x-model="quickSms.phone"
+                    <input type="tel" id="streaming-phone-input" x-model="quickSms.phone" :disabled="isClosing"
                         @input="quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
                         @keydown.enter.prevent="
-                       if (quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
+                       if (!isClosing && quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
                            $refs.streamingDescInput.focus();
                        }
-                   " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
-                        class="w-full py-2.5 px-4 pr-16 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal"
+                    " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
+                        class="w-full py-2.5 px-4 pr-16 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
                         placeholder="7XXXXXXXX" />
                 </div>
             </div>
@@ -93,28 +94,30 @@
             {{-- حقل نوع الطرد --}}
             <div>
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
-                <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" @keydown.enter.prevent="
-                   const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                   if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                       addToStreamingQueue(phone, quickSms.description || 'طرد');
-                       quickSms.phone = '';
-                       quickSms.description = '';
-                       $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                   } else {
-                       showFeedback('رقم الهاتف غير صالح', true);
-                       document.getElementById('streaming-phone-input').focus();
-                   }
-               " dir="rtl" autocomplete="off"
-                    class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all"
+                <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" :disabled="isClosing" @keydown.enter.prevent="
+                    if (isClosing) return;
+                    const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                    if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                        addToStreamingQueue(phone, quickSms.description || 'طرد');
+                        quickSms.phone = '';
+                        quickSms.description = '';
+                        $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                    } else {
+                        showFeedback('رقم الهاتف غير صالح', true);
+                        document.getElementById('streaming-phone-input').focus();
+                    }
+                " dir="rtl" autocomplete="off"
+                    class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
                     placeholder="طرد" />
             </div>
+
             {{-- رقائق الوصف السريع (تعبئة الحقل فقط دون إرسال فوري) --}}
             <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
                 <template x-for="tag in ['كيس ابيض', 'كيس اسود', 'كيس ازرق', 'كيس شفاف']" :key="tag">
-                    <button type="button" @click="
+                    <button type="button" :disabled="isClosing" @click="
                     quickSms.description = tag;
                     $refs.streamingDescInput.focus();
-                " class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95">
+                " class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40">
                         <span x-text="tag"></span>
                     </button>
                 </template>
@@ -123,6 +126,7 @@
 
         {{-- زر الإضافة اليدوي --}}
         <button type="button" @click="
+                if (isClosing) return;
                 const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                 if (phone.length === 9 && /^7[01378]/.test(phone)) {
                     addToStreamingQueue(phone, quickSms.description || 'طرد');
@@ -132,7 +136,7 @@
                 } else {
                     showFeedback('أدخل رقم هاتف صالح', true);
                 }
-            " :disabled="quickSms.phone.length < 9"
+            " :disabled="quickSms.phone.length < 9 || isClosing"
             class="w-full py-2.5 px-4 bg-secondary hover:bg-amber-500 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
             <span class="material-symbols-outlined text-base">add_circle</span>
             <span>إضافة واعتماد الطرد (Enter)</span>
@@ -188,8 +192,8 @@
 
                     {{-- زر إعادة المحاولة --}}
                     <template x-if="entry.status === 'failed'">
-                        <button type="button" @click="retryStreamingEntry(entry)"
-                            class="shrink-0 px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 text-[10px] font-bold flex items-center gap-0.5">
+                        <button type="button" @click="retryStreamingEntry(entry)" :disabled="isClosing"
+                            class="shrink-0 px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 text-[10px] font-bold flex items-center gap-0.5 disabled:opacity-40">
                             <span class="material-symbols-outlined text-xs">refresh</span>
                             <span>إعادة</span>
                         </button>
@@ -204,42 +208,67 @@
         </div>
 
         {{-- ═══════════════════════════════════
-        4. الفوتر الثابت بالأسفل (إغلاق وإنهاء)
+        4. الفوتر الثابت بالأسفل (إغلاق وإنهاء مع لودنق 5 ثوانٍ)
         ═══════════════════════════════════ --}}
         <div class="p-3 border-t border-slate-100 bg-white shrink-0">
-            <button type="button" @click="
-                        if (streamingPendingCount > 0) {
-                            showFeedback('لا يزال هناك طرود قيد الإرسال...', true);
+            <button type="button" :disabled="streamingPendingCount > 0 || isClosing" @click="
+                        if (streamingPendingCount > 0 || isClosing) {
                             return;
                         }
 
-                        // حفظ إحصائيات الإرسال قبل تصفير القائمة
-                        const totalSent = streamingSentCount;
-                        const totalSms = streamingQueue.filter(e => e.status === 'success' && e.smsSent).length;
-
-                        // تحديث قائمة الطرود الرئيسية بالصفحة
-                        if (typeof refreshFromServer === 'function' && isOnline) {
-                            refreshFromServer();
+                        // إذا لم يتم إدخال أي طرد، نغلق المودال فوراً بدون انتظار 5 ثوانٍ
+                        if (streamingQueue.length === 0) {
+                            resetQuickSms();
+                            return;
                         }
 
-                        // إغلاق المودال وتصفير الكشف
-                        resetQuickSms();
-                        streamingQueue = [];
-                        streamingIdCounter = 0;
+                        // تفعيل اللودنق لمدة 5 ثوانٍ لضمان وصول آخر رسالة SMS
+                        isClosing = true;
 
-                        // عرض رسالة التأكيد للمستخدم
-                        if (totalSent > 0) {
-                            showFeedback('✅ تم بنجاح تسجيل ' + totalSent + ' طرد وإرسال ' + totalSms + ' رسالة SMS للمستلمين.', false);
-                        }
+                        setTimeout(() => {
+                            // حفظ إحصائيات الإرسال قبل تصفير القائمة
+                            const totalSent = streamingSentCount;
+                            const totalSms = streamingQueue.filter(e => e.status === 'success' && e.smsSent).length;
+
+                            // تحديث قائمة الطرود الرئيسية بالصفحة
+                            if (typeof refreshFromServer === 'function' && isOnline) {
+                                refreshFromServer();
+                            }
+
+                            // إغلاق المودال وتصفير الكشف وحالة اللودنق
+                            isClosing = false;
+                            resetQuickSms();
+                            streamingQueue = [];
+                            streamingIdCounter = 0;
+
+                            // عرض رسالة التأكيد للمستخدم
+                            if (totalSent > 0) {
+                                showFeedback('✅ تم بنجاح تسجيل ' + totalSent + ' طرد وإرسال ' + totalSms + ' رسالة SMS للمستلمين.', false);
+                            }
+                        }, 5000);
                     "
                 class="w-full py-2.5 px-4 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                :class="streamingPendingCount > 0
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                :class="(streamingPendingCount > 0 || isClosing)
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-wait'
                         : 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'
                     ">
-                <span class="material-symbols-outlined text-base">done_all</span>
-                <span
-                    x-text="streamingPendingCount > 0 ? 'جارِ إرسال ' + streamingPendingCount + ' طرد...' : 'إنهاء الكشف وإغلاق'"></span>
+
+                {{-- أيقونة اللودنق أثناء إرسال الطرود أو أثناء مهلة الـ 5 ثوانٍ --}}
+                <template x-if="streamingPendingCount > 0 || isClosing">
+                    <span class="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></span>
+                </template>
+
+                {{-- أيقونة الإنهاء الطبيعية --}}
+                <template x-if="streamingPendingCount === 0 && !isClosing">
+                    <span class="material-symbols-outlined text-base">done_all</span>
+                </template>
+
+                {{-- النص المتغير حسب الحالة --}}
+                <span x-text="
+                    streamingPendingCount > 0
+                        ? 'جارِ إرسال ' + streamingPendingCount + ' طرد...'
+                        : (isClosing ? 'جاري إرسال رسائل SMS للعملاء...' : 'إنهاء الكشف وإغلاق')
+                "></span>
             </button>
         </div>
 
