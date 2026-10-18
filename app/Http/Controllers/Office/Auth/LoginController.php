@@ -31,7 +31,7 @@ class LoginController extends Controller
         // تنظيف رقم الهاتف المدخل من أي مسافات أو رموز
         $cleanPhone = preg_replace('/[^0-9]/', '', $credentials['phone']);
 
-        $remember = $request->has('remember');
+        $remember = true;
 
         // محاولة الدخول بمطابقة رقم هاتف الواتساب
         $attemptWhatsApp = Auth::guard('office')->attempt([
