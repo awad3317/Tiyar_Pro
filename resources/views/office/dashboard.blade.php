@@ -52,23 +52,33 @@
             </a>
         </div>
 
-        <!-- بطاقات مخصصة للميزات القادمة مستقبلاً -->
-        <h2 class="text-sm font-bold text-slate-800 pr-1 pt-2">خدمات قادمة</h2>
+        <!-- بطاقات مخصصة للميزات والخدمات -->
+        <h2 class="text-sm font-bold text-slate-800 pr-1 pt-2">الخدمات والميزات</h2>
 
         <div class="space-y-2.5">
-            <!-- الخدمة الأولى: إشعارات الواتساب -->
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <!-- الخدمة الأولى: إشعارات الواتساب (تم تفعيلها) -->
+            <a href="{{ route('office.whatsapp.index') }}" 
+               class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-emerald-300 flex items-center justify-between shadow-xs transition-all group block">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                         <span class="material-symbols-outlined text-xl">chat</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-xs text-slate-800">إشعارات الواتساب للعملاء</h3>
-                        <p class="text-[11px] text-slate-400">إرسال تنبيهات وصول الطرود وروابط الاستلام عبر واتساب</p>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-xs text-slate-800 group-hover:text-emerald-700 transition-colors">إشعارات الواتساب للعملاء</h3>
+                            <span class="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>تم التفعيل</span>
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-0.5">إرسال تنبيهات وصول الطرود وروابط الاستلام عبر واتساب تلقائياً</p>
                     </div>
                 </div>
-                <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
-            </div>
+                <div class="flex items-center gap-1 text-slate-400 group-hover:text-emerald-600 transition-colors">
+                    <span class="text-[11px] font-bold hidden sm:inline">الإعدادات</span>
+                    <span class="material-symbols-outlined text-base">arrow_back</span>
+                </div>
+            </a>
 
             <!-- الخدمة الثانية: سندات الاستلام -->
             <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">

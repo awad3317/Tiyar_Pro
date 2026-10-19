@@ -8,6 +8,7 @@
             sync: @json(route('office.api.parcels.sync')),
             login: @json(route('office.login')),
             resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
+            resendWhatsapp: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-whatsapp`,
             quickSendSms: @json(route('office.parcels.quick_send_sms')),
             quickSendSingle: @json(route('office.parcels.quick_send_single')),
         };
@@ -82,6 +83,22 @@
                 return data;
             },
 
+            async resendWhatsapp(parcelId) {
+                const res = await fetch(ROUTES.resendWhatsapp(parcelId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || `تعذر إرسال الواتساب (رمز: ${res.status})`);
+                }
+                return data;
+            },
+
             async quickSendSms(items) {
                 const res = await fetch(ROUTES.quickSendSms, {
                     method: 'POST',
@@ -99,7 +116,7 @@
                 return data;
             },
 
-            async quickSendSingle(phone, description) {
+            async quickSendSingle(phone, description, channel = 'whatsapp') {
                 const res = await fetch(ROUTES.quickSendSingle, {
                     method: 'POST',
                     headers: {
@@ -107,7 +124,7 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': this.csrfToken,
                     },
-                    body: JSON.stringify({ phone, description }),
+                    body: JSON.stringify({ phone, description, channel }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.status === 401 || res.status === 419) {
@@ -171,8 +188,9 @@
                 }
             },
 
-            // تتبع حالة رسائل SMS
+            // تتبع حالة رسائل SMS و WhatsApp
             sendingSmsId: null,
+            sendingWhatsappId: null,
 
             // مودال تأكيد الإرجاع للمكتب المرسل
             returnModal: {
@@ -305,6 +323,78 @@
                 }
             },
 
+            async resendWhatsapp(parcel) {
+                if (this.sendingWhatsappId) return;
+
+                if (!this.isOnline) {
+                    this.showFeedback('يتطلب إرسال الواتساب اتصالاً نشطاً بالإنترنت.', true);
+                    return;
+                }
+
+                this.sendingWhatsappId = parcel.id;
+                try {
+                    const response = await ParcelApi.resendWhatsapp(parcel.id);
+                    this.showFeedback(response.message || 'تم إرسال إشعار الواتساب بنجاح!', false);
+                } catch (err) {
+                    this.showFeedback(err.message || 'تعذر إرسال إشعار الواتساب.', true);
+                } finally {
+                    this.sendingWhatsappId = null;
+                }
+            },
+
+            getWhatsAppDirectUrl(parcel, preparedTemplate) {
+                const text = (preparedTemplate || '')
+                    .replace('{package}', parcel.package_type || 'طرد')
+                    .replace('{receipt}', parcel.receipt_number || '')
+                    .replace('{recipient}', parcel.recipient_name || 'العميل');
+
+                let cleanPhone = String(parcel.recipient_phone || '').replace(/\D/g, '').replace(/^0+/, '');
+                if (!cleanPhone.startsWith('967')) {
+                    cleanPhone = '967' + cleanPhone;
+                }
+
+                return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+            },
+
+            openWhatsAppDirect(url) {
+                const win = window.open(url, '_blank');
+                if (!win || win.closed || typeof win.closed === 'undefined') {
+                    window.location.href = url;
+                }
+            },
+
+            async handleWhatsAppClick(parcel, preparedTemplate, hasConfiguredGateway = true) {
+                if (this.sendingWhatsappId) return;
+
+                const directUrl = this.getWhatsAppDirectUrl(parcel, preparedTemplate);
+
+                // إذا كان الجهاز غير متصل بالإنترنت أو لم يتم ضبط بوابة واتساب للمكتب، نفتح واتساب فوراً (الطريقة السابقة)
+                if (!this.isOnline || !hasConfiguredGateway) {
+                    this.openWhatsAppDirect(directUrl);
+                    return;
+                }
+
+                // محاولة الإرسال التلقائي عبر السيرفر
+                this.sendingWhatsappId = parcel.id;
+                try {
+                    const response = await ParcelApi.resendWhatsapp(parcel.id);
+                    if (response && response.success) {
+                        this.showFeedback(response.message || 'تم إرسال إشعار الواتساب تلقائياً بنجاح!', false);
+                    } else {
+                        // في حال فشل الإرسال التلقائي، التحويل الفوري لواتساب بالطريقة القديمة
+                        this.openWhatsAppDirect(directUrl);
+                        this.showFeedback('تعذر الإرسال التلقائي، تم فتح واتساب للمراسلة المباشرة.', false);
+                    }
+                } catch (err) {
+                    // في حال أي خطأ بالسيرفر أو انقطاع، التحويل لواتساب بالطريقة السابقة فوراً
+                    console.warn('WhatsApp API not reachable, falling back to direct link:', err);
+                    this.openWhatsAppDirect(directUrl);
+                    this.showFeedback('تعذر الإرسال عبر السيرفر، تم فتح واتساب للمراسلة المباشرة.', false);
+                } finally {
+                    this.sendingWhatsappId = null;
+                }
+            },
+
             // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
 
             addToStreamingQueue(phone, description) {
@@ -313,9 +403,11 @@
                     id,
                     phone,
                     description,
+                    channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
                     smsSent: false,
+                    whatsappSent: false,
                 };
                 this.streamingQueue.unshift(entry);
                 this.dispatchSingle(entry);
@@ -329,7 +421,7 @@
         // استخدام الرابط المباشر كـ Fallback لو كان ROUTES غير معرف
         const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
                     ? ROUTES.quickSendSingle 
-                    : '/parcels/quick-send-single';
+                    : '/office/parcels/quick-send-single';
 
         const response = await fetch(url, {
             method: 'POST',
@@ -340,7 +432,8 @@
             },
             body: JSON.stringify({
                 phone: entry.phone,
-                description: entry.description
+                description: entry.description,
+                channel: entry.channel || this.quickSms?.channel || 'whatsapp'
             })
         });
 
@@ -354,6 +447,7 @@
                 // تحديث مباشر داخل المصفوفة
                 this.streamingQueue[targetIndex].status = 'success';
                 this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
+                this.streamingQueue[targetIndex].whatsappSent = Boolean(data.whatsapp_sent);
             } else {
                 this.streamingQueue[targetIndex].status = 'failed';
                 this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';

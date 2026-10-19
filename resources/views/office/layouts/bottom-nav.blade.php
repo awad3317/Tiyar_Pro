@@ -17,5 +17,7 @@
         <span class="material-symbols-outlined text-2xl {{ $isParcels ? 'text-secondary' : '' }}">inventory_2</span>
         <span class="mt-0.5">الطرود</span>
     </a>
+
+   
     
 </footer>

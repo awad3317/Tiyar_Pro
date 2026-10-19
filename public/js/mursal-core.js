@@ -5,7 +5,7 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 6; // ترقية لدعم الجداول العامة
+    const DB_VERSION = 7; // ترقية لدعم الجداول العامة
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
@@ -170,11 +170,16 @@
     function officeShell() {
         return {
             isOnline: navigator.onLine,
+            isSyncing: false,
             authRequired: false,
             syncQueue: [], // 👈 إضافة هذا المتغير ليكون متاحاً في الهيدر بكل الصفحات
             authModal: {
                 open: false,
             },
+
+            // قائمة الإرسال التدريجي الحية (متاحة في كافة الصفحات عبر الزر الموحد +)
+            streamingQueue: [],
+            streamingIdCounter: 0,
 
             // حالة الإرسال السريع لرسائل SMS (كشف جملة)
             quickSms: {
@@ -187,6 +192,7 @@
                 // حقول الإدخال التدريجي الجديدة
                 phone: '',
                 description: 'طرد',
+                channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
             // إشعار التنبيهات
@@ -201,6 +207,7 @@
                 this.quickSms.step = 'input';
                 this.quickSms.phone = '';
                 this.quickSms.description = 'طرد';
+                this.quickSms.channel = this.quickSms.channel || 'whatsapp';
                 // autofocus على حقل الهاتف بعد فتح المودال
                 this.$nextTick(() => {
                     const phoneInput = document.getElementById('streaming-phone-input');
@@ -457,11 +464,115 @@
                 });
             },
 
+            // ---------- الإرسال التدريجي الفردي الموحد (Streaming Dispatch) ----------
+            addToStreamingQueue(phone, description) {
+                const id = ++this.streamingIdCounter;
+                const entry = {
+                    id,
+                    phone,
+                    description,
+                    channel: this.quickSms?.channel || 'whatsapp',
+                    status: 'pending',   // pending | success | failed
+                    message: '',
+                    smsSent: false,
+                    whatsappSent: false,
+                };
+                this.streamingQueue.unshift(entry);
+                this.dispatchSingle(entry);
+                return entry;
+            },
+
+            async dispatchSingle(entry) {
+                try {
+                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    
+                    const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
+                                ? ROUTES.quickSendSingle 
+                                : '/office/parcels/quick-send-single';
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': token || ''
+                        },
+                        body: JSON.stringify({
+                            phone: entry.phone,
+                            description: entry.description,
+                            channel: entry.channel || this.quickSms?.channel || 'whatsapp'
+                        })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+
+                    const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+
+                    if (targetIndex !== -1) {
+                        if (response.ok && (data.success === true || data.status === 'success')) {
+                            this.streamingQueue[targetIndex].status = 'success';
+                            this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
+                            this.streamingQueue[targetIndex].whatsappSent = Boolean(data.whatsapp_sent);
+                        } else {
+                            this.streamingQueue[targetIndex].status = 'failed';
+                            this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';
+                        }
+                        
+                        this.streamingQueue = [...this.streamingQueue];
+                    }
+
+                    // تحديث جدول الطرود بالصفحة إن وُجد
+                    if (response.ok && typeof this.refreshFromServer === 'function') {
+                        this.refreshFromServer();
+                    }
+
+                } catch (err) {
+                    console.error('Streaming dispatch error:', err);
+                    const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+                    if (targetIndex !== -1) {
+                        this.streamingQueue[targetIndex].status = 'failed';
+                        this.streamingQueue = [...this.streamingQueue];
+                    }
+                }
+            },
+
+            async retryStreamingEntry(entry) {
+                entry.status = 'pending';
+                entry.message = '';
+                await this.dispatchSingle(entry);
+            },
+
+            get streamingSentCount() {
+                return (this.streamingQueue || []).filter(e => e.status === 'success').length;
+            },
+            get streamingPendingCount() {
+                return (this.streamingQueue || []).filter(e => e.status === 'pending').length;
+            },
+            get streamingFailedCount() {
+                return (this.streamingQueue || []).filter(e => e.status === 'failed').length;
+            },
+
             async syncData() {
-                // مزامنة الطابور وتحديث العداد في أي صفحة
-                if (window.MursalSync && window.MursalDB) {
-                    await window.MursalSync.process(() => this.handleSessionExpired());
-                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                if (this.isSyncing) return;
+                this.isSyncing = true;
+                try {
+                    // مزامنة الطابور وتحديث العداد في أي صفحة
+                    if (window.MursalSync && window.MursalDB) {
+                        await window.MursalSync.process(() => this.handleSessionExpired());
+                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    }
+                    if (typeof this.refreshFromServer === 'function') {
+                        await this.refreshFromServer();
+                    } else {
+                        window.location.reload();
+                    }
+                } catch (e) {
+                    console.warn('Sync failed:', e);
+                } finally {
+                    this.isSyncing = false;
+                    if (window.MursalDB) {
+                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    }
                 }
             },
 

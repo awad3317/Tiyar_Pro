@@ -4,6 +4,7 @@ use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Office\DashboardController;
 use App\Http\Controllers\Office\ParcelController;
+use App\Http\Controllers\Office\WhatsAppSettingsController;
 use App\Http\Controllers\Office\Auth\LoginController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
@@ -32,11 +33,23 @@ Route::prefix('office')->name('office.')->group(function () {
         Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // إعدادات الواتساب (Evolution API)
+        Route::prefix('whatsapp')->name('whatsapp.')->group(function () {
+            Route::get('/', [WhatsAppSettingsController::class, 'index'])->name('index');
+            Route::get('/status', [WhatsAppSettingsController::class, 'status'])->name('status');
+            Route::post('/connect', [WhatsAppSettingsController::class, 'connect'])->name('connect');
+            Route::get('/qr', [WhatsAppSettingsController::class, 'qrCode'])->name('qr');
+            Route::post('/pairing-code', [WhatsAppSettingsController::class, 'pairingCode'])->name('pairing_code');
+            Route::post('/disconnect', [WhatsAppSettingsController::class, 'disconnect'])->name('disconnect');
+            Route::post('/save', [WhatsAppSettingsController::class, 'saveSettings'])->name('save');
+        });
+
         // مسارات الـ API الخاصة بالمزامنة وقراءة البيانات للـ PWA بدون نت
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/parcels', [ParcelController::class, 'getParcelsData'])->name('parcels');
             Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');
             Route::post('/parcels/{parcel}/resend-sms', [ParcelController::class, 'resendSms'])->name('parcels.resend_sms');
+            Route::post('/parcels/{parcel}/resend-whatsapp', [ParcelController::class, 'resendWhatsapp'])->name('parcels.resend_whatsapp');
         });
     });
 });

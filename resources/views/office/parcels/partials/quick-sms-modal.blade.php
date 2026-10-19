@@ -1,6 +1,18 @@
+@php
+    $currentOffice = auth('office')->user();
+    $isWaConnected = $currentOffice ? (\Illuminate\Support\Facades\Cache::get('whatsapp_status_office_' . $currentOffice->id) === 'online') : false;
+@endphp
+
 {{-- مودال الإرسال السريع التدريجي للـ SMS (شاشة كاملة تتكيف مع الكيبورد) --}}
-<div x-data="{ isClosing: false }" x-show="quickSms.open" x-cloak class="fixed inset-0 z-50 flex flex-col bg-white"
-    @open-quick-sms.window="isClosing = false; openQuickSmsModal()"
+<div x-data="{ 
+        isClosing: false,
+        isWaConnected: {{ $isWaConnected ? 'true' : 'false' }}
+    }" 
+    x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'"
+    x-show="quickSms.open" 
+    x-cloak 
+    class="fixed inset-0 z-50 flex flex-col bg-white"
+    @open-quick-sms.window="isClosing = false; quickSms.channel = isWaConnected ? 'both' : 'sms'; openQuickSmsModal()"
     @keydown.escape.window="if (quickSms.open && !isClosing && streamingPendingCount === 0) resetQuickSms()">
 
     {{-- خلفية التعتيم للشاشات الكبيرة (Desktop) --}}
@@ -51,10 +63,61 @@
             </div>
         </div>
 
+        {{-- اختيار قناة الإرسال (واتساب / SMS / كلاهما) --}}
+        <div class="px-5 pt-2.5 pb-0 bg-white shrink-0">
+            <div class="flex p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+                <button type="button" 
+                    @click="if (isWaConnected) quickSms.channel = 'whatsapp'"
+                    :disabled="!isWaConnected"
+                    :class="{
+                        'bg-white text-emerald-600 shadow-xs border border-emerald-100 font-extrabold': quickSms.channel === 'whatsapp' && isWaConnected,
+                        'text-slate-500 hover:text-slate-700 font-bold': quickSms.channel !== 'whatsapp' && isWaConnected,
+                        'opacity-40 cursor-not-allowed text-slate-400': !isWaConnected
+                    }"
+                    class="flex-1 py-1.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1 transition-all"
+                    :title="!isWaConnected ? 'خدمة الواتساب غير متصلة حالياً' : 'إرسال عبر الواتساب فقط'">
+                    <span class="material-symbols-outlined text-[15px]">chat</span>
+                    <span>واتساب</span>
+                    <template x-if="!isWaConnected">
+                        <span class="material-symbols-outlined text-[12px] text-slate-400">lock</span>
+                    </template>
+                </button>
+                <button type="button" 
+                    @click="quickSms.channel = 'sms'"
+                    :class="quickSms.channel === 'sms' ? 'bg-white text-blue-600 shadow-xs border border-blue-100 font-extrabold' : 'text-slate-500 hover:text-slate-700 font-bold'"
+                    class="flex-1 py-1.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-[15px]">sms</span>
+                    <span>SMS</span>
+                </button>
+                <button type="button" 
+                    @click="if (isWaConnected) quickSms.channel = 'both'"
+                    :disabled="!isWaConnected"
+                    :class="{
+                        'bg-white text-amber-600 shadow-xs border border-amber-100 font-extrabold': quickSms.channel === 'both' && isWaConnected,
+                        'text-slate-500 hover:text-slate-700 font-bold': quickSms.channel !== 'both' && isWaConnected,
+                        'opacity-40 cursor-not-allowed text-slate-400': !isWaConnected
+                    }"
+                    class="flex-1 py-1.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1 transition-all"
+                    :title="!isWaConnected ? 'خدمة الواتساب غير متصلة حالياً' : 'إرسال عبر الواتساب و SMS معاً'">
+                    <span class="material-symbols-outlined text-[15px]">all_inclusive</span>
+                    <span>كلاهما</span>
+                    <template x-if="!isWaConnected">
+                        <span class="material-symbols-outlined text-[12px] text-slate-400">lock</span>
+                    </template>
+                </button>
+            </div>
+            <template x-if="!isWaConnected">
+                <p class="text-[10px] text-amber-600 font-bold mt-1 px-1 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">info</span>
+                    <span>واتساب غير متصل (متاح SMS فقط). يمكنك ربط الجلسة من الإعدادات.</span>
+                </p>
+            </template>
+        </div>
+
         {{-- ═══════════════════════════════════
         2. حقول الإدخال السريعة (تبقى واضحة أعلى الكيبورد)
         ═══════════════════════════════════ --}}
-        <div class="px-5 pt-3 pb-2 space-y-2.5 bg-white shrink-0 border-b border-slate-50">
+        <div class="px-5 pt-2.5 pb-2 space-y-2.5 bg-white shrink-0 border-b border-slate-50">
 
             {{-- حقل رقم الهاتف --}}
             <div>
@@ -199,10 +262,15 @@
                         </button>
                     </template>
 
-                    {{-- مؤشر SMS --}}
-                    <template x-if="entry.status === 'success' && entry.smsSent">
-                        <span class="shrink-0 text-[10px] text-emerald-600 font-bold">SMS ✓</span>
-                    </template>
+                    {{-- مؤشرات نجاح الإرسال (واتساب / SMS) --}}
+                    <div class="shrink-0 flex items-center gap-1">
+                        <template x-if="entry.status === 'success' && entry.whatsappSent">
+                            <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">واتساب ✓</span>
+                        </template>
+                        <template x-if="entry.status === 'success' && entry.smsSent">
+                            <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">SMS ✓</span>
+                        </template>
+                    </div>
                 </div>
             </template>
         </div>

@@ -6,8 +6,10 @@ use App\Enums\ParcelStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Parcel;
 use App\Services\HttpSmsService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
@@ -149,9 +151,82 @@ class ParcelController extends Controller
     }
 
     /**
+     * إعادة / إرسال إشعار WhatsApp للمستلم (مخصص للطرود المتواجدة في المكتب فقط عبر WhatsAppService).
+     */
+    public function resendWhatsapp(Parcel $parcel, WhatsAppService $whatsAppService)
+    {
+        $office = Auth::guard('office')->user();
+
+        // 1. التحقق من تبعية الطرد لنفس المكتب
+        if ($parcel->office_id !== $office->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'غير مصرح لك بإدارة هذا الطرد.'
+            ], 403);
+        }
+
+        // 2. التحقق من أن حالة الطرد هي في المكتب فقط
+        if ($parcel->status !== ParcelStatus::InOffice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'يمكن إرسال رسائل الواتساب للطرود المتواجدة بالمكتب فقط.'
+            ], 422);
+        }
+
+        // 3. التحقق من كاش الاتصال: إذا كانت الخدمة مسجلة كـ offline في الكاش نرجع فوراً لتوفير الوقت
+        $cacheStatus = Cache::get('whatsapp_status_office_' . $office->id);
+        if ($cacheStatus === 'offline') {
+            return response()->json([
+                'success' => false,
+                'message' => 'خدمة WhatsApp غير متصلة حالياً (حسب الكاش). يمكنك المراسلة المباشرة عبر الرابط.'
+            ], 503);
+        }
+
+        // 4. تهيئة خدمة الواتساب للمكتب الحالي
+        $wa = $whatsAppService->forOffice($office);
+
+        if (!$wa->isConfigured()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'بيانات بوابة الواتساب غير مكتملة في إعدادات المكتب (الرابط أو مفتاح الـ API غير معرّف).'
+            ], 422);
+        }
+
+        // 5. تجهيز متغيرات القالب
+        $variables = [
+            '{package}'      => $parcel->package_type ?? 'طرد',
+            '{receipt}'      => $parcel->receipt_number ?? '',
+            '{recipient}'    => $parcel->recipient_name ?? 'العميل',
+        ];
+
+        try {
+            $result = $wa->sendOfficeTemplate($parcel->recipient_phone, $variables);
+
+            if (!empty($result['success']) || (empty($result['error']) && empty($result['message']))) {
+                Cache::put('whatsapp_status_office_' . $office->id, 'online', now()->addMinutes(15));
+                return response()->json([
+                    'success' => true,
+                    'message' => 'تم إرسال إشعار الواتساب للمستلم بنجاح.'
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'تعذر إرسال رسالة الواتساب: ' . ($result['message'] ?? 'خطأ في خادم الواتساب')
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::error("resendWhatsapp Error for parcel #{$parcel->id}: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء إرسال الواتساب: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * إدراج وإرسال دفعة طرود سريعة من خلال الكشف السريع للـ SMS.
      */
-    public function quickSendSms(Request $request, HttpSmsService $smsService)
+    public function quickSendSms(Request $request, HttpSmsService $smsService, WhatsAppService $whatsAppService)
     {
         $office = Auth::guard('office')->user();
 
@@ -162,7 +237,8 @@ class ParcelController extends Controller
             ], 401);
         }
 
-        $items = $request->input('items', []);
+        $items   = $request->input('items', []);
+        $channel = $request->input('channel', 'sms'); // 'sms', 'whatsapp', 'both'
 
         if (empty($items) || !is_array($items)) {
             return response()->json([
@@ -181,14 +257,19 @@ class ParcelController extends Controller
         // تمديد مهلة تنفيذ السكربت لتفادي timeout بسبب الـ sleep أثناء إرسال دفعات كبيرة
         set_time_limit(300);
 
-        $createdParcels = [];
-        $smsSuccessCount = 0;
-        $smsFailedCount  = 0;
+        $createdParcels        = [];
+        $smsSuccessCount       = 0;
+        $smsFailedCount        = 0;
+        $whatsappSuccessCount  = 0;
+        $whatsappFailedCount   = 0;
 
-        // تجهيز قالب رسالة الـ SMS
+        // تجهيز قوالب الرسائل
         $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-        $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+        $smsTemplate = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
         $hasSmsGatewayConfigured = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
+
+        $wa = $whatsAppService->forOffice($office);
+        $hasWhatsAppConfigured = $wa->isConfigured();
 
         foreach ($items as $item) {
             $phone = trim($item['phone'] ?? '');
@@ -211,7 +292,7 @@ class ParcelController extends Controller
 
                 $createdParcels[] = $parcel;
             } catch (\Throwable $e) {
-                Log::error("Quick SMS - فشل حفظ الطرد في قاعدة البيانات: " . $e->getMessage(), [
+                Log::error("Quick Send - فشل حفظ الطرد في قاعدة البيانات: " . $e->getMessage(), [
                     'phone' => $phone,
                     'desc'  => $desc
                 ]);
@@ -219,7 +300,7 @@ class ParcelController extends Controller
             }
 
             // 2. إرسال رسالة SMS عبر البوابة
-            if ($hasSmsGatewayConfigured) {
+            if (in_array($channel, ['sms', 'both']) && $hasSmsGatewayConfigured) {
                 $smsBody = str_replace(
                     ['{office}', '{branch}', '{package}', '{receipt}'],
                     [
@@ -228,7 +309,7 @@ class ParcelController extends Controller
                         $parcel->package_type,
                         $parcel->receipt_number ?? ''
                     ],
-                    $template
+                    $smsTemplate
                 );
 
                 $smsBody = str_replace(' ()', '', $smsBody);
@@ -245,27 +326,53 @@ class ParcelController extends Controller
                         $smsSuccessCount++;
                     } else {
                         $smsFailedCount++;
-                        Log::warning("Quick SMS - البوابة لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
+                        Log::warning("Quick Send - SMS لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
                     }
                 } catch (\Throwable $e) {
                     $smsFailedCount++;
-                    Log::error("Quick SMS - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
+                    Log::error("Quick Send - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                 }
 
-                // فاصل زمني ثانيتين بين كل رسالة لحماية شريحة الإرسال وبوابة الأندرويد
-                sleep(2);
+                sleep(1);
+            }
+
+            // 3. إرسال رسالة WhatsApp عبر WhatsAppService
+            if (in_array($channel, ['whatsapp', 'both']) && $hasWhatsAppConfigured) {
+                $variables = [
+                    '{package}'   => $parcel->package_type ?? 'طرد',
+                    '{receipt}'   => $parcel->receipt_number ?? '',
+                    '{recipient}' => $parcel->recipient_name ?? 'العميل',
+                ];
+
+                try {
+                    $waResult = $wa->sendOfficeTemplate($parcel->recipient_phone, $variables);
+
+                    if (!empty($waResult['success']) || (empty($waResult['error']) && empty($waResult['message']))) {
+                        $whatsappSuccessCount++;
+                    } else {
+                        $whatsappFailedCount++;
+                        Log::warning("Quick Send - تعذر إرسال الواتساب للرقم {$parcel->recipient_phone}: " . ($waResult['message'] ?? 'خطأ في خادم الواتساب'));
+                    }
+                } catch (\Throwable $e) {
+                    $whatsappFailedCount++;
+                    Log::error("Quick Send - خطأ واتساب للرقم {$parcel->recipient_phone}: " . $e->getMessage());
+                }
+
+                sleep(1);
             }
         }
 
         $totalSaved = count($createdParcels);
 
         return response()->json([
-            'success'     => true,
-            'count'       => $totalSaved,
-            'sms_sent'    => $smsSuccessCount,
-            'sms_failed'  => $smsFailedCount,
-            'message'     => "تم تسجيل {$totalSaved} طرد بنجاح وإرسال {$smsSuccessCount} رسالة.",
-            'parcels'     => $createdParcels,
+            'success'          => true,
+            'count'            => $totalSaved,
+            'sms_sent'         => $smsSuccessCount,
+            'sms_failed'       => $smsFailedCount,
+            'whatsapp_sent'    => $whatsappSuccessCount,
+            'whatsapp_failed'  => $whatsappFailedCount,
+            'message'          => "تم تسجيل {$totalSaved} طرد بنجاح (واتساب: {$whatsappSuccessCount} ، SMS: {$smsSuccessCount}).",
+            'parcels'          => $createdParcels,
         ]);
     }
 
@@ -273,7 +380,7 @@ class ParcelController extends Controller
      * إرسال فردي فوري لطرد واحد (Streaming Dispatch).
      * يُستقبل من الواجهة بشكل غير متزامن لكل طرد على حدة بدون أي تأخير.
      */
-    public function quickSendSingle(Request $request, HttpSmsService $smsService)
+    public function quickSendSingle(Request $request, HttpSmsService $smsService, WhatsAppService $whatsAppService)
     {
         $office = Auth::guard('office')->user();
 
@@ -284,8 +391,9 @@ class ParcelController extends Controller
             ], 401);
         }
 
-        $phone = trim($this->normalizeEasternDigits($request->input('phone', '')));
-        $desc  = trim($request->input('description', 'طرد'));
+        $phone   = trim($this->normalizeEasternDigits($request->input('phone', '')));
+        $desc    = trim($request->input('description', 'طرد'));
+        $channel = $request->input('channel', 'sms'); // 'sms', 'whatsapp', 'both'
 
         // التحقق من صحة رقم الهاتف اليمني (9 أرقام يبدأ بـ 7)
         if (!preg_match('/^7[01378]\d{7}$/', $phone)) {
@@ -316,11 +424,12 @@ class ParcelController extends Controller
             ], 500);
         }
 
-        // 2. إرسال رسالة SMS فوراً (بدون sleep)
-        $smsSent = false;
-        $hasSmsGateway = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
+        $smsSent      = false;
+        $whatsappSent = false;
 
-        if ($hasSmsGateway) {
+        // 2. إرسال رسالة SMS إذا طُلب
+        $hasSmsGateway = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
+        if (in_array($channel, ['sms', 'both']) && $hasSmsGateway) {
             $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
             $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
@@ -354,11 +463,41 @@ class ParcelController extends Controller
             }
         }
 
+        // 3. إرسال رسالة WhatsApp عبر WhatsAppService
+        $wa = $whatsAppService->forOffice($office);
+        if (in_array($channel, ['whatsapp', 'both']) && $wa->isConfigured()) {
+            $variables = [
+                '{package}'   => $parcel->package_type ?? 'طرد',
+                '{receipt}'   => $parcel->receipt_number ?? '',
+                '{recipient}' => $parcel->recipient_name ?? 'العميل',
+            ];
+
+            try {
+                $waResult = $wa->sendOfficeTemplate($parcel->recipient_phone, $variables);
+                $whatsappSent = !empty($waResult['success']) || (empty($waResult['error']) && empty($waResult['message']));
+
+                if (!$whatsappSent) {
+                    Log::warning("QuickSendSingle - تعذر إرسال الواتساب للرقم {$parcel->recipient_phone}: " . ($waResult['message'] ?? 'خطأ في بوابة الواتساب'));
+                }
+            } catch (\Throwable $e) {
+                Log::error("QuickSendSingle - خطأ واتساب للرقم {$parcel->recipient_phone}: " . $e->getMessage());
+            }
+        }
+
+        $sentChannels = [];
+        if ($whatsappSent) $sentChannels[] = 'واتساب';
+        if ($smsSent) $sentChannels[] = 'SMS';
+
+        $feedbackMsg = !empty($sentChannels)
+            ? 'تم تسجيل الطرد وإرسال (' . implode(' + ', $sentChannels) . ') بنجاح.'
+            : 'تم تسجيل الطرد بنجاح.';
+
         return response()->json([
-            'success'  => true,
-            'sms_sent' => $smsSent,
-            'message'  => $smsSent ? 'تم تسجيل الطرد وإرسال SMS بنجاح.' : 'تم تسجيل الطرد (SMS لم يُرسل).',
-            'parcel'   => $parcel,
+            'success'       => true,
+            'sms_sent'      => $smsSent,
+            'whatsapp_sent' => $whatsappSent,
+            'message'       => $feedbackMsg,
+            'parcel'        => $parcel,
         ]);
     }
 

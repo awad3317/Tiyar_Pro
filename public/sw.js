@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v9';
+const CACHE_NAME = 'mursal-pwa-v11';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -10,7 +10,7 @@ const ASSETS_TO_CACHE = [
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js'
 ];
 
-// 1. التثبيت الآمن وحفظ الأصول الأساسية
+// 1. التثبيت وحفظ الأصول الأساسية
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
@@ -42,19 +42,40 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // 👈 تعديل حاسم: استثناء طلبات الدخول، الخروج، والـ API من التدخل نهائياً لمنع التحويل
+    // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب
     if (
         event.request.method !== 'GET' ||
         url.pathname.includes('/login') ||
         url.pathname.includes('/logout') ||
-        url.pathname.includes('/api/')
+        url.pathname.includes('/api/') ||
+        url.pathname.includes('/whatsapp')
     ) {
-        return; // تذهب مباشرة إلى سيرفر لارافل
+        return; // تذهب مباشرة إلى السيرفر
     }
 
+    // لصفحات التنقل (HTML Navigation): Network-First للحصول دائماً على أحدث هيدر وتحديثات، مع الرجوع للكاش عند انقطاع النت
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    return caches.match(event.request).then((cached) => {
+                        return cached || caches.match('/office/parcels');
+                    });
+                })
+        );
+        return;
+    }
+
+    // للأصول الثابتة (Static Assets): Cache-First
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
-            // محاولة جلب أحدث نسخة من السيرفر وتحديث الكاش في الخلفية
             const fetchPromise = fetch(event.request)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
@@ -64,13 +85,9 @@ self.addEventListener('fetch', (event) => {
                     return networkResponse;
                 })
                 .catch(() => {
-                    // في حال انقطاع النت وطلب صفحة تنقل، يتم فتح صفحة الطرود من الكاش
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('/office/parcels');
-                    }
+                    // ignore
                 });
 
-            // 👈 تعديل حاسم: إذا كانت الصفحة مخزنة، افتحها فوراً دون انتظار النت، وإلا انتظر الشبكة
             return cachedResponse || fetchPromise;
         })
     );

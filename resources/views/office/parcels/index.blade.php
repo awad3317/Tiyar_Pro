@@ -1,12 +1,12 @@
+@php
+    $showSearch = true;
+@endphp
 @extends('office.layouts.app')
 
 @section('title', 'إدارة الطرود')
 
 @section('alpine', 'parcelApp()')
 
-@section('header')
-    @include('office.layouts.header', ['showSearch' => true])
-@endsection
 
 @section('content')
     <!-- تبويبات التصفية -->

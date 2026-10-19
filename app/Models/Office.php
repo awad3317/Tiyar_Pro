@@ -18,6 +18,13 @@ class Office extends Authenticatable
         'httpsms_from_phone',
         'httpsms_api_key',
         'sms_template',
+        'whatsapp_base_url',
+        'whatsapp_instance_id',
+        'whatsapp_instance_name',
+        'whatsapp_api_key',
+        'whatsapp_webhook_url',
+        'whatsapp_timeout',
+        'whatsapp_template',
         'is_active',
     ];
 
@@ -25,6 +32,7 @@ class Office extends Authenticatable
         'password',
         'remember_token',
         'httpsms_api_key',
+        'whatsapp_api_key',
     ];
 
     protected function casts(): array
@@ -33,6 +41,11 @@ class Office extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function hasWhatsAppConfigured(): bool
+    {
+        return !empty($this->whatsapp_base_url) && !empty($this->whatsapp_api_key);
     }
 
     public function parcels(): HasMany

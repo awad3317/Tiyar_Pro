@@ -5,14 +5,47 @@
 <!-- شريط الهيدر الموحد -->
 <header class="bg-primary text-white p-4 sticky top-0 z-30 shadow-md">
     <div class="flex items-center justify-between gap-3">
-        <!-- اسم المكتب والفرع -->
-        <div class="min-w-0 flex-1">
-            <h1 class="font-extrabold text-base sm:text-lg leading-tight truncate text-white">
-                {{ $office->name ?? 'المكتب' }}
-            </h1>
-            <p class="text-xs text-slate-400 truncate mt-0.5">
-                {{ $office->branch_name ?? 'المركز الرئيسي' }}
-            </p>
+        <!-- اسم المكتب والفرع (قائمة منسدلة) -->
+        <div class="min-w-0 flex-1 relative" x-data="{ menuOpen: false }">
+            <button type="button" @click="menuOpen = !menuOpen" 
+                    class="w-full text-right flex items-center gap-1.5 group">
+                <div class="min-w-0 flex-1">
+                    <h1 class="font-extrabold text-base sm:text-lg leading-tight truncate text-white">
+                        {{ $office->name ?? 'المكتب' }}
+                    </h1>
+                    <p class="text-xs text-slate-400 truncate mt-0.5">
+                        {{ $office->branch_name ?? 'المركز الرئيسي' }}
+                    </p>
+                </div>
+                <span class="material-symbols-outlined text-slate-400 text-sm transition-transform shrink-0"
+                      :class="menuOpen ? 'rotate-180' : ''">expand_more</span>
+            </button>
+
+            <!-- القائمة المنسدلة -->
+            <div x-show="menuOpen" x-cloak 
+                 @click.outside="menuOpen = false"
+                 x-transition:enter="ease-out duration-150"
+                 x-transition:enter-start="opacity-0 -translate-y-2 scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave="ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave-end="opacity-0 -translate-y-2 scale-95"
+                 class="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+                
+                <!-- رابط إعدادات الواتساب -->
+                <a href="{{ route('office.whatsapp.index') }}" 
+                   class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group/item">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover/item:bg-emerald-100 transition-colors">
+                        <span class="material-symbols-outlined text-base">chat</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-extrabold text-slate-700">إعدادات الواتساب</p>
+                    </div>
+                </a>
+
+                <div class="border-t border-slate-100"></div>
+
+            </div>
         </div>
 
         <!-- أزرار الإجراءات وحالة الاتصال -->
@@ -34,7 +67,7 @@
 
             <!-- زر المزامنة اليدوية السريعة -->
             <button type="button" 
-                    @click="syncData ? syncData() : window.location.reload()" 
+                    @click="(typeof syncData === 'function') ? syncData() : window.location.reload()" 
                     title="مزامنة وتحديث البيانات"
                     class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-[19px]" :class="typeof isSyncing !== 'undefined' && isSyncing ? 'animate-spin text-secondary' : ''">sync</span>
@@ -66,8 +99,8 @@
         </div>
     </template>
 
-    <!-- شريط البحث (يظهر اختيارياً فقط إذا تم تفعيل المتغير $showSearch) -->
-    @if (!empty($showSearch))
+    <!-- شريط البحث (يظهر تلقائياً في صفحة الطرود أو إذا تم تفعيل المتغير $showSearch) -->
+    @if (!empty($showSearch) || request()->routeIs('office.parcels.*'))
         <div class="mt-3 relative">
             <input type="text" 
                    x-model="search" 
