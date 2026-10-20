@@ -6,13 +6,37 @@
 {{-- مودال الإرسال السريع التدريجي للـ SMS (شاشة كاملة تتكيف مع الكيبورد) --}}
 <div x-data="{ 
         isClosing: false,
-        isWaConnected: {{ $isWaConnected ? 'true' : 'false' }}
+        isWaConnected: {{ $isWaConnected ? 'true' : 'false' }},
+        waStatusChecked: false,
+        checkWhatsAppStatus() {
+            fetch('{{ route('office.whatsapp.status') }}?refresh=1', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.isWaConnected = !!(data.connected);
+                this.waStatusChecked = true;
+                // تحديث القناة بناءً على الحالة الحقيقية من السيرفر
+                if (this.isWaConnected) {
+                    // إذا الواتساب متصل والقناة الحالية SMS فقط، نرقّيها لـ both
+                    if (quickSms.channel === 'sms') {
+                        quickSms.channel = 'both';
+                    }
+                } else {
+                    // إذا غير متصل، نرجّع القناة لـ sms
+                    if (quickSms.channel === 'whatsapp' || quickSms.channel === 'both') {
+                        quickSms.channel = 'sms';
+                    }
+                }
+            })
+            .catch(() => { this.waStatusChecked = true; });
+        }
     }" 
-    x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'"
+    x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'; checkWhatsAppStatus()"
     x-show="quickSms.open" 
     x-cloak 
     class="fixed inset-0 z-50 flex flex-col bg-white"
-    @open-quick-sms.window="isClosing = false; quickSms.channel = isWaConnected ? 'both' : 'sms'; openQuickSmsModal()"
+    @open-quick-sms.window="isClosing = false; checkWhatsAppStatus(); openQuickSmsModal()"
     @keydown.escape.window="if (quickSms.open && !isClosing && streamingPendingCount === 0) resetQuickSms()">
 
     {{-- خلفية التعتيم للشاشات الكبيرة (Desktop) --}}
