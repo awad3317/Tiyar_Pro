@@ -15,6 +15,45 @@
 @section('content')
 <div class="space-y-6" x-data="officesManagement()">
 
+    <!-- بطاقات المؤشرات العلوية لحالة المكاتب والواتساب -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+            <div>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">إجمالي المكاتب</span>
+                <span class="text-2xl font-black text-slate-900" x-text="stats.total">{{ $whatsappStats['total'] ?? $offices->total() }}</span>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <span class="material-symbols-outlined text-xl">domain</span>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+            <div>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">واتساب متصل Online</span>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-2xl font-black text-emerald-600" x-text="stats.online">{{ $whatsappStats['online'] ?? 0 }}</span>
+                </div>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <span class="material-symbols-outlined text-xl">chat</span>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+            <div>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">واتساب غير متصل Offline</span>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span class="text-2xl font-black text-slate-700" x-text="stats.offline">{{ $whatsappStats['offline'] ?? 0 }}</span>
+                </div>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                <span class="material-symbols-outlined text-xl">chat_error</span>
+            </div>
+        </div>
+    </div>
+
     <!-- شريط البحث والفلترة المتقدمة -->
     <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
         <form method="GET" action="{{ route('admin.offices.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -242,6 +281,78 @@
 <script>
     function officesManagement() {
         return {
+            stats: {
+                online: {{ $whatsappStats['online'] ?? 0 }},
+                offline: {{ $whatsappStats['offline'] ?? 0 }},
+                total: {{ $whatsappStats['total'] ?? $offices->total() }}
+            },
+            officeStatuses: {
+                @foreach($offices as $office)
+                    {{ $office->id }}: '{{ $office->whatsapp_live_status }}',
+                @endforeach
+            },
+            officesToCheck: @json($offices->getCollection()->filter(fn($o) => $o->hasWhatsAppConfigured() && ($o->needs_status_check || $o->whatsapp_live_status !== 'online'))->pluck('id')->values()),
+
+            init() {
+                // فحص تلقائي في الخلفية عند فتح الصفحة لجميع المكاتب المهيأة وغير المتصلة
+                this.autoCheckPending();
+            },
+
+            async autoCheckPending() {
+                if (!this.officesToCheck || !this.officesToCheck.length) return;
+
+                for (const officeId of this.officesToCheck) {
+                    this.checkOfficeLiveStatus(officeId, true);
+                }
+            },
+
+            async checkOfficeLiveStatus(officeId, isAuto = false) {
+                const pill = document.getElementById(`wa-pill-${officeId}`);
+
+                if (pill && isAuto) {
+                    pill.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200';
+                    pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span><span class="text-sky-700">جاري التحقق...</span>';
+                }
+
+                try {
+                    const res = await fetch(`/admin/offices/${officeId}/whatsapp/status?refresh=1`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+
+                    if (pill) {
+                        if (data.connected) {
+                            pill.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                            pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span class="text-emerald-700">متصل بنجاح</span>';
+
+                            if (this.officeStatuses[officeId] !== 'online') {
+                                this.officeStatuses[officeId] = 'online';
+                                this.stats.online++;
+                                if (this.stats.offline > 0) this.stats.offline--;
+                            }
+                        } else if (data.state === 'not_configured') {
+                            pill.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
+                            pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="text-amber-700">غير مهيأ</span>';
+                        } else {
+                            pill.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200';
+                            pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-700">غير متصل</span>';
+
+                            if (this.officeStatuses[officeId] === 'online') {
+                                this.officeStatuses[officeId] = 'offline';
+                                if (this.stats.online > 0) this.stats.online--;
+                                this.stats.offline++;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed checking WhatsApp status for office ' + officeId, e);
+                    if (pill && isAuto) {
+                        pill.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200';
+                        pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-700">غير متصل</span>';
+                    }
+                }
+            },
+
             passwordModal: {
                 show: false,
                 officeId: null,

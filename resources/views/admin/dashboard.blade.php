@@ -52,7 +52,7 @@
                 <div>
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">جلسات واتساب المكاتب</p>
                     <div class="flex items-baseline gap-2">
-                        <h3 class="text-3xl font-black text-slate-900">{{ $stats['whatsapp_online_count'] }}</h3>
+                        <h3 class="text-3xl font-black text-slate-900" x-text="stats.online_count">{{ $stats['whatsapp_online_count'] }}</h3>
                         <span class="text-xs font-bold text-slate-400">من أصل {{ $stats['total_offices'] }} متصل</span>
                     </div>
                 </div>
@@ -63,11 +63,13 @@
             <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
                 <span class="text-emerald-600 flex items-center gap-1">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    {{ $stats['whatsapp_online_count'] }} أونلاين Online
+                    <span x-text="stats.online_count">{{ $stats['whatsapp_online_count'] }}</span>
+                    <span>أونلاين Online</span>
                 </span>
                 <span class="text-slate-500 flex items-center gap-1">
                     <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                    {{ $stats['whatsapp_offline_count'] }} أوفلاين Offline
+                    <span x-text="stats.offline_count">{{ $stats['whatsapp_offline_count'] }}</span>
+                    <span>أوفلاين Offline</span>
                 </span>
             </div>
         </div>
@@ -263,6 +265,30 @@
 <script>
     function dashboardLiveMonitor() {
         return {
+            stats: {
+                online_count: {{ $stats['whatsapp_online_count'] }},
+                offline_count: {{ $stats['whatsapp_offline_count'] }}
+            },
+            officeStatuses: {
+                @foreach($offices as $office)
+                    {{ $office->id }}: '{{ $office->whatsapp_live_status }}',
+                @endforeach
+            },
+            officesToCheck: @json($offices->filter(fn($o) => $o->hasWhatsAppConfigured() && ($o->needs_status_check || $o->whatsapp_live_status !== 'online'))->pluck('id')->values()),
+
+            init() {
+                // الفحص التلقائي بالخلفية لجميع المكاتب المهيأة وغير المتصلة
+                this.autoCheckPending();
+            },
+
+            async autoCheckPending() {
+                if (!this.officesToCheck || !this.officesToCheck.length) return;
+
+                for (const officeId of this.officesToCheck) {
+                    this.checkLiveStatus(officeId, true);
+                }
+            },
+
             async toggleOfficeStatus(officeId) {
                 try {
                     const res = await fetch(`/admin/offices/${officeId}/toggle-status`, {
@@ -288,31 +314,56 @@
                 }
             },
 
-            async checkLiveStatus(officeId) {
+            async checkLiveStatus(officeId, isAuto = false) {
                 const icon = document.getElementById(`refresh-icon-${officeId}`);
+                const badge = document.getElementById(`wa-badge-${officeId}`);
+
                 if (icon) icon.classList.add('animate-spin');
+
+                if (badge && isAuto) {
+                    badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200';
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span><span>جاري التحقق...</span>';
+                }
 
                 try {
                     const res = await fetch(`/admin/offices/${officeId}/whatsapp/status?refresh=1`, {
                         headers: { 'Accept': 'application/json' }
                     });
                     const data = await res.json();
-                    const badge = document.getElementById(`wa-badge-${officeId}`);
 
                     if (badge) {
                         if (data.connected) {
                             badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
                             badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>متصل Online</span>';
+
+                            // تحديث عدادات الكروت العلوية فورياً
+                            if (this.officeStatuses[officeId] !== 'online') {
+                                this.officeStatuses[officeId] = 'online';
+                                this.stats.online_count++;
+                                if (this.stats.offline_count > 0) {
+                                    this.stats.offline_count--;
+                                }
+                            }
                         } else if (data.state === 'not_configured') {
                             badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
                             badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>غير مهيأ</span>';
                         } else {
                             badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200';
                             badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>غير متصل Offline</span>';
+
+                            if (this.officeStatuses[officeId] === 'online') {
+                                this.officeStatuses[officeId] = 'offline';
+                                if (this.stats.online_count > 0) this.stats.online_count--;
+                                this.stats.offline_count++;
+                            }
                         }
                     }
                 } catch (e) {
-                    console.error(e);
+                    console.error('WhatsApp status check error for office ' + officeId, e);
+                    if (badge && isAuto) {
+                        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200';
+                        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>غير متصل Offline</span>';
+                    }
                 } finally {
                     if (icon) icon.classList.remove('animate-spin');
                 }

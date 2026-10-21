@@ -48,13 +48,20 @@ class DashboardController extends Controller
 
         foreach ($offices as $office) {
             $cacheKey = 'whatsapp_status_office_' . $office->id;
-            $cachedStatus = Cache::get($cacheKey);
+            $hasCache = Cache::has($cacheKey);
+            $cachedStatus = $hasCache ? Cache::get($cacheKey) : null;
 
             if ($cachedStatus === 'online') {
                 $office->whatsapp_live_status = 'online';
+                $office->needs_status_check   = false;
                 $onlineOfficesCount++;
+            } elseif (!$office->hasWhatsAppConfigured()) {
+                $office->whatsapp_live_status = 'not_configured';
+                $office->needs_status_check   = false;
+                $offlineOfficesCount++;
             } else {
-                $office->whatsapp_live_status = $office->hasWhatsAppConfigured() ? ($cachedStatus ?: 'offline') : 'not_configured';
+                $office->whatsapp_live_status = $hasCache ? ($cachedStatus ?: 'offline') : 'offline';
+                $office->needs_status_check   = !$hasCache || ($cachedStatus !== 'online');
                 $offlineOfficesCount++;
             }
         }

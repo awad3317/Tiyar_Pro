@@ -48,17 +48,27 @@ class OfficeController extends Controller
 
         $offices = $query->latest('id')->paginate(12)->withQueryString();
 
+        $onlineCount  = 0;
+        $offlineCount = 0;
+
         // إرفاق حالة الكاش الحالية لكل مكتب
-        $offices->getCollection()->transform(function ($office) {
+        $offices->getCollection()->transform(function ($office) use (&$onlineCount, &$offlineCount) {
             $cacheKey = 'whatsapp_status_office_' . $office->id;
-            $cachedStatus = Cache::get($cacheKey);
+            $hasCache = Cache::has($cacheKey);
+            $cachedStatus = $hasCache ? Cache::get($cacheKey) : null;
 
             if ($cachedStatus === 'online') {
                 $office->whatsapp_live_status = 'online';
+                $office->needs_status_check   = false;
+                $onlineCount++;
             } elseif (!$office->hasWhatsAppConfigured()) {
                 $office->whatsapp_live_status = 'not_configured';
+                $office->needs_status_check   = false;
+                $offlineCount++;
             } else {
-                $office->whatsapp_live_status = $cachedStatus ?: 'offline';
+                $office->whatsapp_live_status = $hasCache ? ($cachedStatus ?: 'offline') : 'offline';
+                $office->needs_status_check   = !$hasCache || ($cachedStatus !== 'online');
+                $offlineCount++;
             }
 
             return $office;
@@ -74,9 +84,14 @@ class OfficeController extends Controller
         }
 
         return view('admin.offices.index', [
-            'offices'   => $offices,
-            'filters'   => $request->only(['search', 'status', 'whatsapp_status']),
-            'instances' => WhatsappInstance::where('is_active', true)->get(),
+            'offices'       => $offices,
+            'filters'       => $request->only(['search', 'status', 'whatsapp_status']),
+            'instances'     => WhatsappInstance::where('is_active', true)->get(),
+            'whatsappStats' => [
+                'online'  => $onlineCount,
+                'offline' => $offlineCount,
+                'total'   => $offices->total(),
+            ],
         ]);
     }
 
