@@ -386,7 +386,39 @@
             </div>
 
             <!-- تحديث كلمة المرور المباشر -->
-            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6" x-data="{ directPassword: '', passLoading: false, passMessage: '' }">
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6"
+                 x-data="{
+                     directPassword: '',
+                     passLoading: false,
+                     passMessage: '',
+                     updateOfficePassword() {
+                         if (this.directPassword.length < 6) {
+                             alert('كلمة المرور يجب أن لا تقل عن 6 أحرف.');
+                             return;
+                         }
+                         this.passLoading = true;
+                         var self = this;
+                         fetch('{{ route('admin.offices.update_password', $office) }}', {
+                             method: 'POST',
+                             headers: {
+                                 'Content-Type': 'application/json',
+                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                 'Accept': 'application/json'
+                             },
+                             body: JSON.stringify({ password: self.directPassword })
+                         })
+                         .then(function(r) { return r.json(); })
+                         .then(function(d) {
+                             self.passLoading = false;
+                             self.passMessage = d.message;
+                             self.directPassword = '';
+                         })
+                         .catch(function() {
+                             self.passLoading = false;
+                             alert('حدث خطأ أثناء تحديث كلمة المرور.');
+                         });
+                     }
+                 }">
                 <h3 class="text-base font-extrabold text-slate-900 pb-3 border-b border-slate-100">تحديث كلمة المرور للمكتب</h3>
                 
                 <div class="max-w-md space-y-4">
@@ -399,23 +431,7 @@
                     <div x-show="passMessage" x-text="passMessage" class="text-xs font-bold text-emerald-600"></div>
 
                     <button type="button"
-                            @click="
-                                if(directPassword.length < 6) { alert('كلمة المرور يجب أن لا تقل عن 6 أحرف.'); return; }
-                                passLoading = true;
-                                fetch('{{ route('admin.offices.update_password', $office) }}', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]').content,
-                                        'Accept': 'application/json'
-                                    },
-                                    body: JSON.stringify({ password: directPassword })
-                                }).then(r => r.json()).then(d => {
-                                    passLoading = false;
-                                    passMessage = d.message;
-                                    directPassword = '';
-                                });
-                            "
+                            @click="updateOfficePassword()"
                             :disabled="passLoading"
                             class="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-800 transition-colors disabled:opacity-50">
                         <span x-show="!passLoading">حفظ كلمة المرور الجديدة</span>
