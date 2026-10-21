@@ -57,9 +57,9 @@
 
     @stack('styles')
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col font-sans" x-data="{ sidebarOpen: false }">
+<body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden font-sans" x-data="{ sidebarOpen: false }">
 
-    <div class="flex-1 flex overflow-hidden">
+    <div class="h-screen w-full overflow-hidden flex">
 
         <!-- الستار للشاشات الصغيرة (Mobile Overlay) -->
         <div x-show="sidebarOpen"
@@ -75,10 +75,10 @@
 
         <!-- الشريط الجانبي (Sidebar) -->
         <aside :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'"
-               class="fixed inset-y-0 right-0 z-50 w-72 bg-primary-950 text-white flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shadow-2xl lg:shadow-none border-l border-slate-800/80">
+               class="fixed inset-y-0 right-0 z-50 w-72 h-screen shrink-0 bg-primary-950 text-white flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shadow-2xl lg:shadow-none border-l border-slate-800/80">
             
             <!-- الشعار وهوية الإدارة -->
-            <div class="h-20 flex items-center justify-between px-6 border-b border-white/10 bg-primary-900/60">
+            <div class="h-20 shrink-0 flex items-center justify-between px-6 border-b border-white/10 bg-primary-900/60">
                 <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 group">
                     <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-secondary to-amber-500 flex items-center justify-center shadow-lg shadow-secondary/20">
                         <img src="{{ asset('assets/icons/icon-192.png') }}" alt="Mursal" class="w-7 h-7 object-contain">
@@ -99,7 +99,7 @@
             </div>
 
             <!-- قائمة التصفح الرئيسية -->
-            <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+            <nav class="flex-1 min-h-0 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
                 
                 <div class="px-3 pb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">الرئيسية</div>
 
@@ -149,7 +149,7 @@
             </nav>
 
             <!-- معلومات المسؤول وتسجيل الخروج -->
-            <div class="p-4 border-t border-white/10 bg-primary-900/40">
+            <div class="shrink-0 p-4 border-t border-white/10 bg-primary-900/40">
                 <div class="flex items-center justify-between p-2 rounded-xl bg-white/5">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="w-10 h-10 rounded-full bg-secondary/20 border border-secondary/40 text-secondary flex items-center justify-center font-bold text-sm shrink-0">
@@ -173,10 +173,10 @@
         </aside>
 
         <!-- المحتوى الرئيسي (Main Container) -->
-        <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <div class="flex-1 h-screen overflow-y-auto flex flex-col min-w-0 custom-scrollbar">
 
             <!-- الشريط العلوي (Top Header) -->
-            <header class="h-20 bg-white border-b border-slate-200/80 sticky top-0 z-30 flex items-center justify-between px-4 lg:px-8 shadow-xs">
+            <header class="h-20 shrink-0 bg-white border-b border-slate-200/80 sticky top-0 z-30 flex items-center justify-between px-4 lg:px-8 shadow-xs">
                 
                 <div class="flex items-center gap-3">
                     <button type="button" @click="sidebarOpen = true" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
