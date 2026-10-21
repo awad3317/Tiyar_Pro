@@ -13,7 +13,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->redirectUsersTo(fn () => route('office.parcels.index'));
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('admin*') || auth()->guard('web')->check()) {
+                return route('admin.dashboard');
+            }
+            return route('office.parcels.index');
+        });
+
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('admin*')) {
+                return route('admin.login');
+            }
+            return route('office.login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
