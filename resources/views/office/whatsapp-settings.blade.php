@@ -194,14 +194,6 @@
 
     </div>
 
-    {{-- معلومات إضافية --}}
-    <div class="bg-amber-50 border border-amber-200/60 rounded-2xl p-3.5 flex items-start gap-2.5">
-        <span class="material-symbols-outlined text-amber-500 text-lg mt-0.5">info</span>
-        <div class="text-[11px] text-amber-700 font-bold leading-relaxed">
-            <p>عند اكتمال الربط بنجاح، سيتم إرسال إشعارات الواتساب تلقائياً للعملاء عبر خدمة Evolution API بدلاً من فتح رابط wa.me اليدوي.</p>
-        </div>
-    </div>
-
 </main>
 @endsection
 
