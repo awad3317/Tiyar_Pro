@@ -45,6 +45,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // إدارة المكاتب
         Route::resource('offices', AdminOfficeController::class);
         Route::post('/offices/{office}/toggle-status', [AdminOfficeController::class, 'toggleStatus'])->name('offices.toggle_status');
+        Route::post('/offices/{office}/toggle-daily-report', [AdminOfficeController::class, 'toggleDailyReport'])->name('offices.toggle_daily_report');
+        Route::post('/offices/{office}/send-test-report', [AdminOfficeController::class, 'sendTestDailyReport'])->name('offices.send_test_daily_report');
         Route::post('/offices/{office}/update-password', [AdminOfficeController::class, 'updatePassword'])->name('offices.update_password');
 
         // أدوات الواتساب المباشرة للمكتب (AJAX)

@@ -64,6 +64,27 @@
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-secondary transition-all">
                     <p class="text-[11px] text-slate-400 mt-1">6 أحرف/أرقام كحد أدنى.</p>
                 </div>
+
+                <!-- رقم هاتف مدير الفرع -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-2">رقم هاتف مدير الفرع (واتساب التقارير)</label>
+                    <input type="tel" name="manager_phone" value="{{ old('manager_phone') }}" dir="ltr"
+                           placeholder="770000000"
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-secondary transition-all">
+                    <p class="text-[11px] text-slate-400 mt-1">الرقم المخصص لتلقي التقرير اليومي لحركة الطرود.</p>
+                </div>
+
+                <!-- تفعيل التقرير اليومي التلقائي -->
+                <div class="flex items-center">
+                    <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer w-full">
+                        <input type="checkbox" name="send_daily_report" value="1" {{ old('send_daily_report') ? 'checked' : '' }}
+                               class="w-4 h-4 rounded text-secondary focus:ring-secondary border-slate-300">
+                        <div>
+                            <span class="text-xs font-bold text-slate-800 block">تفعيل التقرير اليومي التلقائي (10:00 مساءً)</span>
+                            <span class="text-[11px] text-slate-400">إرسال إحصائية الطرود لمدير الفرع عبر الواتساب يومياً</span>
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
 

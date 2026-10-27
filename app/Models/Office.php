@@ -14,6 +14,8 @@ class Office extends Authenticatable
         'name',
         'branch_name',
         'whatsapp_sender_phone',
+        'manager_phone',
+        'send_daily_report',
         'password',
         'httpsms_from_phone',
         'httpsms_api_key',
@@ -40,6 +42,7 @@ class Office extends Authenticatable
         return [
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'send_daily_report' => 'boolean',
         ];
     }
 

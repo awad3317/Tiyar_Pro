@@ -134,6 +134,23 @@
                                     <span class="material-symbols-outlined text-[16px] text-sky-600">sms</span>
                                     <span>{{ $office->httpsms_from_phone }}</span>
                                 </div>
+                                @if ($office->manager_phone)
+                                    <div class="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1 text-[11px]" dir="ltr">
+                                        <div class="flex items-center gap-1 text-slate-700 font-bold" title="رقم مدير الفرع">
+                                            <span class="material-symbols-outlined text-[15px] text-purple-600">person</span>
+                                            <span>{{ $office->manager_phone }}</span>
+                                        </div>
+                                        @if ($office->send_daily_report)
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans" title="إرسال التقرير اليومي 10م مفعّل">
+                                                10م ✅
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-400 font-sans" title="التقرير اليومي معطل">
+                                                معطل
+                                            </span>
+                                        @endif
+                                    </div>
+                                @endif
                             </td>
 
                             <!-- حالة كاش الواتساب -->

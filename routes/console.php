@@ -14,3 +14,11 @@ Schedule::command('whatsapp:check-status')
     ->withoutOverlapping()
     ->runInBackground();
 
+// إرسال التقرير اليومي لحركة الطرود لمدراء المكاتب يومياً الساعة 10:00 مساءً
+Schedule::command('office:send-daily-reports')
+    ->dailyAt('22:00')
+    ->timezone('Asia/Riyadh')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+

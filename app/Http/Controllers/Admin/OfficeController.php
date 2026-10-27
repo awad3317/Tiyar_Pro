@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\WhatsappInstance;
 use App\Services\WhatsAppService;
+use App\Services\DailyReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -114,6 +115,8 @@ class OfficeController extends Controller
             'name'                   => ['required', 'string', 'max:255'],
             'branch_name'            => ['nullable', 'string', 'max:255'],
             'whatsapp_sender_phone'  => ['required', 'string', 'max:30'],
+            'manager_phone'          => ['nullable', 'string', 'max:30'],
+            'send_daily_report'      => ['nullable', 'boolean'],
             'password'               => ['required', 'string', 'min:6'],
             'httpsms_from_phone'     => ['required', 'string', 'max:30'],
             'httpsms_api_key'        => ['nullable', 'string', 'max:255'],
@@ -134,6 +137,7 @@ class OfficeController extends Controller
         ]);
 
         $cleanWaPhone = preg_replace('/[^0-9]/', '', $validated['whatsapp_sender_phone']);
+        $cleanManagerPhone = !empty($validated['manager_phone']) ? preg_replace('/[^0-9]/', '', $validated['manager_phone']) : null;
         $cleanSmsPhone = preg_replace('/[^0-9+]/', '', $validated['httpsms_from_phone']);
 
         // القوالب الافتراضية إذا تُرِكت فارغة
@@ -144,6 +148,8 @@ class OfficeController extends Controller
             'name'                   => $validated['name'],
             'branch_name'            => $validated['branch_name'] ?? null,
             'whatsapp_sender_phone'  => $cleanWaPhone,
+            'manager_phone'          => $cleanManagerPhone,
+            'send_daily_report'      => $request->boolean('send_daily_report'),
             'password'               => Hash::make($validated['password']),
             'httpsms_from_phone'     => $cleanSmsPhone,
             'httpsms_api_key'        => $validated['httpsms_api_key'] ?? '',
@@ -209,6 +215,8 @@ class OfficeController extends Controller
             'name'                   => ['required', 'string', 'max:255'],
             'branch_name'            => ['nullable', 'string', 'max:255'],
             'whatsapp_sender_phone'  => ['required', 'string', 'max:30'],
+            'manager_phone'          => ['nullable', 'string', 'max:30'],
+            'send_daily_report'      => ['nullable', 'boolean'],
             'httpsms_from_phone'     => ['required', 'string', 'max:30'],
             'httpsms_api_key'        => ['nullable', 'string', 'max:255'],
             'sms_template'           => ['nullable', 'string'],
@@ -223,12 +231,15 @@ class OfficeController extends Controller
         ]);
 
         $cleanWaPhone = preg_replace('/[^0-9]/', '', $validated['whatsapp_sender_phone']);
+        $cleanManagerPhone = !empty($validated['manager_phone']) ? preg_replace('/[^0-9]/', '', $validated['manager_phone']) : null;
         $cleanSmsPhone = preg_replace('/[^0-9+]/', '', $validated['httpsms_from_phone']);
 
         $updateData = [
             'name'                   => $validated['name'],
             'branch_name'            => $validated['branch_name'] ?? null,
             'whatsapp_sender_phone'  => $cleanWaPhone,
+            'manager_phone'          => $cleanManagerPhone,
+            'send_daily_report'      => $request->boolean('send_daily_report'),
             'httpsms_from_phone'     => $cleanSmsPhone,
             'httpsms_api_key'        => $validated['httpsms_api_key'] ?? $office->httpsms_api_key,
             'sms_template'           => $validated['sms_template'] ?? $office->sms_template,
@@ -273,6 +284,62 @@ class OfficeController extends Controller
         }
 
         return back()->with('success', $statusMsg);
+    }
+
+    /**
+     * تبديل حالة التقرير اليومي التلقائي للمكتب (Toggle)
+     */
+    public function toggleDailyReport(Request $request, Office $office): JsonResponse|RedirectResponse
+    {
+        $newState = !$office->send_daily_report;
+
+        // إذا أراد التفعيل ولكن لا يوجد رقم هاتف للمدير
+        if ($newState && empty($office->manager_phone)) {
+            $msg = 'يرجى إدخال رقم هاتف مدير الفرع أولاً لتفعيل التقرير اليومي.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success'           => false,
+                    'send_daily_report' => false,
+                    'message'           => $msg,
+                ], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $office->update([
+            'send_daily_report' => $newState,
+        ]);
+
+        $msg = $newState
+            ? 'تم تفعيل إرسال التقرير اليومي لمدير الفرع بنجاح (الساعة 10:00 مساءً).'
+            : 'تم إيقاف إرسال التقرير اليومي التلقائي لهذا المكتب.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success'           => true,
+                'send_daily_report' => $office->send_daily_report,
+                'message'           => $msg,
+            ]);
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * إرسال تقرير يومي تجريبي فوري لمدير المكتب عبر الواتساب
+     */
+    public function sendTestDailyReport(Office $office, DailyReportService $reportService): JsonResponse
+    {
+        if (empty($office->manager_phone)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'لم يتم إدخال رقم هاتف مدير الفرع بعد.',
+            ], 422);
+        }
+
+        $result = $reportService->sendReport($office, isTest: true);
+
+        return response()->json($result, $result['success'] ? 200 : 500);
     }
 
     /**

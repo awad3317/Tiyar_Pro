@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('name');           
             $table->string('branch_name')->nullable();           // اسم المكتب/الفرع
             $table->string('whatsapp_sender_phone');     // رقم الموظف/المكتب في الواتساب
+            $table->string('manager_phone')->nullable();         // رقم هاتف مدير الفرع لتلقي التقارير
+            $table->boolean('send_daily_report')->default(false); // تفعيل إرسال التقرير اليومي لمدير الفرع عبر الواتساب
             $table->string('httpsms_from_phone');        // رقم الشريحة المسجلة في البوابة (+967...)
             $table->string('httpsms_api_key');     
             $table->text('sms_template')->nullable();      // الـ API Key الخاص بالمكتب في httpSMS

@@ -125,6 +125,93 @@
                 </div>
             </div>
 
+            <!-- بطاقة التقرير اليومي التلقائي لمدير الفرع عبر الواتساب (10:00 مساءً) -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6"
+                 x-data="{
+                     dailyReportActive: {{ $office->send_daily_report ? 'true' : 'false' }},
+                     testLoading: false,
+                     testFeedback: null,
+                     testSuccess: null,
+                     sendTestReport() {
+                         const phoneInput = document.getElementById('manager_phone_input');
+                         if (!phoneInput || !phoneInput.value.trim()) {
+                             alert('يرجى إدخال رقم هاتف مدير الفرع أولاً وحفظ البيانات.');
+                             return;
+                         }
+                         this.testLoading = true;
+                         this.testFeedback = null;
+                         fetch('{{ route('admin.offices.send_test_daily_report', $office) }}', {
+                             method: 'POST',
+                             headers: {
+                                 'Content-Type': 'application/json',
+                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                 'Accept': 'application/json'
+                             }
+                         })
+                         .then(r => r.json())
+                         .then(data => {
+                             this.testLoading = false;
+                             this.testSuccess = data.success;
+                             this.testFeedback = data.message;
+                         })
+                         .catch(err => {
+                             this.testLoading = false;
+                             this.testSuccess = false;
+                             this.testFeedback = 'حدث خطأ في الاتصال بالخادم أثناء الإرسال التجريبي.';
+                         });
+                     }
+                 }">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-xl">analytics</span>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900">التقرير اليومي لمدير الفرع (الساعة 10:00 مساءً)</h3>
+                            <p class="text-xs text-slate-500">إرسال تقرير ملخص لحركة الطرود (المستلمة، المسلمة، والمرجعة) كل ليلة عبر الواتساب</p>
+                        </div>
+                    </div>
+
+                    <!-- التوقل Toggle -->
+                    <div class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200/80">
+                        <span class="text-xs font-extrabold text-slate-700" x-text="dailyReportActive ? 'التقرير اليومي: مفعّل ✅' : 'التقرير اليومي: معطّل ❌'"></span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="send_daily_report" value="1"
+                                   x-model="dailyReportActive"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">رقم هاتف مدير الفرع (الواتساب)</label>
+                        <input type="tel" name="manager_phone" id="manager_phone_input"
+                               value="{{ old('manager_phone', $office->manager_phone) }}" dir="ltr"
+                               placeholder="مثال: 770000000 أو 967770000000"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-secondary transition-all">
+                        <p class="text-[11px] text-slate-400 mt-1">يُشترط تفعيل التوقل أعلاه وإدخال رقم المدير لإرسال التقرير تلقائياً الساعة 10 مساءً.</p>
+                    </div>
+
+                    <div>
+                        <button type="button" @click="sendTestReport()" :disabled="testLoading"
+                                class="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-sm">
+                            <span class="material-symbols-outlined text-base" :class="{'animate-spin': testLoading}">send</span>
+                            <span x-text="testLoading ? 'جاري إرسال التقرير التجريبي...' : 'إرسال تقرير تجريبي لمدير الفرع الآن'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- إشعار نتيجة الإرسال التجريبي -->
+                <div x-show="testFeedback" x-cloak
+                     class="p-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all"
+                     :class="testSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'">
+                    <span class="material-symbols-outlined text-lg" x-text="testSuccess ? 'check_circle' : 'error'"></span>
+                    <span x-text="testFeedback"></span>
+                </div>
+            </div>
+
             <!-- أحدث طرود هذا المكتب -->
             <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
