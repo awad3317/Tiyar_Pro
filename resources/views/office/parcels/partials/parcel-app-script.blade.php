@@ -158,6 +158,10 @@
             visibleLimit: 25,
             _scrollObserver: null,
 
+            // كاش محسوب في دورة واحدة لعدادات التبويبات وحالة الانتظار (O(1) Lookup)
+            statusCounts: { all: 0, in_office: 0, delivered: 0, returned: 0 },
+            pendingIdsMap: {},
+
             // قائمة الإرسال التدريجي الحية
             streamingQueue: [],
             streamingIdCounter: 0,
@@ -223,6 +227,14 @@
                 // 2. إعادة ضبط نافذة العرض عند الكتابة في البحث لنتائج فورية
                 this.$watch('search', () => {
                     this.resetVisibleWindow();
+                });
+
+                // مراقبة أي تغير في الطابور أو الطرود لتحديث الكاش بدورة واحدة فقط
+                this.$watch('syncQueue', () => {
+                    this.recomputePendingIds();
+                });
+                this.$watch('parcels', () => {
+                    this.recomputeStatusCounts();
                 });
 
                 // 3. تهيئة المراقب الذكي لتحميل الـ 25 طرد التالية عند الوصول للطرد 20
@@ -610,6 +622,8 @@
                 ]);
                 this.parcels = this.sortParcels(localParcels);
                 this.syncQueue = queue;
+                this.recomputeStatusCounts();
+                this.recomputePendingIds();
                 this.$nextTick(() => this.refreshScrollObserver());
             },
 
@@ -623,6 +637,7 @@
 
                     // قراءة الطابور بعد التفريغ مباشرة
                     this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    this.recomputePendingIds();
 
                     // تحديث القائمة من السيرفر
                     if (this.isOnline && !this.authRequired) {
@@ -634,6 +649,7 @@
                     this.isSyncing = false;
                     // تأكيد تحديث الطابور بعد كل العمليات
                     this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    this.recomputePendingIds();
                 }
             },
 
@@ -657,6 +673,7 @@
                     await window.MursalDB.clear(window.MURSAL_STORES.parcels);
                     await window.MursalDB.putMany(window.MURSAL_STORES.parcels, merged);
                     this.parcels = this.sortParcels(merged);
+                    this.recomputeStatusCounts();
                     this.$nextTick(() => this.refreshScrollObserver());
                 } catch (error) {
                     if (error.message === 'AUTH_EXPIRED') {
@@ -693,8 +710,9 @@
             async executeStatusChange(parcel, status) {
                 const delivered_at = status === 'delivered' ? new Date().toISOString() : null;
 
-                // 1. تحديث تفاؤلي فوري في الذاكرة
+                // 1. تحديث تفاؤلي فوري في الذاكرة وتحديث العدادات بدورة واحدة
                 Object.assign(parcel, { status, delivered_at });
+                this.recomputeStatusCounts();
 
                 // 2. تحديث التخزين المحلي للطرود
                 try {
@@ -708,8 +726,9 @@
                     updates: [{ id: parcel.id, status, delivered_at }]
                 });
 
-                // 4. قراءة حالة الطابور الحالية
+                // 4. قراءة حالة الطابور الحالية وتحديث كاش المعلقات
                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                this.recomputePendingIds();
                 this.$nextTick(() => this.refreshScrollObserver());
 
                 // 5. إذا كان النت متاحاً، ابدأ المزامنة مباشرة وانتظر اكتمالها
@@ -718,19 +737,30 @@
                 }
             },
 
-            get pendingIdsSet() {
-                const ids = new Set();
-                (this.syncQueue || []).forEach((item) => {
-                    const updates = item.payload?.updates || [];
-                    updates.forEach((u) => {
-                        if (u.id) ids.add(u.id);
-                    });
-                });
-                return ids;
+            recomputePendingIds() {
+                const map = {};
+                const queue = this.syncQueue || [];
+                for (let i = 0; i < queue.length; i++) {
+                    const updates = queue[i].payload?.updates || [];
+                    for (let j = 0; j < updates.length; j++) {
+                        const id = updates[j].id;
+                        if (id) map[id] = true;
+                    }
+                }
+                this.pendingIdsMap = map;
+            },
+
+            recomputeStatusCounts() {
+                const counts = { all: this.parcels.length, in_office: 0, delivered: 0, returned: 0 };
+                for (let i = 0; i < this.parcels.length; i++) {
+                    const st = this.parcels[i].status;
+                    counts[st] = (counts[st] || 0) + 1;
+                }
+                this.statusCounts = counts;
             },
 
             isPending(id) {
-                return this.pendingIdsSet.has(id);
+                return Boolean(this.pendingIdsMap[id]);
             },
 
             // ---------- القواعد والمساعدات ----------
@@ -789,15 +819,6 @@
             formatDate(value) {
                 const date = value ? new Date(value) : null;
                 return date && !isNaN(date) ? dateFormatter.format(date) : '';
-            },
-
-            get statusCounts() {
-                const counts = { all: this.parcels.length };
-                for (let i = 0; i < this.parcels.length; i++) {
-                    const st = this.parcels[i].status;
-                    counts[st] = (counts[st] || 0) + 1;
-                }
-                return counts;
             },
 
             countFor(filterKey) {
