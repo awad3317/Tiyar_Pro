@@ -152,6 +152,12 @@
             filters: FILTERS,
             isSyncing: false,
 
+            // إعدادات العرض التدريجي الذكي في الشاشة (Capped DOM Rendering)
+            pageSize: 25,
+            prefetchBeforeEnd: 5, // عند الوصول للطرد 20 (قبل نهاية الـ 25 بـ 5 طرود) يتم جلب الـ 25 التالية تلقائياً
+            visibleLimit: 25,
+            _scrollObserver: null,
+
             // قائمة الإرسال التدريجي الحية
             streamingQueue: [],
             streamingIdCounter: 0,
@@ -214,18 +220,26 @@
                 // 1. فتح قاعدة البيانات الموحدة بإصدارها الأحدث
                 await window.MursalDB.open();
 
-                // 2. مراقبة الاتصال وبدء المزامنة فور عودة الشبكة
+                // 2. إعادة ضبط نافذة العرض عند الكتابة في البحث لنتائج فورية
+                this.$watch('search', () => {
+                    this.resetVisibleWindow();
+                });
+
+                // 3. تهيئة المراقب الذكي لتحميل الـ 25 طرد التالية عند الوصول للطرد 20
+                this.initInfiniteScroll();
+
+                // 4. مراقبة الاتصال وبدء المزامنة فور عودة الشبكة
                 this.watchConnection(() => this.syncData());
 
-                // 3. تحميل البيانات المخزنة محلياً للعرض الفوري
+                // 5. تحميل البيانات المخزنة محلياً للعرض الفوري
                 await this.loadLocal();
 
-                // 4. مزامنة البيانات وتحديث القائمة في حال توفر اتصال
+                // 6. مزامنة البيانات وتحديث القائمة في حال توفر اتصال
                 if (this.isOnline) {
                     this.syncData();
                 }
 
-                // 5. الاستماع لأمر الـ Service Worker للمزامنة بالخلفية
+                // 7. الاستماع لأمر الـ Service Worker للمزامنة بالخلفية
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.addEventListener('message', (event) => {
                         if (event.data?.type === 'TRIGGER_SYNC') {
@@ -233,6 +247,92 @@
                         }
                     });
                 }
+            },
+
+            // ---------- العرض التدريجي الذكي (Capped DOM Rendering) ----------
+
+            initInfiniteScroll() {
+                if ('IntersectionObserver' in window) {
+                    this._scrollObserver = new IntersectionObserver((entries) => {
+                        if (entries.some((entry) => entry.isIntersecting)) {
+                            this.loadMoreParcels();
+                        }
+                    }, {
+                        root: null,
+                        rootMargin: '0px 0px 450px 0px',
+                        threshold: 0,
+                    });
+                }
+
+                // مستمع تمرير خفيف كطبقة أمان إضافية لجميع متصفحات الجوال
+                const onScrollCheck = () => {
+                    if (!this.hasMoreParcels) return;
+                    const container = this.$refs?.parcelsContainer;
+                    if (container) {
+                        const cards = container.querySelectorAll('article');
+                        const triggerIndex = Math.max(0, cards.length - (this.prefetchBeforeEnd + 1));
+                        const triggerCard = cards[triggerIndex];
+                        if (triggerCard) {
+                            const rect = triggerCard.getBoundingClientRect();
+                            if (rect.top <= window.innerHeight + 150) {
+                                this.loadMoreParcels();
+                                return;
+                            }
+                        }
+                    }
+                    if ((window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 650)) {
+                        this.loadMoreParcels();
+                    }
+                };
+
+                window.addEventListener('scroll', onScrollCheck, { passive: true });
+                this.$nextTick(() => this.refreshScrollObserver());
+            },
+
+            refreshScrollObserver() {
+                if (!this._scrollObserver) return;
+                this._scrollObserver.disconnect();
+
+                if (!this.hasMoreParcels) return;
+
+                const container = this.$refs?.parcelsContainer;
+                if (container) {
+                    const cards = container.querySelectorAll('article');
+                    if (cards.length > 0) {
+                        // مراقبة الطرد رقم 20 (أي قبل نهاية الدفعة الحالية بـ 5 طرود)
+                        const triggerIndex = Math.max(0, cards.length - (this.prefetchBeforeEnd + 1));
+                        const triggerCard = cards[triggerIndex];
+                        if (triggerCard) {
+                            this._scrollObserver.observe(triggerCard);
+                        }
+                    }
+                }
+
+                if (this.$refs?.loadMoreSentinel) {
+                    this._scrollObserver.observe(this.$refs.loadMoreSentinel);
+                }
+            },
+
+            loadMoreParcels() {
+                const total = this.filteredParcels.length;
+                if (this.visibleLimit >= total) return;
+
+                this.visibleLimit = Math.min(this.visibleLimit + this.pageSize, total);
+                this.$nextTick(() => this.refreshScrollObserver());
+            },
+
+            setFilter(filterKey) {
+                if (this.filter === filterKey) return;
+                this.filter = filterKey;
+                this.resetVisibleWindow();
+            },
+
+            resetVisibleWindow() {
+                this.visibleLimit = this.pageSize;
+                if (window.scrollY > 180) {
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                }
+                this.$nextTick(() => this.refreshScrollObserver());
             },
 
             // ---------- إدارة مودال الإرجاع ----------
@@ -457,9 +557,18 @@
             this.streamingQueue = [...this.streamingQueue];
         }
 
-        // تحديث جدول الطرود بالصفحة إن وُجد
-        if (response.ok && typeof this.refreshFromServer === 'function') {
-            this.refreshFromServer();
+        // تحديث جدول الطرود بالصفحة فوراً بدون إعادة تحميل كامل القائمة من السيرفر
+        if (response.ok) {
+            if (data.parcel && window.MursalDB) {
+                await window.MursalDB.put(window.MURSAL_STORES.parcels, data.parcel);
+                const exists = this.parcels.some((p) => p.id === data.parcel.id);
+                if (!exists) {
+                    this.parcels = [data.parcel, ...this.parcels];
+                    this.$nextTick(() => this.refreshScrollObserver());
+                }
+            } else if (typeof this.refreshFromServer === 'function') {
+                this.refreshFromServer();
+            }
         }
 
     } catch (err) {
@@ -501,6 +610,7 @@
                 ]);
                 this.parcels = this.sortParcels(localParcels);
                 this.syncQueue = queue;
+                this.$nextTick(() => this.refreshScrollObserver());
             },
 
             async syncData() {
@@ -547,6 +657,7 @@
                     await window.MursalDB.clear(window.MURSAL_STORES.parcels);
                     await window.MursalDB.putMany(window.MURSAL_STORES.parcels, merged);
                     this.parcels = this.sortParcels(merged);
+                    this.$nextTick(() => this.refreshScrollObserver());
                 } catch (error) {
                     if (error.message === 'AUTH_EXPIRED') {
                         this.handleSessionExpired();
@@ -599,6 +710,7 @@
 
                 // 4. قراءة حالة الطابور الحالية
                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                this.$nextTick(() => this.refreshScrollObserver());
 
                 // 5. إذا كان النت متاحاً، ابدأ المزامنة مباشرة وانتظر اكتمالها
                 if (this.isOnline) {
@@ -606,11 +718,19 @@
                 }
             },
 
-            isPending(id) {
-                return this.syncQueue.some((item) => {
+            get pendingIdsSet() {
+                const ids = new Set();
+                (this.syncQueue || []).forEach((item) => {
                     const updates = item.payload?.updates || [];
-                    return updates.some((u) => u.id === id);
+                    updates.forEach((u) => {
+                        if (u.id) ids.add(u.id);
+                    });
                 });
+                return ids;
+            },
+
+            isPending(id) {
+                return this.pendingIdsSet.has(id);
             },
 
             // ---------- القواعد والمساعدات ----------
@@ -671,14 +791,23 @@
                 return date && !isNaN(date) ? dateFormatter.format(date) : '';
             },
 
-            countFor(filterKey) {
-                return filterKey === 'all'
-                    ? this.parcels.length
-                    : this.parcels.filter((p) => p.status === filterKey).length;
+            get statusCounts() {
+                const counts = { all: this.parcels.length };
+                for (let i = 0; i < this.parcels.length; i++) {
+                    const st = this.parcels[i].status;
+                    counts[st] = (counts[st] || 0) + 1;
+                }
+                return counts;
             },
 
-            matchesSearch(parcel) {
-                const term = this.search.trim().toLowerCase();
+            countFor(filterKey) {
+                return this.statusCounts[filterKey] ?? 0;
+            },
+
+            matchesSearch(parcel, normalizedTerm = null) {
+                const term = normalizedTerm !== null
+                    ? normalizedTerm
+                    : this.normalizeText(this.search).trim().toLowerCase();
                 if (!term) return true;
 
                 return [parcel.recipient_phone, parcel.package_type, parcel.receipt_number, parcel.recipient_name]
@@ -686,9 +815,24 @@
             },
 
             get filteredParcels() {
+                const term = this.normalizeText(this.search).trim().toLowerCase();
+                const activeFilter = this.filter;
+
+                if (activeFilter === 'all' && !term) {
+                    return this.parcels;
+                }
+
                 return this.parcels.filter((p) =>
-                    (this.filter === 'all' || p.status === this.filter) && this.matchesSearch(p)
+                    (activeFilter === 'all' || p.status === activeFilter) && this.matchesSearch(p, term)
                 );
+            },
+
+            get visibleParcels() {
+                return this.filteredParcels.slice(0, this.visibleLimit);
+            },
+
+            get hasMoreParcels() {
+                return this.visibleLimit < this.filteredParcels.length;
             },
         });
     })();
