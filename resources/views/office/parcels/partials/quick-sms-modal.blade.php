@@ -198,15 +198,59 @@
                     placeholder="طرد" />
             </div>
 
-            {{-- رقائق الوصف السريع (تعبئة الحقل فقط دون إرسال فوري) --}}
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                <template x-for="tag in ['كيس ابيض', 'كيس اسود', 'كيس ازرق', 'كيس شفاف']" :key="tag">
-                    <button type="button" :disabled="isClosing" @click="
-                    quickSms.description = tag;
-                    $refs.streamingDescInput.focus();
-                " class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40">
-                        <span x-text="tag"></span>
-                    </button>
+            {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة ثم اللون/النوع) --}}
+            <div x-data="{
+                catalog: {
+                    'كيس': ['أبيض', 'أسود', 'أزرق', 'أحمر', 'بني', 'بنفسجي', 'أصفر', 'وردي', 'رمادي', 'شفاف'],
+                    'ضرف': ['أبيض', 'كاكي'],
+                    'كرتون': ['كاكي', 'أبيض', 'وسط']
+                },
+                get activeCategory() {
+                    const desc = (this.quickSms?.description || '').trim();
+                    if (desc === 'ظرف' || desc.startsWith('ظرف ')) return 'ضرف';
+                    return Object.keys(this.catalog).find(cat => desc === cat || desc.startsWith(cat + ' ')) || null;
+                }
+            }" class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+
+                {{-- المستوى 1: إظهار الفئات الرئيسية (كيس، ضرف، كرتون) عندما يكون الحقل فارغاً أو لا يبدأ بفئة --}}
+                <template x-if="!activeCategory">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <template x-for="cat in Object.keys(catalog)" :key="cat">
+                            <button type="button" :disabled="isClosing" @click="
+                                quickSms.description = cat + ' ';
+                                $refs.streamingDescInput.focus();
+                            " class="px-3 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
+                                <span x-text="cat"></span>
+                                <span class="text-[9px] text-slate-400">◀</span>
+                            </button>
+                        </template>
+                    </div>
+                </template>
+
+                {{-- المستوى 2: إظهار الألوان/الأحجام الخاصة بالفئة المختارة --}}
+                <template x-if="activeCategory">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        {{-- زر إلغاء الفئة والعودة للقائمة الرئيسية --}}
+                        <button type="button" :disabled="isClosing" @click="
+                            quickSms.description = '';
+                            $refs.streamingDescInput.focus();
+                        " class="px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير النوع">
+                            <span x-text="activeCategory + ' ✕'"></span>
+                        </button>
+
+                        {{-- قائمة الألوان/الأحجام --}}
+                        <template x-for="sub in catalog[activeCategory]" :key="sub">
+                            <button type="button" :disabled="isClosing" @click="
+                                quickSms.description = activeCategory + ' ' + sub;
+                                $refs.streamingDescInput.focus();
+                            " :class="(quickSms.description || '').trim() === (activeCategory + ' ' + sub)
+                                ? 'bg-secondary text-white shadow-sm'
+                                : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
+                            class="px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40">
+                                <span x-text="sub"></span>
+                            </button>
+                        </template>
+                    </div>
                 </template>
             </div>
         </div>
