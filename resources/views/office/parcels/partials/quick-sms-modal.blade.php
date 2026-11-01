@@ -178,24 +178,49 @@
                 </div>
             </div>
 
-            {{-- حقل نوع الطرد --}}
-            <div>
-                <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
-                <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" :disabled="isClosing" @keydown.enter.prevent="
-                    if (isClosing) return;
-                    const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                    if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                        addToStreamingQueue(phone, quickSms.description || 'طرد');
-                        quickSms.phone = '';
-                        quickSms.description = '';
-                        $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                    } else {
-                        showFeedback('رقم الهاتف غير صالح', true);
-                        document.getElementById('streaming-phone-input').focus();
-                    }
-                " dir="rtl" autocomplete="off"
-                    class="w-full py-2.5 px-4 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
-                    placeholder="طرد" />
+            {{-- حقل نوع الطرد + اسم المستلم (اختياري) في صف واحد للحفاظ على نفس التصميم والارتفاع --}}
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
+                    <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" :disabled="isClosing" @keydown.enter.prevent="
+                        if (isClosing) return;
+                        const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                        if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
+                            quickSms.phone = '';
+                            quickSms.description = '';
+                            quickSms.recipientName = '';
+                            $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                        } else {
+                            showFeedback('رقم الهاتف غير صالح', true);
+                            document.getElementById('streaming-phone-input').focus();
+                        }
+                    " dir="rtl" autocomplete="off"
+                        class="w-full py-2.5 px-3.5 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
+                        placeholder="طرد" />
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 mb-1">
+                        اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span>
+                    </label>
+                    <input type="text" x-ref="streamingRecipientInput" x-model="quickSms.recipientName" :disabled="isClosing" @keydown.enter.prevent="
+                        if (isClosing) return;
+                        const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                        if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
+                            quickSms.phone = '';
+                            quickSms.description = '';
+                            quickSms.recipientName = '';
+                            $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                        } else {
+                            showFeedback('رقم الهاتف غير صالح', true);
+                            document.getElementById('streaming-phone-input').focus();
+                        }
+                    " dir="rtl" autocomplete="off"
+                        class="w-full py-2.5 px-3.5 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
+                        placeholder="بدون اسم" />
+                </div>
             </div>
 
             {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة ثم اللون/النوع) --}}
@@ -260,9 +285,10 @@
                 if (isClosing) return;
                 const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                 if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                    addToStreamingQueue(phone, quickSms.description || 'طرد');
+                    addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
                     quickSms.phone = '';
                     quickSms.description = '';
+                    quickSms.recipientName = '';
                     $nextTick(() => document.getElementById('streaming-phone-input').focus());
                 } else {
                     showFeedback('أدخل رقم هاتف صالح', true);
@@ -317,9 +343,9 @@
                     <span class="text-xs font-mono font-bold text-slate-700 dir-ltr shrink-0"
                         x-text="entry.phone"></span>
 
-                    {{-- نوع الطرد --}}
+                    {{-- نوع الطرد واسم المستلم إن وُجد --}}
                     <span class="text-[11px] font-bold text-slate-500 flex-1 truncate"
-                        x-text="entry.description"></span>
+                        x-text="entry.recipientName ? (entry.description + ' • ' + entry.recipientName) : entry.description"></span>
 
                     {{-- زر إعادة المحاولة --}}
                     <template x-if="entry.status === 'failed'">

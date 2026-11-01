@@ -192,6 +192,7 @@
                 // حقول الإدخال التدريجي الجديدة
                 phone: '',
                 description: 'طرد',
+                recipientName: '',
                 channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
@@ -207,6 +208,7 @@
                 this.quickSms.step = 'input';
                 this.quickSms.phone = '';
                 this.quickSms.description = 'طرد';
+                this.quickSms.recipientName = '';
                 this.quickSms.channel = this.quickSms.channel || 'whatsapp';
                 // autofocus على حقل الهاتف بعد فتح المودال
                 this.$nextTick(() => {
@@ -228,6 +230,7 @@
                 this.quickSms.successCount = 0;
                 this.quickSms.phone = '';
                 this.quickSms.description = 'طرد';
+                this.quickSms.recipientName = '';
             },
 
             showFeedback(message, isError = false) {
@@ -465,12 +468,13 @@
             },
 
             // ---------- الإرسال التدريجي الفردي الموحد (Streaming Dispatch) ----------
-            addToStreamingQueue(phone, description) {
+            addToStreamingQueue(phone, description, recipientName = '') {
                 const id = ++this.streamingIdCounter;
                 const entry = {
                     id,
                     phone,
                     description,
+                    recipientName: (recipientName || '').trim(),
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -500,6 +504,7 @@
                         body: JSON.stringify({
                             phone: entry.phone,
                             description: entry.description,
+                            recipient_name: entry.recipientName || null,
                             channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                         })
                     });

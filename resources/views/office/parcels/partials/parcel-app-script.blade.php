@@ -509,12 +509,13 @@
 
             // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
 
-            addToStreamingQueue(phone, description) {
+            addToStreamingQueue(phone, description, recipientName = '') {
                 const id = ++this.streamingIdCounter;
                 const entry = {
                     id,
                     phone,
                     description,
+                    recipientName: (recipientName || '').trim(),
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -545,6 +546,7 @@
             body: JSON.stringify({
                 phone: entry.phone,
                 description: entry.description,
+                recipient_name: entry.recipientName || null,
                 channel: entry.channel || this.quickSms?.channel || 'whatsapp'
             })
         });

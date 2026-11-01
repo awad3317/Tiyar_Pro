@@ -391,9 +391,10 @@ class ParcelController extends Controller
             ], 401);
         }
 
-        $phone   = trim($this->normalizeEasternDigits($request->input('phone', '')));
-        $desc    = trim($request->input('description', 'طرد'));
-        $channel = $request->input('channel', 'sms'); // 'sms', 'whatsapp', 'both'
+        $phone         = trim($this->normalizeEasternDigits($request->input('phone', '')));
+        $desc          = trim($request->input('description', 'طرد'));
+        $recipientName = trim((string) $request->input('recipient_name', '')) ?: null;
+        $channel       = $request->input('channel', 'sms'); // 'sms', 'whatsapp', 'both'
 
         // التحقق من صحة رقم الهاتف اليمني (9 أرقام يبدأ بـ 7)
         if (!preg_match('/^7[01378]\d{7}$/', $phone)) {
@@ -407,6 +408,7 @@ class ParcelController extends Controller
         try {
             $parcel = Parcel::create([
                 'office_id'       => $office->id,
+                'recipient_name'  => $recipientName,
                 'recipient_phone' => $phone,
                 'package_type'    => $desc ?: 'طرد',
                 'status'          => defined(ParcelStatus::class . '::InOffice')
