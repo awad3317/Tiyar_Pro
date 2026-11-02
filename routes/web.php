@@ -92,6 +92,9 @@ Route::prefix('office')->name('office.')->group(function () {
         Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // صفحة العملاء المميزين (PWA)
+        Route::get('/favorite-customers', [FavoriteCustomerController::class, 'page'])->name('favorite_customers.index');
+
         // إعدادات الواتساب (Evolution API)
         Route::prefix('whatsapp')->name('whatsapp.')->group(function () {
             Route::get('/', [WhatsAppSettingsController::class, 'index'])->name('index');
@@ -113,6 +116,8 @@ Route::prefix('office')->name('office.')->group(function () {
             // العملاء المميزون (لكل مكتب قائمته الخاصة)
             Route::get('/favorite-customers', [FavoriteCustomerController::class, 'index'])->name('favorite_customers.index');
             Route::post('/favorite-customers', [FavoriteCustomerController::class, 'store'])->name('favorite_customers.store');
+            Route::match(['put', 'patch'], '/favorite-customers/{id}', [FavoriteCustomerController::class, 'update'])->name('favorite_customers.update');
+            Route::delete('/favorite-customers/{id}', [FavoriteCustomerController::class, 'destroy'])->name('favorite_customers.destroy');
         });
     });
 });

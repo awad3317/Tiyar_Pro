@@ -104,11 +104,12 @@
         },
 
         // تسجيل عملية لأي موديول في الطابور
-        async enqueue(endpoint, payload) {
+        async enqueue(endpoint, payload, method = 'POST') {
             const entry = {
                 seq: nextSeq(),
                 endpoint,
-                payload: plain(payload),
+                method: String(method || 'POST').toUpperCase(),
+                payload: payload ? plain(payload) : null,
                 created_at: new Date().toISOString()
             };
             await MursalDB.put(STORES.queue, entry);
@@ -134,22 +135,27 @@
                 for (const item of queue) {
                     try {
                         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                        const res = await fetch(item.endpoint, {
-                            method: 'POST',
+                        const method = String(item.method || 'POST').toUpperCase();
+                        const fetchOptions = {
+                            method: method,
                             headers: {
                                 'Content-Type': 'application/json',
                                 'Accept': 'application/json',
                                 'X-CSRF-TOKEN': token || ''
-                            },
-                            body: JSON.stringify(item.payload)
-                        });
+                            }
+                        };
+                        if (method !== 'GET' && method !== 'HEAD' && item.payload !== null && item.payload !== undefined) {
+                            fetchOptions.body = JSON.stringify(item.payload);
+                        }
+
+                        const res = await fetch(item.endpoint, fetchOptions);
 
                         if (res.status === 401 || res.status === 419) {
                             if (typeof onSessionExpired === 'function') onSessionExpired();
                             return;
                         }
 
-                        if (res.ok) {
+                        if (res.ok || (res.status === 404 && method === 'DELETE')) {
                             await MursalDB.delete(STORES.queue, item.seq);
                         } else {
                             console.error('خطأ مزامنة السيرفر:', await res.json().catch(() => ({})));

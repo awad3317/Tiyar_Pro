@@ -18,6 +18,15 @@
         <span class="mt-0.5">الطرود</span>
     </a>
 
-   
+    @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
+        <!-- زر العملاء المميزين -->
+        @php
+            $isFavoriteCustomers = request()->routeIs('office.favorite_customers.*');
+        @endphp
+        <a href="{{ route('office.favorite_customers.index') }}" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isFavoriteCustomers ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+            <span class="material-symbols-outlined text-2xl {{ $isFavoriteCustomers ? 'text-secondary' : '' }}">stars</span>
+            <span class="mt-0.5">العملاء المميزين</span>
+        </a>
+    @endif
     
 </footer>

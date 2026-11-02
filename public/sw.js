@@ -1,8 +1,9 @@
-const CACHE_NAME = 'mursal-pwa-v12';
+const CACHE_NAME = 'mursal-pwa-v13';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
     '/office/parcels',
+    '/office/favorite-customers',
     '/manifest.json',
     '/js/tailwind.js',
     '/js/mursal-core.js',

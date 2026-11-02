@@ -99,12 +99,12 @@
         </div>
     </template>
 
-    <!-- شريط البحث (يظهر تلقائياً في صفحة الطرود أو إذا تم تفعيل المتغير $showSearch) -->
-    @if (!empty($showSearch) || request()->routeIs('office.parcels.*'))
+    <!-- شريط البحث (يظهر تلقائياً في صفحة الطرود، العملاء المميزين، أو إذا تم تفعيل المتغير $showSearch) -->
+    @if (!empty($showSearch) || request()->routeIs('office.parcels.*') || request()->routeIs('office.favorite_customers.*'))
         <div class="mt-3 relative">
             <input type="text" 
                    x-model="search" 
-                   placeholder="بحث برقم الهاتف، السند، نوع الطرد..." 
+                   placeholder="{{ $searchPlaceholder ?? 'بحث برقم الهاتف، السند، نوع الطرد...' }}" 
                    class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-4 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
             <span class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg">search</span>
         </div>
