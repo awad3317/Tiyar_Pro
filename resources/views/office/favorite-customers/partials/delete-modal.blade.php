@@ -1,11 +1,23 @@
 {{-- نافذة منبثقة لتأكيد حذف عميل مميز --}}
 <div x-show="deleteModal.open"
      x-cloak
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
      @keydown.escape.window="if (!deleteModal.loading) closeDeleteModal()">
 
-    <div class="relative w-full max-w-xs bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center overflow-hidden"
-         @click.outside="if (!deleteModal.loading) closeDeleteModal()"
+    <!-- خلفية التعتيم الشفافة مع تمويه Glassmorphism -->
+    <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+         x-show="deleteModal.open"
+         x-transition:enter="ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click="if (!deleteModal.loading) closeDeleteModal()">
+    </div>
+
+    <!-- بطاقة التأكيد -->
+    <div class="relative w-full max-w-xs bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 text-center overflow-hidden z-10 my-auto"
          x-show="deleteModal.open"
          x-transition:enter="ease-out duration-200"
          x-transition:enter-start="opacity-0 scale-95"
@@ -14,7 +26,7 @@
          x-transition:leave-start="opacity-100 scale-100"
          x-transition:leave-end="opacity-0 scale-95">
 
-        <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
             <span class="material-symbols-outlined text-2xl">delete_forever</span>
         </div>
 
@@ -27,7 +39,7 @@
 
         <div class="flex items-center gap-2">
             <button type="button" @click="closeDeleteModal()" :disabled="deleteModal.loading"
-                    class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+                    class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-95 transition-all">
                 إلغاء
             </button>
 
@@ -44,4 +56,3 @@
         </div>
     </div>
 </div>
-
