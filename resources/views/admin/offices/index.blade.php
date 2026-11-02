@@ -205,6 +205,13 @@
                                         <span class="material-symbols-outlined text-xl">tune</span>
                                     </a>
 
+                                    <!-- إدارة المميزات والخدمات (كاش ذكي) -->
+                                    <a href="{{ route('admin.offices.features', $office) }}"
+                                       title="إدارة مميزات وخدمات المكتب"
+                                       class="p-2 rounded-xl text-slate-600 hover:text-secondary hover:bg-amber-50 transition-colors">
+                                        <span class="material-symbols-outlined text-xl">featured_play_list</span>
+                                    </a>
+
                                     <!-- تغيير كلمة المرور فورياً عبر Modal -->
                                     <button type="button"
                                             @click="openPasswordModal({{ $office->id }}, '{{ addslashes($office->name) }}')"

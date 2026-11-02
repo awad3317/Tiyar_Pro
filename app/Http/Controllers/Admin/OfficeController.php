@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\ParcelStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Feature;
 use App\Models\Office;
 use App\Models\WhatsappInstance;
 use App\Services\WhatsAppService;
@@ -262,6 +263,56 @@ class OfficeController extends Controller
 
         return redirect()->route('admin.offices.edit', ['office' => $office, 'tab' => $activeTab])
             ->with('success', 'تم حفظ وتحديث بيانات المكتب وإعداداته بنجاح.');
+    }
+
+    /**
+     * عرض صفحة إدارة مميزات وخدمات المكتب
+     */
+    public function features(Office $office): View
+    {
+        $features = Feature::query()
+            ->orderBy('category')
+            ->orderBy('id')
+            ->get();
+
+        $parcelsSummary = [
+            'total'     => $office->parcels()->count(),
+            'today'     => $office->parcels()->whereDate('created_at', today())->count(),
+            'delivered' => $office->parcels()->where('status', ParcelStatus::Delivered)->count(),
+        ];
+
+        // حالة كاش الواتساب لعرضها في هيدر المكتب
+        $cacheKey = 'whatsapp_status_office_' . $office->id;
+        $cachedStatus = Cache::get($cacheKey);
+        $whatsappStatus = [
+            'is_online' => ($cachedStatus === 'online'),
+        ];
+
+        return view('admin.offices.features', [
+            'office'            => $office,
+            'features'          => $features,
+            'parcelsSummary'    => $parcelsSummary,
+            'whatsappStatus'    => $whatsappStatus,
+            'currentDictionary' => $office->getFeaturesDictionary(),
+        ]);
+    }
+
+    /**
+     * تحديث مميزات المكتب وحفظ التعديلات مع تحديث الكاش
+     */
+    public function updateFeatures(Request $request, Office $office): RedirectResponse
+    {
+        $validated = $request->validate([
+            'features'   => ['nullable', 'array'],
+            'features.*' => ['nullable'],
+        ]);
+
+        $enabledFeatures = array_keys($request->input('features', []));
+
+        $office->syncFeaturesStatus($enabledFeatures);
+
+        return redirect()->route('admin.offices.features', $office)
+            ->with('success', 'تم حفظ إعدادات مميزات المكتب وتحديث الكاش بنجاح.');
     }
 
     /**

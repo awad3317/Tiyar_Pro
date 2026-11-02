@@ -77,6 +77,13 @@
             <span>إعدادات وجلسة الواتساب</span>
         </button>
 
+        <a href="{{ route('admin.offices.features', $office) }}"
+           class="flex items-center gap-2 py-4 px-4 border-b-2 border-transparent text-xs font-bold text-slate-500 hover:text-secondary hover:border-secondary transition-colors shrink-0">
+            <span class="material-symbols-outlined text-lg text-secondary">featured_play_list</span>
+            <span>إدارة المميزات والخدمات</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-secondary/15 text-secondary border border-secondary/30">جديد</span>
+        </a>
+
         <button type="button" @click="activeTab = 'security'"
                 :class="activeTab === 'security' ? 'border-secondary text-primary font-black' : 'border-transparent text-slate-500 font-bold hover:text-slate-700'"
                 class="flex items-center gap-2 py-4 px-4 border-b-2 text-xs transition-colors shrink-0">

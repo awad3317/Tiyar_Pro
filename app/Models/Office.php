@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\HasOfficeFeatures;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Office extends Authenticatable
 {
-    use Notifiable;
+    use Notifiable, HasOfficeFeatures;
 
     protected $fillable = [
         'name',
