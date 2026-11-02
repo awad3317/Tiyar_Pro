@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'webhook/receive',
+            '/webhook/receive',
+        ]);
+
         $middleware->redirectUsersTo(function (Request $request) {
             if ($request->is('admin*') || auth()->guard('web')->check()) {
                 return route('admin.dashboard');

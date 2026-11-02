@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\PageController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Office\DashboardController;
 use App\Http\Controllers\Office\ParcelController;
@@ -20,6 +22,62 @@ Route::get('/services', [PageController::class, 'services'])->name('services');
 Route::get('/stats', [PageController::class, 'stats'])->name('stats');
 
 Route::get('/login', fn () => redirect()->route('office.login'))->name('login');
+
+Route::post('/webhook/receive', function (Request $request) {
+    $payload = $request->all();
+    if (empty($payload) && $request->getContent()) {
+        $decoded = json_decode($request->getContent(), true);
+        if (is_array($decoded)) {
+            $payload = $decoded;
+        }
+    }
+
+    $sender = $request->input('sender')
+        ?? $request->input('number')
+        ?? $request->input('phone')
+        ?? $request->input('from')
+        ?? ($payload['sender'] ?? $payload['number'] ?? $payload['phone'] ?? $payload['from'] ?? null);
+
+    $body = $request->input('body')
+        ?? $request->input('message')
+        ?? $request->input('text')
+        ?? ($payload['body'] ?? $payload['message'] ?? $payload['text'] ?? null);
+
+    $sentAt = $request->input('date') ?? ($payload['date'] ?? null);
+
+    $rawJson = !empty($payload)
+        ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+        : ($request->getContent() ?: '{}');
+
+    DB::table('incoming_messages')->insert([
+        'sender_number' => $sender !== null ? (string) $sender : null,
+        'message_text'  => $body !== null ? (string) $body : null,
+        'sent_at'       => $sentAt !== null ? (string) $sentAt : null,
+        'raw_payload'   => $rawJson,
+        'ip_address'    => $request->ip(),
+        'created_at'    => now(),
+        'updated_at'    => now(),
+    ]);
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Message saved successfully',
+    ], 200);
+})->name('webhook.receive');
+
+Route::get('/messages', function () {
+    $messages = DB::table('incoming_messages')
+        ->orderByDesc('id')
+        ->get();
+
+    return view('messages', compact('messages'));
+})->name('messages.index');
+
+Route::post('/messages/clear', function () {
+    DB::table('incoming_messages')->truncate();
+
+    return redirect('/messages')->with('status', 'All messages have been cleared successfully.');
+})->name('messages.clear');
 
 /*
 |--------------------------------------------------------------------------
