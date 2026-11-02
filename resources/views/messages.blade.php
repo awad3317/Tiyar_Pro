@@ -12,11 +12,6 @@
             background-color: #f8fafc;
             color: #1e293b;
         }
-        .header-card {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #ffffff;
-            border-radius: 14px;
-        }
         .table-card {
             border-radius: 14px;
             border: 1px solid #e2e8f0;
@@ -55,13 +50,6 @@
 <body class="py-4">
 
 <div class="container">
-    @if(session('status'))
-        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm" role="alert">
-            {{ session('status') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
     <div class="card table-card bg-white">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -76,7 +64,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($messages as $msg)
+                    @foreach($messages as $msg)
                         <tr>
                             <td class="ps-3 fw-bold text-secondary">#{{ $msg->id }}</td>
                             <td>
@@ -113,50 +101,12 @@
                                 <pre class="code-box">{{ $msg->raw_payload }}</pre>
                             </td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-5">
-                                <div class="py-4">
-                                    <h5 class="fw-bold text-secondary mb-1">No incoming messages yet</h5>
-                                    <p class="text-muted small mb-0">
-                                        Send a <code>POST</code> request to <code>{{ url('/webhook/receive') }}</code> and it will appear here immediately.
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function copyWebhookUrl() {
-        const url = document.getElementById('webhookUrl').innerText;
-        navigator.clipboard.writeText(url).then(() => {
-            alert('Webhook URL copied:\n' + url);
-        });
-    }
-
-    const toggle = document.getElementById('autoRefreshToggle');
-    let refreshTimer = null;
-
-    if (localStorage.getItem('webhook_poc_auto_refresh') === '1') {
-        toggle.checked = true;
-        refreshTimer = setInterval(() => window.location.reload(), 5000);
-    }
-
-    toggle.addEventListener('change', function () {
-        if (this.checked) {
-            localStorage.setItem('webhook_poc_auto_refresh', '1');
-            refreshTimer = setInterval(() => window.location.reload(), 5000);
-        } else {
-            localStorage.removeItem('webhook_poc_auto_refresh');
-            if (refreshTimer) clearInterval(refreshTimer);
-        }
-    });
-</script>
 </body>
 </html>
