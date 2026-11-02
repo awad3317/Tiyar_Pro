@@ -55,47 +55,6 @@
 <body class="py-4">
 
 <div class="container">
-    <div class="header-card p-4 mb-4 shadow-sm">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div>
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-success">LIVE POC</span>
-                    <h4 class="mb-0 fw-bold">Incoming Webhook Messages Log</h4>
-                </div>
-                <p class="mb-2 text-white-50 small">
-                    Receive and inspect real-time JSON payloads sent from the Android application
-                </p>
-                <div class="d-inline-flex align-items-center gap-2 flex-wrap">
-                    <span class="small text-white-50">POST Endpoint:</span>
-                    <code class="webhook-url-box" id="webhookUrl">{{ url('/webhook/receive') }}</code>
-                    <button type="button" class="btn btn-sm btn-outline-light py-0 px-2" onclick="copyWebhookUrl()">
-                        Copy URL
-                    </button>
-                </div>
-            </div>
-
-            <div class="d-flex flex-wrap align-items-center gap-2">
-                <div class="form-check form-switch text-white me-2">
-                    <input class="form-check-input" type="checkbox" id="autoRefreshToggle">
-                    <label class="form-check-label small" for="autoRefreshToggle">Auto-refresh (5s)</label>
-                </div>
-
-                <a href="{{ url('/messages') }}" class="btn btn-light fw-semibold btn-sm px-3 py-2">
-                    Refresh Now
-                </a>
-
-                @if($messages->count() > 0)
-                    <form action="{{ url('/messages/clear') }}" method="POST" onsubmit="return confirm('Are you sure you want to clear all messages?');" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-danger fw-semibold btn-sm px-3 py-2">
-                            Clear All
-                        </button>
-                    </form>
-                @endif
-            </div>
-        </div>
-    </div>
-
     @if(session('status'))
         <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm" role="alert">
             {{ session('status') }}
