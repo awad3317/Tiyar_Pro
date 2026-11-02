@@ -62,16 +62,6 @@
         </div>
     @endif
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
-        <div class="fw-bold text-secondary">
-            Total Received Messages:
-            <span class="badge bg-primary rounded-pill ms-1">{{ $messages->count() }}</span>
-        </div>
-        <div class="text-muted small">
-            Last Updated: <span class="fw-semibold">{{ now()->format('Y-m-d H:i:s') }}</span>
-        </div>
-    </div>
-
     <div class="card table-card bg-white">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
