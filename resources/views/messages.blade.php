@@ -80,9 +80,9 @@
                         <th class="ps-3" style="width: 65px;">#</th>
                         <th style="width: 170px;">Sender Number</th>
                         <th style="min-width: 240px;">Message Text</th>
-                        <th style="width: 185px;">Device Sent Time (sent_at)</th>
-                        <th style="width: 195px;">Server Received Time (created_at)</th>
-                        <th style="width: 290px;">Raw Payload (JSON)</th>
+                        <th style="width: 185px;">(sent_at)</th>
+                        <th style="width: 195px;"> (created_at)</th>
+                        <th style="width: 290px;">Payload</th>
                     </tr>
                 </thead>
                 <tbody>

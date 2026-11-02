@@ -32,31 +32,23 @@ Route::post('/webhook/receive', function (Request $request) {
         }
     }
 
-    $sender = $request->input('sender')
-        ?? $request->input('number')
-        ?? $request->input('phone')
-        ?? $request->input('from')
-        ?? ($payload['sender'] ?? $payload['number'] ?? $payload['phone'] ?? $payload['from'] ?? null);
+    $sender = $request->input('sender') ?? null;
 
-    $body = $request->input('body')
-        ?? $request->input('message')
-        ?? $request->input('text')
-        ?? ($payload['body'] ?? $payload['message'] ?? $payload['text'] ?? null);
+    $body = $request->input('body') ?? null;
 
-    $sentAt = $request->input('date') ?? ($payload['date'] ?? null);
+    $sentAt = $request->input('date') ?? null;
 
     $rawJson = !empty($payload)
         ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
         : ($request->getContent() ?: '{}');
 
     DB::table('incoming_messages')->insert([
-        'sender_number' => $sender !== null ? (string) $sender : null,
-        'message_text'  => $body !== null ? (string) $body : null,
-        'sent_at'       => $sentAt !== null ? (string) $sentAt : null,
-        'raw_payload'   => $rawJson,
-        'ip_address'    => $request->ip(),
-        'created_at'    => now(),
-        'updated_at'    => now(),
+        'sender_number' => $sender ,
+        'message_text'=> $body ,
+        'sent_at'  => $sentAt,
+        'raw_payload' => $rawJson,
+        'created_at' => now(),
+        'updated_at' => now(),
     ]);
 
     return response()->json([
@@ -73,11 +65,6 @@ Route::get('/messages', function () {
     return view('messages', compact('messages'));
 })->name('messages.index');
 
-Route::post('/messages/clear', function () {
-    DB::table('incoming_messages')->truncate();
-
-    return redirect('/messages')->with('status', 'All messages have been cleared successfully.');
-})->name('messages.clear');
 
 /*
 |--------------------------------------------------------------------------

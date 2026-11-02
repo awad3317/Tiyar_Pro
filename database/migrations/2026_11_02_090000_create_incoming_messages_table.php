@@ -14,7 +14,6 @@ return new class extends Migration
             $table->text('message_text')->nullable();
             $table->string('sent_at')->nullable();
             $table->text('raw_payload')->nullable();
-            $table->string('ip_address')->nullable();
             $table->timestamps();
         });
     }
