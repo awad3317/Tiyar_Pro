@@ -79,9 +79,9 @@
             localStorage.removeItem(legacyKey);
         },
 
-        favRecord(phone, name, synced) {
+        favRecord(phone, name, synced, id = null) {
             return {
-                id: this.favKey(phone),
+                id: id || this.favKey(phone),
                 office_id: this.favOfficeId,
                 phone: String(phone),
                 name: String(name),
@@ -134,7 +134,7 @@
 
                 const merged = new Map();
                 data.customers.forEach((c) => {
-                    merged.set(String(c.phone), this.favRecord(c.phone, c.name, true));
+                    merged.set(String(c.phone), this.favRecord(c.phone, c.name, true, c.id));
                 });
                 this.favorites.filter((f) => !f.synced).forEach((f) => merged.set(f.phone, f));
 
@@ -172,8 +172,15 @@
                 const db = await this.favDb();
 
                 if (res.ok) {
-                    const synced = { ...fav, synced: true };
-                    if (db) await db.put(this.favStore, synced);
+                    const data = await res.json().catch(() => ({}));
+                    const realId = data.customer?.id || fav.id;
+                    const synced = { ...fav, id: realId, synced: true };
+                    if (db) {
+                        if (fav.id && fav.id !== realId) {
+                            await db.delete(this.favStore, fav.id);
+                        }
+                        await db.put(this.favStore, synced);
+                    }
                     this.favorites = this.favorites.map((f) => f.phone === fav.phone ? synced : f);
                     return true;
                 }

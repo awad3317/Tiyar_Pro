@@ -105,11 +105,22 @@
 
         // تسجيل عملية لأي موديول في الطابور
         async enqueue(endpoint, payload, method = 'POST') {
+            const cleanEndpoint = String(endpoint || '').trim();
+            const upperMethod = String(method || 'POST').toUpperCase();
+
+            // حماية صارمة: منع إدراج مهام DELETE أو PUT تحتوي على معرفات مؤقتة أو غير صالحة
+            if (upperMethod === 'DELETE' || upperMethod === 'PUT' || upperMethod === 'PATCH') {
+                if (cleanEndpoint.includes('temp_') || cleanEndpoint.includes('undefined') || cleanEndpoint.includes('null') || cleanEndpoint.includes(':')) {
+                    console.warn('MursalSync: Blocked invalid enqueue endpoint:', cleanEndpoint);
+                    return null;
+                }
+            }
+
             const entry = {
                 seq: nextSeq(),
-                endpoint,
-                method: String(method || 'POST').toUpperCase(),
-                payload: payload ? plain(payload) : null,
+                endpoint: cleanEndpoint,
+                method: upperMethod,
+                payload: (payload && upperMethod !== 'DELETE' && upperMethod !== 'GET') ? plain(payload) : null,
                 created_at: new Date().toISOString()
             };
             await MursalDB.put(STORES.queue, entry);
@@ -127,15 +138,28 @@
             if (this.isSyncing || !navigator.onLine) return;
 
             const queue = await MursalDB.getAll(STORES.queue);
-            if (queue.length === 0) return;
+            if (!queue || queue.length === 0) return;
 
             this.isSyncing = true;
 
             try {
                 for (const item of queue) {
                     try {
+                        const endpoint = String(item?.endpoint || '').trim();
+                        const method = String(item?.method || 'POST').toUpperCase();
+
+                        // 1. تنظيف أي مهمة فاسدة أو مؤقتة عالقة في الطابور
+                        if (!item || !endpoint ||
+                            endpoint.includes('temp_') ||
+                            endpoint.includes('undefined') ||
+                            endpoint.includes('null') ||
+                            endpoint.includes(':')) {
+                            console.warn('MursalSync: Purging corrupt/temp queue item:', item);
+                            await MursalDB.delete(STORES.queue, item.seq);
+                            continue;
+                        }
+
                         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                        const method = String(item.method || 'POST').toUpperCase();
                         const fetchOptions = {
                             method: method,
                             headers: {
@@ -144,18 +168,27 @@
                                 'X-CSRF-TOKEN': token || ''
                             }
                         };
-                        if (method !== 'GET' && method !== 'HEAD' && item.payload !== null && item.payload !== undefined) {
+
+                        // لا نرسل body في طلبات DELETE أو GET أو HEAD
+                        if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE' && item.payload !== null && item.payload !== undefined) {
                             fetchOptions.body = JSON.stringify(item.payload);
                         }
 
-                        const res = await fetch(item.endpoint, fetchOptions);
+                        const res = await fetch(endpoint, fetchOptions);
 
                         if (res.status === 401 || res.status === 419) {
                             if (typeof onSessionExpired === 'function') onSessionExpired();
                             return;
                         }
 
-                        if (res.ok || (res.status === 404 && method === 'DELETE')) {
+                        const isDeleteAlreadyDone = method === 'DELETE' && (res.status === 404 || res.status === 410);
+                        const isNonRetryable = (res.status === 400 || res.status === 422 || (method === 'PUT' && res.status === 404));
+
+                        if (res.ok || isDeleteAlreadyDone) {
+                            await MursalDB.delete(STORES.queue, item.seq);
+                        } else if (isNonRetryable) {
+                            // خطأ في البيانات لا يمكن حله بإعادة المحاولة: نحذفه من الطابور حتى لا يعلق
+                            console.warn('MursalSync: Item unprocessable (' + res.status + '), removing from queue:', item);
                             await MursalDB.delete(STORES.queue, item.seq);
                         } else {
                             console.error('خطأ مزامنة السيرفر:', await res.json().catch(() => ({})));

@@ -108,7 +108,7 @@ class FavoriteCustomerController extends Controller
     /**
      * تحديث بيانات عميل مميز محدد تابع للمكتب الحالي.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, $id): JsonResponse
     {
         $office = auth('office')->user();
 
@@ -116,9 +116,16 @@ class FavoriteCustomerController extends Controller
             return $response;
         }
 
+        if (! is_numeric($id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'معرف العميل غير صالح.',
+            ], 404);
+        }
+
         $customer = FavoriteCustomer::query()
             ->where('office_id', $office->id)
-            ->find($id);
+            ->find((int) $id);
 
         if (! $customer) {
             return response()->json([
@@ -162,8 +169,10 @@ class FavoriteCustomerController extends Controller
 
     /**
      * حذف عميل مميز محدد تابع للمكتب الحالي.
+     * جعل العملية Idempotent: إذا كان المعرف غير رقمي أو العميل غير موجود مسبقاً،
+     * نرجع 200 OK لتفريغ طوابير المزامنة وتجنب بقاء العمليات معلقة.
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy($id): JsonResponse
     {
         $office = auth('office')->user();
 
@@ -171,15 +180,23 @@ class FavoriteCustomerController extends Controller
             return $response;
         }
 
+        // إذا كان المعرف غير رقمي (مثل معرف مؤقت temp_...) نعتبره محذوفاً بنجاح
+        if (! is_numeric($id)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف العميل بنجاح.',
+            ]);
+        }
+
         $customer = FavoriteCustomer::query()
             ->where('office_id', $office->id)
-            ->find($id);
+            ->find((int) $id);
 
         if (! $customer) {
             return response()->json([
-                'success' => false,
-                'message' => 'العميل المميز غير موجود.',
-            ], 404);
+                'success' => true,
+                'message' => 'تم حذف العميل مسبقاً.',
+            ]);
         }
 
         $customer->delete();

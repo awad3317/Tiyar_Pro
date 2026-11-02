@@ -36,8 +36,13 @@
                     await window.MursalDB.open();
                 }
 
+                // 1. تنظيف ذاتي فوري لأي مهام تالفة في الطابور وأي سجلات مكررة محلياً
+                await this.sanitizeSyncQueueAndLocalStore();
+
+                // 2. تحميل البيانات المحلية النظيفة
                 await this.loadLocal();
 
+                // 3. مراقبة الاتصال ومحاولة المزامنة
                 this.watchConnection(() => this.syncData());
 
                 if (this.isOnline) {
@@ -83,6 +88,13 @@
                 return clean.length === 9 && /^7[01378]/.test(clean);
             },
 
+            isTempId(id) {
+                if (!id) return true;
+                if (!Number.isInteger(Number(id)) || Number(id) <= 0) return true;
+                const str = String(id);
+                return str.startsWith('temp_') || str.includes(':') || str.includes('undefined');
+            },
+
             get filteredCustomers() {
                 const term = (this.search || '').trim();
                 if (!term) return this.customers;
@@ -97,14 +109,113 @@
                 });
             },
 
+            /**
+             * توحيد السجلات برقم الهاتف وحذف السجلات المؤقتة عند وجود سجل حقيقي من السيرفر
+             */
+            async deduplicateCustomers(list) {
+                if (!Array.isArray(list) || list.length === 0) return [];
+
+                const mapByPhone = new Map();
+                const idsToDeleteFromDb = [];
+
+                for (const item of list) {
+                    if (!item || !item.phone) continue;
+                    const cleanPhone = this.normalizeDigits(item.phone);
+                    if (!cleanPhone) continue;
+
+                    const isRealNumeric = !this.isTempId(item.id);
+
+                    if (!mapByPhone.has(cleanPhone)) {
+                        mapByPhone.set(cleanPhone, { ...item, phone: cleanPhone });
+                    } else {
+                        const existing = mapByPhone.get(cleanPhone);
+                        const existingIsReal = !this.isTempId(existing.id);
+
+                        if (isRealNumeric && !existingIsReal) {
+                            // السجل الحقيقي من السيرفر يحل محل السجل المؤقت
+                            idsToDeleteFromDb.push(existing.id);
+                            mapByPhone.set(cleanPhone, { ...item, phone: cleanPhone });
+                        } else if (!isRealNumeric && existingIsReal) {
+                            // السجل الموجود بالفعل حقيقي، نحذف هذا السجل المؤقت
+                            idsToDeleteFromDb.push(item.id);
+                        } else {
+                            // كلاهما حقيقي أو كلاهما مؤقت: نحتفظ بالأحدث ونحذف الآخر
+                            const existingTime = new Date(existing.updated_at || 0).getTime();
+                            const itemTime = new Date(item.updated_at || 0).getTime();
+                            if (itemTime >= existingTime) {
+                                idsToDeleteFromDb.push(existing.id);
+                                mapByPhone.set(cleanPhone, { ...item, phone: cleanPhone });
+                            } else {
+                                idsToDeleteFromDb.push(item.id);
+                            }
+                        }
+                    }
+                }
+
+                // تنظيف نهائي للسجلات المؤقتة/المكررة من مخزن IndexedDB
+                if (idsToDeleteFromDb.length > 0 && window.MursalDB) {
+                    try {
+                        for (const badId of idsToDeleteFromDb) {
+                            if (badId !== undefined && badId !== null) {
+                                await window.MursalDB.delete(STORE, badId);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Deduplication cleanup from IndexedDB failed:', e);
+                    }
+                }
+
+                return Array.from(mapByPhone.values());
+            },
+
+            /**
+             * تطهير ذاتي فوري لطابور المزامنة ومخزن IndexedDB عند بدء التطبيق
+             */
+            async sanitizeSyncQueueAndLocalStore() {
+                try {
+                    if (!window.MursalDB) return;
+
+                    // 1. تنظيف أي مهمة فاسدة أو مؤقتة عالقة في طابور المزامنة
+                    const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    for (const q of (queue || [])) {
+                        const endpoint = String(q?.endpoint || '').trim();
+                        const isFavTask = endpoint.includes('favorite-customers') || (q?.payload && (q.payload.phone || q.payload.name));
+                        if (!isFavTask) continue;
+
+                        const hasInvalidId = endpoint.includes('temp_') || endpoint.includes('undefined') || endpoint.includes('null') || endpoint.includes(':');
+                        const isCorruptDelete = q.method === 'DELETE' && (hasInvalidId || !endpoint.match(/\/\d+$/));
+                        const isCorruptPut = (q.method === 'PUT' || q.method === 'PATCH') && (hasInvalidId || !endpoint.match(/\/\d+$/));
+
+                        if (hasInvalidId || isCorruptDelete || isCorruptPut) {
+                            console.warn('Purging corrupt queue task:', q);
+                            await window.MursalDB.delete(window.MURSAL_STORES.queue, q.seq);
+                        }
+                    }
+
+                    // 2. تنظيف مخزن العملاء المميزين المحلي من التكرار
+                    const allLocal = await window.MursalDB.getAll(STORE);
+                    const officeItems = (allLocal || []).filter((c) => c && c.office_id === this.officeId);
+                    if (officeItems.length > 0) {
+                        await this.deduplicateCustomers(officeItems);
+                    }
+
+                    // 3. تحديث مصفوفة الطابور والعداد في الهيدر
+                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                } catch (e) {
+                    console.warn('sanitizeSyncQueueAndLocalStore error:', e);
+                }
+            },
+
             async loadLocal() {
                 try {
                     if (!window.MursalDB) return;
                     const items = await window.MursalDB.getAll(STORE);
-                    this.customers = (items || [])
-                        .filter((c) => c && c.office_id === this.officeId && c.sync_action !== 'delete')
-                        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
-                    
+                    const officeItems = (items || [])
+                        .filter((c) => c && c.office_id === this.officeId && c.sync_action !== 'delete');
+
+                    const cleanItems = await this.deduplicateCustomers(officeItems);
+                    this.customers = cleanItems.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+
                     if (window.MursalDB) {
                         this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                     }
@@ -142,7 +253,22 @@
                         const data = await res.json().catch(() => ({}));
                         if (Array.isArray(data.customers)) {
                             const localItems = await window.MursalDB.getAll(STORE);
-                            const pendingCreates = localItems.filter((i) => i.office_id === this.officeId && i.pending_sync && i.sync_action === 'create');
+                            const serverPhones = new Set(data.customers.map((c) => this.normalizeDigits(c.phone)));
+
+                            // حذف أي سجلات محلية مؤقتة (temp_) وصل أصحابها للسيرفر
+                            const obsoleteTemps = localItems.filter((i) =>
+                                i.office_id === this.officeId &&
+                                this.isTempId(i.id) &&
+                                serverPhones.has(this.normalizeDigits(i.phone))
+                            );
+                            for (const obs of obsoleteTemps) {
+                                await window.MursalDB.delete(STORE, obs.id);
+                            }
+
+                            // العمليات المعلقة فقط التي لم تصل للسيرفر بعد
+                            const pendingCreates = (await window.MursalDB.getAll(STORE)).filter(
+                                (i) => i.office_id === this.officeId && i.pending_sync && i.sync_action === 'create' && !serverPhones.has(this.normalizeDigits(i.phone))
+                            );
                             const pendingUpdates = new Map(
                                 localItems
                                     .filter((i) => i.office_id === this.officeId && i.pending_sync && i.sync_action === 'update')
@@ -164,21 +290,22 @@
                                         id: c.id,
                                         office_id: this.officeId,
                                         name: c.name,
-                                        phone: c.phone,
+                                        phone: this.normalizeDigits(c.phone),
                                         pending_sync: false,
                                         sync_action: null,
                                         updated_at: c.updated_at,
                                     };
                                 });
 
-                            const merged = [...pendingCreates, ...serverItems];
+                            const mergedRaw = [...pendingCreates, ...serverItems];
+                            const mergedClean = await this.deduplicateCustomers(mergedRaw);
 
-                            // تنظيف وإعادة كتابة المخزن لهذا المكتب
-                            const otherOfficesItems = (localItems || []).filter((i) => i.office_id !== this.officeId);
+                            // تنظيف وإعادة كتابة المخزن لهذا المكتب بالبيانات النظيفة
+                            const otherOfficesItems = (await window.MursalDB.getAll(STORE) || []).filter((i) => i.office_id !== this.officeId);
                             await window.MursalDB.clear(STORE);
-                            await window.MursalDB.putMany(STORE, [...otherOfficesItems, ...merged]);
+                            await window.MursalDB.putMany(STORE, [...otherOfficesItems, ...mergedClean]);
 
-                            this.customers = merged.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+                            this.customers = mergedClean.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                         }
                     }
                 } catch (e) {
@@ -250,11 +377,15 @@
                     return;
                 }
 
-                // فحص تكرار الرقم محلياً
-                const duplicate = this.customers.find((c) => c.phone === phone && c.id !== this.modal.id);
-                if (duplicate) {
-                    this.modal.error = 'رقم الهاتف هذا مسجل مسبقاً للعميل: ' + duplicate.name;
-                    return;
+                // فحص تكرار الرقم محلياً:
+                // إذا كان الرقم مسجلاً لعميل مسبقاً، نحول العملية لتحديث السجل الموجود نفسه بدلاً من إضافة بطاقة ثانية مكررة
+                let isCreate = this.modal.mode === 'create';
+                let targetId = this.modal.id;
+
+                const existingWithPhone = this.customers.find((c) => this.normalizeDigits(c.phone) === phone);
+                if (isCreate && existingWithPhone) {
+                    isCreate = false;
+                    targetId = existingWithPhone.id;
                 }
 
                 this.modal.loading = true;
@@ -265,8 +396,7 @@
                 try {
                     if (this.isOnline) {
                         // إرسال مباشر أونلاين
-                        const isCreate = this.modal.mode === 'create';
-                        const url = isCreate ? this.routes.store : this.routes.update(this.modal.id);
+                        const url = isCreate ? this.routes.store : this.routes.update(targetId);
                         const method = isCreate ? 'POST' : 'PUT';
 
                         const res = await fetch(url, {
@@ -287,8 +417,9 @@
                             return;
                         }
 
+                        const realId = data.customer?.id || targetId;
                         const savedCustomer = {
-                            id: data.customer?.id || this.modal.id,
+                            id: realId,
                             office_id: this.officeId,
                             name,
                             phone,
@@ -298,22 +429,25 @@
                         };
 
                         if (window.MursalDB) {
+                            // إذا كان targetId مؤقتاً والآن لدينا ID حقيقي من السيرفر، نحذف المعرف المؤقت القديم
+                            if (targetId && targetId !== realId) {
+                                await window.MursalDB.delete(STORE, targetId);
+                            }
                             await window.MursalDB.put(STORE, savedCustomer);
                         }
 
-                        if (isCreate) {
-                            this.customers = [savedCustomer, ...this.customers.filter((c) => c.id !== savedCustomer.id)];
-                        } else {
-                            this.customers = this.customers.map((c) => (c.id === savedCustomer.id ? savedCustomer : c));
-                        }
+                        // تحديث المصفوفة المحلية وإزالة أي نسخة سابقة بنفس الرقم أو المعرف
+                        this.customers = [
+                            savedCustomer,
+                            ...this.customers.filter((c) => this.normalizeDigits(c.phone) !== phone && c.id !== targetId && c.id !== realId)
+                        ];
 
+                        this.customers = await this.deduplicateCustomers(this.customers);
                         this.customers.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                         this.closeModal();
                         this.showFeedback(isCreate ? '⭐ تمت إضافة العميل المميز بنجاح.' : '✅ تم تحديث بيانات العميل بنجاح.', false);
                     } else {
                         // حفظ أوفلاين بالكامل
-                        const isCreate = this.modal.mode === 'create';
-
                         if (isCreate) {
                             const tempId = 'temp_' + Date.now();
                             const offlineCustomer = {
@@ -335,13 +469,18 @@
                                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                             }
 
-                            this.customers = [offlineCustomer, ...this.customers];
+                            this.customers = [
+                                offlineCustomer,
+                                ...this.customers.filter((c) => this.normalizeDigits(c.phone) !== phone)
+                            ];
                             this.customers.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                             this.closeModal();
                             this.showFeedback('⭐ تم حفظ العميل محلياً على الجهاز، وستتم مزامنته تلقائياً عند عودة الإنترنت.', false);
                         } else {
-                            const customerId = this.modal.id;
-                            const existing = this.customers.find((c) => c.id === customerId);
+                            const customerId = targetId;
+                            const isTemp = this.isTempId(customerId);
+                            const existing = this.customers.find((c) => c.id === customerId || this.normalizeDigits(c.phone) === phone);
+
                             const updatedCustomer = {
                                 ...(existing || {}),
                                 id: customerId,
@@ -349,7 +488,7 @@
                                 name,
                                 phone,
                                 pending_sync: true,
-                                sync_action: String(customerId).startsWith('temp_') ? 'create' : 'update',
+                                sync_action: isTemp ? 'create' : 'update',
                                 updated_at: new Date().toISOString(),
                             };
 
@@ -358,21 +497,25 @@
                             }
 
                             if (window.MursalSync) {
-                                if (String(customerId).startsWith('temp_')) {
-                                    // تحديث بيانات الطلب المعلق في طابور المزامنة مباشرة
+                                if (isTemp) {
+                                    // إذا كان مؤقتاً، نعدل بيانات طلب الإضافة في الطابور مباشرة
                                     const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
-                                    const match = queue.find((q) => q.endpoint === this.routes.store && q.payload?.phone === existing?.phone);
+                                    const match = queue.find((q) => q.endpoint === this.routes.store && this.normalizeDigits(q.payload?.phone) === phone);
                                     if (match) {
                                         match.payload = { name, phone };
                                         await window.MursalDB.put(window.MURSAL_STORES.queue, match);
+                                    } else {
+                                        await window.MursalSync.enqueue(this.routes.store, { name, phone }, 'POST');
                                     }
                                 } else {
+                                    // عميل حقيقي بسيرفر: نسجل طلب PUT
                                     await window.MursalSync.enqueue(this.routes.update(customerId), { name, phone }, 'PUT');
                                 }
                                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                             }
 
                             this.customers = this.customers.map((c) => (c.id === customerId ? updatedCustomer : c));
+                            this.customers = await this.deduplicateCustomers(this.customers);
                             this.customers.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                             this.closeModal();
                             this.showFeedback('✅ تم تحديث بيانات العميل محلياً على الجهاز، وستتم مزامنتها تلقائياً عند الاتصال.', false);
@@ -392,58 +535,108 @@
 
                 this.deleteModal.loading = true;
                 const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const isTemp = this.isTempId(customer.id);
+                const cleanPhone = this.normalizeDigits(customer.phone);
 
                 try {
                     if (this.isOnline) {
-                        if (!String(customer.id).startsWith('temp_')) {
-                            const res = await fetch(this.routes.destroy(customer.id), {
-                                method: 'DELETE',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-CSRF-TOKEN': token || '',
-                                },
-                            });
-
-                            if (!res.ok && res.status !== 404) {
-                                const data = await res.json().catch(() => ({}));
-                                this.showFeedback(data.message || 'تعذر حذف العميل من السيرفر.', true);
-                                this.deleteModal.loading = false;
-                                return;
+                        if (!isTemp) {
+                            try {
+                                const res = await fetch(this.routes.destroy(customer.id), {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': token || '',
+                                    },
+                                });
+                                // 200 أو 404 كلاهما نجاح للحذف
+                                if (!res.ok && res.status !== 404) {
+                                    const data = await res.json().catch(() => ({}));
+                                    this.showFeedback(data.message || 'تعذر حذف العميل من السيرفر.', true);
+                                    this.deleteModal.loading = false;
+                                    return;
+                                }
+                            } catch (netErr) {
+                                console.warn('Online delete error, will cleanup locally:', netErr);
                             }
                         }
 
+                        // حذف السجل وكافة النسخ المكررة لنفس الهاتف من IndexedDB
                         if (window.MursalDB) {
                             await window.MursalDB.delete(STORE, customer.id);
+                            const allLocal = await window.MursalDB.getAll(STORE);
+                            for (const c of (allLocal || [])) {
+                                if (c.office_id === this.officeId && (this.normalizeDigits(c.phone) === cleanPhone || c.id === customer.id)) {
+                                    await window.MursalDB.delete(STORE, c.id);
+                                }
+                            }
+
+                            // تنظيف أي مهمة متعلقة بهذا الرقم أو المعرف من الطابور
+                            const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                            for (const q of (queue || [])) {
+                                if (this.normalizeDigits(q.payload?.phone) === cleanPhone || (q.endpoint && q.endpoint.includes(String(customer.id)))) {
+                                    await window.MursalDB.delete(window.MURSAL_STORES.queue, q.seq);
+                                }
+                            }
+                            this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                         }
 
-                        this.customers = this.customers.filter((c) => c.id !== customer.id);
+                        this.customers = this.customers.filter((c) => this.normalizeDigits(c.phone) !== cleanPhone && c.id !== customer.id);
                         this.closeDeleteModal();
                         this.showFeedback('🗑️ تم حذف العميل من القائمة بنجاح.', false);
                     } else {
                         // حذف أوفلاين
-                        if (String(customer.id).startsWith('temp_')) {
-                            // إذا أُضيف أوفلاين فقط ولم يرفع، نحذفه من الطابور ومن الـ IndexedDB مباشرة
+                        if (isTemp) {
+                            // سجل مؤقت لم يرفع للسيرفر بعد:
+                            // نحذفه من IndexedDB ومن الطابور مباشرة ولا نرسل DELETE إطلاقاً
                             if (window.MursalDB) {
                                 await window.MursalDB.delete(STORE, customer.id);
+                                const allLocal = await window.MursalDB.getAll(STORE);
+                                for (const c of (allLocal || [])) {
+                                    if (c.office_id === this.officeId && (this.normalizeDigits(c.phone) === cleanPhone || c.id === customer.id)) {
+                                        await window.MursalDB.delete(STORE, c.id);
+                                    }
+                                }
+
                                 const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
-                                const match = queue.find((q) => q.endpoint === this.routes.store && q.payload?.phone === customer.phone);
-                                if (match) {
-                                    await window.MursalDB.delete(window.MURSAL_STORES.queue, match.seq);
+                                for (const q of (queue || [])) {
+                                    if (this.normalizeDigits(q.payload?.phone) === cleanPhone || (q.endpoint && q.endpoint.includes(String(customer.id)))) {
+                                        await window.MursalDB.delete(window.MURSAL_STORES.queue, q.seq);
+                                    }
                                 }
                                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                             }
                         } else {
-                            // عميل مسجل بالسيرفر، نسجل عملية حذف في طابور المزامنة ونحذفه محلياً
+                            // سجل حقيقي مسجل بالسيرفر:
+                            // نحذف محلياً، وننظف أي مهام تعديل/إضافة سابقة لنفس الهاتف من الطابور
                             if (window.MursalDB) {
                                 await window.MursalDB.delete(STORE, customer.id);
+                                const allLocal = await window.MursalDB.getAll(STORE);
+                                for (const c of (allLocal || [])) {
+                                    if (c.office_id === this.officeId && (this.normalizeDigits(c.phone) === cleanPhone || c.id === customer.id)) {
+                                        await window.MursalDB.delete(STORE, c.id);
+                                    }
+                                }
+
+                                const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                                for (const q of (queue || [])) {
+                                    if (this.normalizeDigits(q.payload?.phone) === cleanPhone || (q.endpoint && q.endpoint.includes(String(customer.id)))) {
+                                        await window.MursalDB.delete(window.MURSAL_STORES.queue, q.seq);
+                                    }
+                                }
                             }
+
+                            // إضافة مهمة DELETE نقية بدون payload إلى طابور المزامنة
                             if (window.MursalSync) {
                                 await window.MursalSync.enqueue(this.routes.destroy(customer.id), null, 'DELETE');
+                            }
+
+                            if (window.MursalDB) {
                                 this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                             }
                         }
 
-                        this.customers = this.customers.filter((c) => c.id !== customer.id);
+                        this.customers = this.customers.filter((c) => this.normalizeDigits(c.phone) !== cleanPhone && c.id !== customer.id);
                         this.closeDeleteModal();
                         this.showFeedback('🗑️ تم حذف العميل محلياً وسيتم تأكيد الحذف بالسيرفر عند عودة الإنترنت.', false);
                     }
@@ -457,4 +650,3 @@
         });
     })();
 </script>
-
