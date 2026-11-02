@@ -6,6 +6,7 @@
 {{-- منطق العملاء المميزين (لكل مكتب قائمته الخاصة، تخزين محلي في IndexedDB + مزامنة مع السيرفر) --}}
 <script>
     window.mursalFavoritesMixin = () => ({
+        hasVipFeature: {{ (auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab')) ? 'true' : 'false' }},
         favorites: [],
         favSearchField: null,
         savingFavoritePhone: null,
@@ -25,6 +26,7 @@
         },
 
         async initFavorites() {
+            if (!this.hasVipFeature) return;
             await this.loadLocalFavorites();
             this.syncFavorites();
             window.addEventListener('online', () => this.syncFavorites());
@@ -38,12 +40,13 @@
         },
 
         async favDb() {
-            if (!window.MursalDB) return null;
+            if (!this.hasVipFeature || !window.MursalDB) return null;
             await window.MursalDB.open();
             return window.MursalDB;
         },
 
         async loadLocalFavorites() {
+            if (!this.hasVipFeature) return;
             try {
                 const db = await this.favDb();
                 if (!db) return;
@@ -113,7 +116,7 @@
         },
 
         async syncFavorites() {
-            if (!navigator.onLine || this.favIsSyncing) return;
+            if (!this.hasVipFeature || !navigator.onLine || this.favIsSyncing) return;
             this.favIsSyncing = true;
 
             try {
@@ -191,6 +194,7 @@
         },
 
         canAddFavorite(entry) {
+            if (!this.hasVipFeature) return false;
             const phone = this.favDigits(entry?.phone);
             const name = String(entry?.recipientName || '').trim();
             return name.length >= 2 && /^7[01378]\d{7}$/.test(phone);
@@ -228,7 +232,7 @@
         },
 
         favoriteSuggestions(field) {
-            if (this.favSearchField !== field || this.favorites.length === 0) return [];
+            if (!this.hasVipFeature || this.favSearchField !== field || this.favorites.length === 0) return [];
 
             const raw = String((field === 'phone' ? this.quickSms?.phone : this.quickSms?.recipientName) || '').trim();
             if (raw.length < 2) return [];
@@ -438,6 +442,7 @@
                         placeholder="7XXXXXXXX" />
                 </div>
 
+                @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                 {{-- اقتراحات العملاء المميزين عند البحث بالرقم --}}
                 <template x-if="favoriteSuggestions('phone').length > 0">
                     <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
@@ -452,6 +457,7 @@
                         </template>
                     </div>
                 </template>
+                @endif
             </div>
 
             {{-- حقل نوع الطرد + اسم المستلم (اختياري) في صف واحد للحفاظ على نفس التصميم والارتفاع --}}
@@ -502,6 +508,7 @@
                         placeholder="بدون اسم" />
                 </div>
 
+                @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                 {{-- اقتراحات العملاء المميزين عند البحث بالاسم --}}
                 <template x-if="favoriteSuggestions('name').length > 0">
                     <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
@@ -516,6 +523,7 @@
                         </template>
                     </div>
                 </template>
+                @endif
             </div>
 
             {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة -> اللون -> الحجم) --}}
@@ -704,6 +712,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">SMS ✓</span>
                         </template>
 
+                        @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                         {{-- إضافة كعميل مميز (يتطلب اسم + رقم) --}}
                         <template x-if="canAddFavorite(entry) && isFavoritePhone(entry.phone)">
                             <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center" title="عميل مميز">
@@ -718,6 +727,7 @@
                                 <span class="material-symbols-outlined text-[14px]">person_add</span>
                             </button>
                         </template>
+                        @endif
                     </div>
                 </div>
             </template>
