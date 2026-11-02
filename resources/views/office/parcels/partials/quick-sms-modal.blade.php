@@ -223,21 +223,38 @@
                 </div>
             </div>
 
-            {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة ثم اللون/النوع) --}}
+            {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة -> اللون -> الحجم) --}}
             <div x-data="{
                 catalog: {
                     'كيس': ['أبيض', 'أسود', 'أزرق', 'أحمر', 'بني', 'بنفسجي', 'أصفر', 'وردي', 'رمادي', 'شفاف'],
                     'ضرف': ['أبيض', 'كاكي'],
-                    'كرتون': ['كاكي', 'أبيض', 'وسط']
+                    'كرتون': ['كاكي', 'أبيض']
+                },
+                sizes: ['كبير', 'وسط', 'صغير'],
+                norm(str) {
+                    return (str || '').replace(/[أإآ]/g, 'ا');
                 },
                 get activeCategory() {
                     const desc = (this.quickSms?.description || '').trim();
                     if (desc === 'ظرف' || desc.startsWith('ظرف ')) return 'ضرف';
                     return Object.keys(this.catalog).find(cat => desc === cat || desc.startsWith(cat + ' ')) || null;
+                },
+                get activeColor() {
+                    if (!this.activeCategory) return null;
+                    const parts = (this.quickSms?.description || '').trim().split(/\s+/);
+                    if (parts.length < 2) return null;
+                    const colors = this.catalog[this.activeCategory] || [];
+                    return colors.find(c => this.norm(c) === this.norm(parts[1])) || null;
+                },
+                get activeSize() {
+                    if (!this.activeColor) return null;
+                    const parts = (this.quickSms?.description || '').trim().split(/\s+/);
+                    if (parts.length < 3) return null;
+                    return this.sizes.find(s => s === parts[2]) || null;
                 }
             }" class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
 
-                {{-- المستوى 1: إظهار الفئات الرئيسية (كيس، ضرف، كرتون) عندما يكون الحقل فارغاً أو لا يبدأ بفئة --}}
+                {{-- المستوى 1: الفئات الرئيسية (كيس، ضرف، كرتون) --}}
                 <template x-if="!activeCategory">
                     <div class="flex items-center gap-1.5 shrink-0">
                         <template x-for="cat in Object.keys(catalog)" :key="cat">
@@ -252,10 +269,9 @@
                     </div>
                 </template>
 
-                {{-- المستوى 2: إظهار الألوان/الأحجام الخاصة بالفئة المختارة --}}
-                <template x-if="activeCategory">
+                {{-- المستوى 2: اختيار اللون للفئة المختارة --}}
+                <template x-if="activeCategory && !activeColor">
                     <div class="flex items-center gap-1.5 shrink-0">
-                        {{-- زر إلغاء الفئة والعودة للقائمة الرئيسية --}}
                         <button type="button" :disabled="isClosing" @click="
                             quickSms.description = '';
                             $refs.streamingDescInput.focus();
@@ -263,16 +279,44 @@
                             <span x-text="activeCategory + ' ✕'"></span>
                         </button>
 
-                        {{-- قائمة الألوان/الأحجام --}}
-                        <template x-for="sub in catalog[activeCategory]" :key="sub">
+                        <template x-for="color in catalog[activeCategory]" :key="color">
                             <button type="button" :disabled="isClosing" @click="
-                                quickSms.description = activeCategory + ' ' + sub;
+                                quickSms.description = activeCategory + ' ' + color;
                                 $refs.streamingDescInput.focus();
-                            " :class="(quickSms.description || '').trim() === (activeCategory + ' ' + sub)
+                            " class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
+                                <span x-text="color"></span>
+                                <span class="text-[9px] text-slate-400">◀</span>
+                            </button>
+                        </template>
+                    </div>
+                </template>
+
+                {{-- المستوى 3: اختيار الحجم (كبير، وسط، صغير) بعد اختيار اللون --}}
+                <template x-if="activeCategory && activeColor">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" :disabled="isClosing" @click="
+                            quickSms.description = '';
+                            $refs.streamingDescInput.focus();
+                        " class="px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير الفئة">
+                            <span x-text="activeCategory + ' ✕'"></span>
+                        </button>
+
+                        <button type="button" :disabled="isClosing" @click="
+                            quickSms.description = activeCategory + ' ';
+                            $refs.streamingDescInput.focus();
+                        " class="px-2 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير اللون">
+                            <span x-text="activeColor + ' ✕'"></span>
+                        </button>
+
+                        <template x-for="size in sizes" :key="size">
+                            <button type="button" :disabled="isClosing" @click="
+                                quickSms.description = activeCategory + ' ' + activeColor + ' ' + size;
+                                $refs.streamingDescInput.focus();
+                            " :class="activeSize === size
                                 ? 'bg-secondary text-white shadow-sm'
                                 : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
                             class="px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40">
-                                <span x-text="sub"></span>
+                                <span x-text="size"></span>
                             </button>
                         </template>
                     </div>
