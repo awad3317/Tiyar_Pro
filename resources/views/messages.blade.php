@@ -97,9 +97,6 @@
                                 @else
                                     <span class="text-muted small">—</span>
                                 @endif
-                                @if($msg->ip_address)
-                                    <div class="text-muted mt-1" style="font-size: 0.72rem;">IP: {{ $msg->ip_address }}</div>
-                                @endif
                             </td>
                             <td>
                                 @if($msg->message_text)
