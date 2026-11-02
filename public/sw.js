@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v11';
+const CACHE_NAME = 'mursal-pwa-v12';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',

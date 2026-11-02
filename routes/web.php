@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Office\DashboardController;
 use App\Http\Controllers\Office\ParcelController;
 use App\Http\Controllers\Office\WhatsAppSettingsController;
+use App\Http\Controllers\Office\FavoriteCustomerController;
 use App\Http\Controllers\Office\Auth\LoginController;
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
@@ -106,6 +107,10 @@ Route::prefix('office')->name('office.')->group(function () {
             Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');
             Route::post('/parcels/{parcel}/resend-sms', [ParcelController::class, 'resendSms'])->name('parcels.resend_sms');
             Route::post('/parcels/{parcel}/resend-whatsapp', [ParcelController::class, 'resendWhatsapp'])->name('parcels.resend_whatsapp');
+
+            // العملاء المميزون (لكل مكتب قائمته الخاصة)
+            Route::get('/favorite-customers', [FavoriteCustomerController::class, 'index'])->name('favorite_customers.index');
+            Route::post('/favorite-customers', [FavoriteCustomerController::class, 'store'])->name('favorite_customers.store');
         });
     });
 });

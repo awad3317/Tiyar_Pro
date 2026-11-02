@@ -3,8 +3,266 @@
     $isWaConnected = $currentOffice ? (\Illuminate\Support\Facades\Cache::get('whatsapp_status_office_' . $currentOffice->id) === 'online') : false;
 @endphp
 
+{{-- منطق العملاء المميزين (لكل مكتب قائمته الخاصة، تخزين محلي في IndexedDB + مزامنة مع السيرفر) --}}
+<script>
+    window.mursalFavoritesMixin = () => ({
+        favorites: [],
+        favSearchField: null,
+        savingFavoritePhone: null,
+        favOfficeId: {{ (int) ($currentOffice?->id ?? 0) }},
+        favIsSyncing: false,
+        favRoutes: {
+            list: @json(route('office.api.favorite_customers.index')),
+            store: @json(route('office.api.favorite_customers.store')),
+        },
+
+        get favStore() {
+            return window.MURSAL_STORES?.favorites || 'favoriteCustomers';
+        },
+
+        favKey(phone) {
+            return this.favOfficeId + ':' + phone;
+        },
+
+        async initFavorites() {
+            await this.loadLocalFavorites();
+            this.syncFavorites();
+            window.addEventListener('online', () => this.syncFavorites());
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data?.type === 'TRIGGER_SYNC') {
+                        this.syncFavorites();
+                    }
+                });
+            }
+        },
+
+        async favDb() {
+            if (!window.MursalDB) return null;
+            await window.MursalDB.open();
+            return window.MursalDB;
+        },
+
+        async loadLocalFavorites() {
+            try {
+                const db = await this.favDb();
+                if (!db) return;
+
+                await this.migrateLegacyFavorites(db);
+
+                const rows = await db.getAll(this.favStore);
+                this.favorites = rows
+                    .filter((r) => r && r.office_id === this.favOfficeId && r.phone && r.name)
+                    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+            } catch (e) {
+                console.warn('Unable to load favorite customers from IndexedDB:', e);
+            }
+        },
+
+        async migrateLegacyFavorites(db) {
+            const legacyKey = 'mursal_favorite_customers_office_' + this.favOfficeId;
+            const raw = localStorage.getItem(legacyKey);
+            if (!raw) return;
+            try {
+                const legacy = JSON.parse(raw);
+                if (Array.isArray(legacy) && legacy.length) {
+                    await db.putMany(this.favStore, legacy
+                        .filter((f) => f && f.phone && f.name)
+                        .map((f) => this.favRecord(f.phone, f.name, !!f.synced)));
+                }
+            } catch (e) {
+                console.warn('Legacy favorites migration skipped:', e);
+            }
+            localStorage.removeItem(legacyKey);
+        },
+
+        favRecord(phone, name, synced) {
+            return {
+                id: this.favKey(phone),
+                office_id: this.favOfficeId,
+                phone: String(phone),
+                name: String(name),
+                synced: !!synced,
+                updated_at: new Date().toISOString(),
+            };
+        },
+
+        async saveFavoriteLocal(record) {
+            const db = await this.favDb();
+            if (db) await db.put(this.favStore, record);
+            this.favorites = [record, ...this.favorites.filter((f) => f.phone !== record.phone)];
+        },
+
+        favDigits(str) {
+            return String(str || '')
+                .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+                .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                .replace(/\D/g, '');
+        },
+
+        favNormalizeName(str) {
+            return String(str || '')
+                .toLowerCase()
+                .replace(/[\u200B-\u200F\uFEFF]/g, '')
+                .replace(/[\u064B-\u0652\u0640]/g, '')
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/ى/g, 'ي')
+                .replace(/ة/g, 'ه')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        async syncFavorites() {
+            if (!navigator.onLine || this.favIsSyncing) return;
+            this.favIsSyncing = true;
+
+            try {
+                const unsynced = this.favorites.filter((f) => !f.synced);
+                for (const fav of unsynced) {
+                    await this.pushFavoriteToServer(fav);
+                }
+
+                const res = await fetch(this.favRoutes.list, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!res.ok) return;
+                const data = await res.json().catch(() => ({}));
+                if (!Array.isArray(data.customers)) return;
+
+                const merged = new Map();
+                data.customers.forEach((c) => {
+                    merged.set(String(c.phone), this.favRecord(c.phone, c.name, true));
+                });
+                this.favorites.filter((f) => !f.synced).forEach((f) => merged.set(f.phone, f));
+
+                const finalList = Array.from(merged.values());
+                const db = await this.favDb();
+                if (db) {
+                    const staleKeys = this.favorites
+                        .filter((f) => !merged.has(f.phone))
+                        .map((f) => f.id);
+                    if (staleKeys.length) await db.deleteMany(this.favStore, staleKeys);
+                    if (finalList.length) await db.putMany(this.favStore, finalList);
+                }
+
+                this.favorites = finalList.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+            } catch (e) {
+                console.warn('Favorite customers sync failed:', e);
+            } finally {
+                this.favIsSyncing = false;
+            }
+        },
+
+        async pushFavoriteToServer(fav) {
+            try {
+                const res = await fetch(this.favRoutes.store, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({ phone: fav.phone, name: fav.name }),
+                });
+
+                const db = await this.favDb();
+
+                if (res.ok) {
+                    const synced = { ...fav, synced: true };
+                    if (db) await db.put(this.favStore, synced);
+                    this.favorites = this.favorites.map((f) => f.phone === fav.phone ? synced : f);
+                    return true;
+                }
+
+                if (res.status === 422) {
+                    if (db) await db.delete(this.favStore, fav.id);
+                    this.favorites = this.favorites.filter((f) => f.phone !== fav.phone);
+                }
+            } catch (e) {
+                console.warn('Favorite customer push failed (will retry when online):', e);
+            }
+            return false;
+        },
+
+        isFavoritePhone(phone) {
+            const clean = this.favDigits(phone);
+            return this.favorites.some((f) => f.phone === clean);
+        },
+
+        canAddFavorite(entry) {
+            const phone = this.favDigits(entry?.phone);
+            const name = String(entry?.recipientName || '').trim();
+            return name.length >= 2 && /^7[01378]\d{7}$/.test(phone);
+        },
+
+        async addFavoriteFromEntry(entry) {
+            if (!this.canAddFavorite(entry)) {
+                this.showFeedback('لا يمكن إضافة عميل مميز بدون اسم ورقم صحيح.', true);
+                return;
+            }
+
+            const phone = this.favDigits(entry.phone);
+            const name = entry.recipientName.trim();
+            const record = this.favRecord(phone, name, false);
+
+            this.savingFavoritePhone = phone;
+            try {
+                await this.saveFavoriteLocal(record);
+            } catch (e) {
+                this.savingFavoritePhone = null;
+                this.showFeedback('تعذر حفظ العميل على الجهاز.', true);
+                return;
+            }
+
+            if (navigator.onLine) {
+                await this.pushFavoriteToServer(record);
+            } else if (window.MursalSync) {
+                await window.MursalSync.enqueue(this.favRoutes.store, { phone, name });
+            }
+
+            this.savingFavoritePhone = null;
+            this.showFeedback(navigator.onLine
+                ? '⭐ تمت إضافة ' + name + ' إلى العملاء المميزين.'
+                : '⭐ تم حفظ ' + name + ' على الجهاز وستتم مزامنته عند عودة الإنترنت.', false);
+        },
+
+        favoriteSuggestions(field) {
+            if (this.favSearchField !== field || this.favorites.length === 0) return [];
+
+            const raw = String((field === 'phone' ? this.quickSms?.phone : this.quickSms?.recipientName) || '').trim();
+            if (raw.length < 2) return [];
+
+            const digits = this.favDigits(raw);
+            const isDigitsOnly = digits.length > 0 && digits.length === raw.replace(/\s/g, '').length;
+            const nameTerm = this.favNormalizeName(raw);
+
+            const results = [];
+            for (const fav of this.favorites) {
+                const matched = isDigitsOnly
+                    ? fav.phone.includes(digits)
+                    : this.favNormalizeName(fav.name).includes(nameTerm);
+
+                if (!matched) continue;
+                if (fav.phone === digits && fav.name === (this.quickSms?.recipientName || '').trim()) continue;
+
+                results.push(fav);
+                if (results.length === 3) break;
+            }
+            return results;
+        },
+
+        selectFavorite(fav) {
+            this.quickSms.phone = fav.phone;
+            this.quickSms.recipientName = fav.name;
+            this.favSearchField = null;
+        },
+    });
+</script>
+
 {{-- مودال الإرسال السريع التدريجي للـ SMS (شاشة كاملة تتكيف مع الكيبورد) --}}
 <div x-data="{ 
+        ...mursalFavoritesMixin(),
         isClosing: false,
         isWaConnected: {{ $isWaConnected ? 'true' : 'false' }},
         waStatusChecked: false,
@@ -32,11 +290,11 @@
             .catch(() => { this.waStatusChecked = true; });
         }
     }" 
-    x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'; checkWhatsAppStatus()"
+    x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'; checkWhatsAppStatus(); initFavorites()"
     x-show="quickSms.open" 
     x-cloak 
     class="fixed inset-0 z-50 flex flex-col bg-white"
-    @open-quick-sms.window="isClosing = false; checkWhatsAppStatus(); openQuickSmsModal()"
+    @open-quick-sms.window="isClosing = false; checkWhatsAppStatus(); loadLocalFavorites(); syncFavorites(); openQuickSmsModal()"
     @keydown.escape.window="if (quickSms.open && !isClosing && streamingPendingCount === 0) resetQuickSms()">
 
     {{-- خلفية التعتيم للشاشات الكبيرة (Desktop) --}}
@@ -144,7 +402,7 @@
         <div class="px-5 pt-2.5 pb-2 space-y-2.5 bg-white shrink-0 border-b border-slate-50">
 
             {{-- حقل رقم الهاتف --}}
-            <div>
+            <div class="relative">
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم الهاتف</label>
                 <div
                     class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
@@ -167,19 +425,37 @@
                     </div>
 
                     <input type="tel" id="streaming-phone-input" x-model="quickSms.phone" :disabled="isClosing"
-                        @input="quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
+                        @focus="favSearchField = 'phone'"
+                        @blur="if (favSearchField === 'phone') favSearchField = null"
+                        @input="favSearchField = 'phone'; quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
                         @keydown.enter.prevent="
                        if (!isClosing && quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
+                           favSearchField = null;
                            $refs.streamingDescInput.focus();
                        }
                     " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
                         class="w-full py-2.5 px-4 pr-16 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
                         placeholder="7XXXXXXXX" />
                 </div>
+
+                {{-- اقتراحات العملاء المميزين عند البحث بالرقم --}}
+                <template x-if="favoriteSuggestions('phone').length > 0">
+                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                        <template x-for="fav in favoriteSuggestions('phone')" :key="'fp-' + fav.phone">
+                            <button type="button" @mousedown.prevent
+                                @click="selectFavorite(fav); $nextTick(() => { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); })"
+                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 border-b border-slate-50 last:border-b-0 transition-colors">
+                                <span class="material-symbols-outlined text-[16px] text-amber-500">star</span>
+                                <span class="flex-1 truncate text-xs font-bold text-slate-700" x-text="fav.name"></span>
+                                <span class="text-xs font-mono font-bold text-slate-500" dir="ltr" x-text="fav.phone"></span>
+                            </button>
+                        </template>
+                    </div>
+                </template>
             </div>
 
             {{-- حقل نوع الطرد + اسم المستلم (اختياري) في صف واحد للحفاظ على نفس التصميم والارتفاع --}}
-            <div class="grid grid-cols-2 gap-2">
+            <div class="relative grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد</label>
                     <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" :disabled="isClosing" @keydown.enter.prevent="
@@ -204,7 +480,11 @@
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">
                         اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span>
                     </label>
-                    <input type="text" x-ref="streamingRecipientInput" x-model="quickSms.recipientName" :disabled="isClosing" @keydown.enter.prevent="
+                    <input type="text" x-ref="streamingRecipientInput" x-model="quickSms.recipientName" :disabled="isClosing"
+                        @focus="favSearchField = 'name'"
+                        @blur="if (favSearchField === 'name') favSearchField = null"
+                        @input="favSearchField = 'name'"
+                        @keydown.enter.prevent="
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
@@ -221,6 +501,21 @@
                         class="w-full py-2.5 px-3.5 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
                         placeholder="بدون اسم" />
                 </div>
+
+                {{-- اقتراحات العملاء المميزين عند البحث بالاسم --}}
+                <template x-if="favoriteSuggestions('name').length > 0">
+                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                        <template x-for="fav in favoriteSuggestions('name')" :key="'fn-' + fav.phone">
+                            <button type="button" @mousedown.prevent
+                                @click="selectFavorite(fav); $nextTick(() => { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); })"
+                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 border-b border-slate-50 last:border-b-0 transition-colors">
+                                <span class="material-symbols-outlined text-[16px] text-amber-500">star</span>
+                                <span class="flex-1 truncate text-xs font-bold text-slate-700" x-text="fav.name"></span>
+                                <span class="text-xs font-mono font-bold text-slate-500" dir="ltr" x-text="fav.phone"></span>
+                            </button>
+                        </template>
+                    </div>
+                </template>
             </div>
 
             {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة -> اللون -> الحجم) --}}
@@ -407,6 +702,21 @@
                         </template>
                         <template x-if="entry.status === 'success' && entry.smsSent">
                             <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">SMS ✓</span>
+                        </template>
+
+                        {{-- إضافة كعميل مميز (يتطلب اسم + رقم) --}}
+                        <template x-if="canAddFavorite(entry) && isFavoritePhone(entry.phone)">
+                            <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center" title="عميل مميز">
+                                <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                            </span>
+                        </template>
+                        <template x-if="canAddFavorite(entry) && !isFavoritePhone(entry.phone)">
+                            <button type="button" @click="addFavoriteFromEntry(entry)"
+                                :disabled="savingFavoritePhone === entry.phone"
+                                class="w-6 h-6 rounded-md bg-slate-100 hover:bg-amber-100 hover:text-amber-600 text-slate-500 border border-slate-200 flex items-center justify-center transition-colors active:scale-90 disabled:opacity-40"
+                                title="إضافة كعميل مميز">
+                                <span class="material-symbols-outlined text-[14px]">person_add</span>
+                            </button>
                         </template>
                     </div>
                 </div>

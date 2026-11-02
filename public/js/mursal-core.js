@@ -5,12 +5,13 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 7; // ترقية لدعم الجداول العامة
+    const DB_VERSION = 8; // ترقية لإضافة جدول العملاء المميزين
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
         queue: 'syncQueue',       // طابور عام لكل الموديولات
         parcels: 'parcels',       // طرود
+        favorites: 'favoriteCustomers', // العملاء المميزون (لكل مكتب)
         // vouchers: 'vouchers',     // سندات مستقبلاً
         // shipments: 'shipments'    // شحنات مستقبلاً
     };

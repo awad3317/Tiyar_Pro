@@ -55,4 +55,9 @@ class Office extends Authenticatable
     {
         return $this->hasMany(Parcel::class, 'office_id');
     }
+
+    public function favoriteCustomers(): HasMany
+    {
+        return $this->hasMany(FavoriteCustomer::class, 'office_id');
+    }
 }
