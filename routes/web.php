@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OfficeController as AdminOfficeController;
 use App\Http\Controllers\Admin\ParcelController as AdminParcelController;
 use App\Http\Controllers\Admin\WhatsappInstanceController as AdminWhatsappInstanceController;
+use App\Http\Controllers\Admin\FeatureController as AdminFeatureController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -51,6 +52,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/offices/{office}/toggle-daily-report', [AdminOfficeController::class, 'toggleDailyReport'])->name('offices.toggle_daily_report');
         Route::post('/offices/{office}/send-test-report', [AdminOfficeController::class, 'sendTestDailyReport'])->name('offices.send_test_daily_report');
         Route::post('/offices/{office}/update-password', [AdminOfficeController::class, 'updatePassword'])->name('offices.update_password');
+
+        // إدارة كتالوج المميزات العامة
+        Route::get('/features', [AdminFeatureController::class, 'index'])->name('features.index');
+        Route::post('/features', [AdminFeatureController::class, 'store'])->name('features.store');
+        Route::put('/features/{feature}', [AdminFeatureController::class, 'update'])->name('features.update');
+        Route::post('/features/sync-all', [AdminFeatureController::class, 'syncAll'])->name('features.sync_all');
 
         // أدوات الواتساب المباشرة للمكتب (AJAX)
         Route::prefix('offices/{office}/whatsapp')->name('offices.whatsapp.')->group(function () {

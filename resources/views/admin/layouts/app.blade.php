@@ -126,6 +126,13 @@
                     <span>مراقبة الطرود الشاملة</span>
                 </a>
 
+                <!-- إدارة المميزات العامة -->
+                <a href="{{ route('admin.features.index') }}"
+                   class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.features.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
+                    <span class="material-symbols-outlined text-[22px]">featured_play_list</span>
+                    <span>إدارة المميزات (Features)</span>
+                </a>
+
                 <div class="pt-5 px-3 pb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">خدمات الربط والاتصال</div>
 
                 <!-- إدارة الـ Instances -->

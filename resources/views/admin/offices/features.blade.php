@@ -5,6 +5,11 @@
 @section('page-subtitle', 'التحكم في تفعيل أو إيقاف الخدمات والمميزات التفاعلية للمكتب وتحديث الكاش الذكي فورياً')
 
 @section('header-actions')
+    <a href="{{ route('admin.features.index') }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-secondary text-primary-950 text-xs font-extrabold hover:brightness-105 transition-all shadow-sm">
+        <span class="material-symbols-outlined text-lg">featured_play_list</span>
+        <span>إدارة كتالوج المميزات</span>
+    </a>
     <a href="{{ route('admin.offices.edit', $office) }}"
        class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-white text-xs font-bold hover:bg-slate-50 transition-colors">
         <span class="material-symbols-outlined text-lg">tune</span>
