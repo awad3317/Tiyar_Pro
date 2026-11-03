@@ -49,16 +49,36 @@ class ParcelController extends Controller
 
         $synced = 0;
         $rejected = [];
+        $deliveredParcels = [];
 
         foreach ($updates as $item) {
             $parcel = $parcels->get($item['id']);
             $status = ParcelStatus::tryFrom($item['status']);
 
-            if ($parcel && $status && $parcel->transitionTo($status, $this->parseDate($item['delivered_at'] ?? null))) {
-                $synced++;
+            if ($parcel && $status) {
+                $previousStatus = $parcel->status;
+                if ($parcel->transitionTo($status, $this->parseDate($item['delivered_at'] ?? null))) {
+                    $synced++;
+                    // رصد الطرود التي تم تسليمها حديثاً لتسليم إشعاراتها
+                    if ($status === ParcelStatus::Delivered && $previousStatus !== ParcelStatus::Delivered) {
+                        $deliveredParcels[] = $parcel;
+                    }
+                } else {
+                    $rejected[] = $item['id'];
+                }
             } else {
-                $rejected[] = $item['id'];
+                $rejected[] = $item['id'] ?? null;
             }
+        }
+
+        // إرسال إشعارات التسليم بشكل غير متزامن بعد استجابة السيرفر لحماية أداء الـ PWA وسرعة الاستجابة
+        if (! empty($deliveredParcels)) {
+            dispatch(function () use ($deliveredParcels) {
+                $deliveryService = app(\App\Services\DeliveryNotificationService::class);
+                foreach ($deliveredParcels as $deliveredParcel) {
+                    $deliveryService->sendDeliveryNotification($deliveredParcel);
+                }
+            })->afterResponse();
         }
 
         return response()->json([

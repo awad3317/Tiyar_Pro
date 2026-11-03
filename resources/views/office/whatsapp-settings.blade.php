@@ -233,6 +233,7 @@ function whatsappSettings() {
             whatsapp_instance_name: @json($office->whatsapp_instance_name ?? ''),
             whatsapp_webhook_url: @json($office->whatsapp_webhook_url ?? ''),
             whatsapp_template: @json($office->whatsapp_template ?? ''),
+            delivery_whatsapp_template: @json($office->delivery_whatsapp_template ?? ''),
         },
 
         async init() {

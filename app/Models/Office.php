@@ -21,6 +21,7 @@ class Office extends Authenticatable
         'httpsms_from_phone',
         'httpsms_api_key',
         'sms_template',
+        'delivery_sms_template',
         'whatsapp_base_url',
         'whatsapp_instance_id',
         'whatsapp_instance_name',
@@ -28,6 +29,7 @@ class Office extends Authenticatable
         'whatsapp_webhook_url',
         'whatsapp_timeout',
         'whatsapp_template',
+        'delivery_whatsapp_template',
         'is_active',
     ];
 
@@ -45,6 +47,24 @@ class Office extends Authenticatable
             'is_active' => 'boolean',
             'send_daily_report' => 'boolean',
         ];
+    }
+
+    public const DEFAULT_DELIVERY_SMS_TEMPLATE = "تم تسليم طردك: {package_type}\nمكتب {office_name}\nشكراً لتعاملكم معنا.";
+
+    public const DEFAULT_DELIVERY_WHATSAPP_TEMPLATE = "✅ *إشعار تسليم طرد*\n\nعميلنا العزيز، تم بحمد الله تسليم طردك: *{package_type}*\nمن مكتب: *{office_name}*\n\nنسعد بخدمتكم دائماً.";
+
+    public function getDeliverySmsTemplate(): string
+    {
+        return !empty($this->delivery_sms_template)
+            ? $this->delivery_sms_template
+            : self::DEFAULT_DELIVERY_SMS_TEMPLATE;
+    }
+
+    public function getDeliveryWhatsappTemplate(): string
+    {
+        return !empty($this->delivery_whatsapp_template)
+            ? $this->delivery_whatsapp_template
+            : self::DEFAULT_DELIVERY_WHATSAPP_TEMPLATE;
     }
 
     public function hasWhatsAppConfigured(): bool

@@ -418,8 +418,9 @@ class WhatsAppSettingsController extends Controller
             'whatsapp_api_key'        => 'nullable|string|max:500',
             'whatsapp_instance_id'    => 'nullable|string|max:255',
             'whatsapp_instance_name'  => 'nullable|string|max:255',
-            'whatsapp_webhook_url'    => 'nullable|url',
-            'whatsapp_template'       => 'nullable|string|max:2000',
+            'whatsapp_webhook_url'       => 'nullable|url',
+            'whatsapp_template'          => 'nullable|string|max:2000',
+            'delivery_whatsapp_template' => 'nullable|string|max:2000',
         ]);
 
         $office = Auth::guard('office')->user();
@@ -431,6 +432,7 @@ class WhatsAppSettingsController extends Controller
             'whatsapp_instance_name',
             'whatsapp_webhook_url',
             'whatsapp_template',
+            'delivery_whatsapp_template',
         ]));
 
         // مسح الكاش لفرض فحص الإعدادات الجديدة عند الطلب القادم

@@ -116,7 +116,7 @@
                 </div>
 
                 <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الـ SMS (اختياري، يوجد قالب افتراضي)</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الـ SMS عند وصول الطرد (اختياري، يوجد قالب افتراضي)</label>
                     <textarea name="sms_template" rows="3"
                               class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all"
                               placeholder="عميلنا العزيز،&#10;مكتب: {office} ({branch})&#10;تم استلام طردكم: {package}&#10;رقم السند: {receipt}&#10;يرجى التوجه للاستلام.">{{ old('sms_template') }}</textarea>
@@ -127,6 +127,21 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{recipient}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{package}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt}</span>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الـ SMS عند تسليم الطرد (اختياري، يوجد قالب افتراضي)</label>
+                    <textarea name="delivery_sms_template" rows="2"
+                              class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all"
+                              placeholder="تم تسليم طردك: {package_type}&#10;مكتب {office_name}&#10;شكراً لتعاملكم معنا.">{{ old('delivery_sms_template') }}</textarea>
+                    <div class="flex flex-wrap gap-1.5 mt-2 text-[11px] text-slate-500">
+                        <span>المتغيرات:</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{package_type}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{office_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{branch_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{recipient_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt_number}</span>
                     </div>
                 </div>
             </div>
@@ -193,6 +208,13 @@
                     <input type="text" name="whatsapp_api_key" value="{{ old('whatsapp_api_key', config('whatsapp.global_api_key')) }}" dir="ltr"
                            placeholder="Global API Key أو Instance Token..."
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-secondary transition-all">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الواتساب عند تسليم الطرد (اختياري، يوجد قالب افتراضي)</label>
+                    <textarea name="delivery_whatsapp_template" rows="3"
+                              class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all"
+                              placeholder="✅ *إشعار تسليم طرد*&#10;&#10;عميلنا العزيز، تم بحمد الله تسليم طردك: *{package_type}*&#10;من مكتب: *{office_name}*&#10;&#10;نسعد بخدمتكم دائماً.">{{ old('delivery_whatsapp_template') }}</textarea>
                 </div>
             </div>
         </div>

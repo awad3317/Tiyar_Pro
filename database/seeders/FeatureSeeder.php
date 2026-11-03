@@ -22,7 +22,13 @@ class FeatureSeeder extends Seeder
                 'code' => 'sms_on_delivery',
                 'name' => 'إرسال SMS عند تسليم الطرد',
                 'category' => 'notification',
-                'description' => 'إرسال رسالة نصية قصيرة تلقائياً إلى رقم هاتف العميل فور تغيير حالة الطرد إلى تم التسليم',
+                'description' => 'إرسال رسالة نصية قصيرة (SMS) تلقائياً إلى هاتف العميل فور تغيير حالة الطرد إلى تم التسليم',
+            ],
+            [
+                'code' => 'whatsapp_on_delivery',
+                'name' => 'إرسال واتساب عند تسليم الطرد',
+                'category' => 'notification',
+                'description' => 'إرسال رسالة واتساب تلقائياً إلى هاتف العميل فور تغيير حالة الطرد إلى تم التسليم',
             ],
         ];
 
@@ -62,6 +68,8 @@ class FeatureSeeder extends Seeder
         if (! empty($pivotRows)) {
             DB::table('office_features')->insertOrIgnore($pivotRows);
         }
+
+        Office::clearAllOfficesFeaturesCache();
     }
 }
 

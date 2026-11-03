@@ -96,6 +96,7 @@ class ParcelController extends Controller
         ]);
 
         $newStatus = ParcelStatus::from($validated['status']);
+        $previousStatus = $parcel->status;
 
         $parcel->status = $newStatus;
         if ($newStatus === ParcelStatus::Delivered) {
@@ -104,6 +105,12 @@ class ParcelController extends Controller
             $parcel->delivered_at = null;
         }
         $parcel->save();
+
+        if ($newStatus === ParcelStatus::Delivered && $previousStatus !== ParcelStatus::Delivered) {
+            dispatch(function () use ($parcel) {
+                app(\App\Services\DeliveryNotificationService::class)->sendDeliveryNotification($parcel);
+            })->afterResponse();
+        }
 
         $msg = "تم تغيير حالة الطرد ({$parcel->receipt_number}) إلى \"{$newStatus->label()}\" بنجاح.";
 

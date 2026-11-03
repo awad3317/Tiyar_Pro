@@ -296,7 +296,7 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الـ SMS</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الـ SMS (عند وصول/إرسال الطرد)</label>
                         <textarea name="sms_template" id="sms_template_input" rows="4"
                                   class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all">{{ old('sms_template', $office->sms_template) }}</textarea>
                         
@@ -309,6 +309,27 @@
                                 <button type="button" @click="insertTag('sms_template_input', '{branch}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch} (اسم الفرع)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package} (نوع الطرد)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt} (رقم السند)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 pt-4 border-t border-slate-200/60">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-slate-700">قالب رسالة الـ SMS عند تسليم الطرد للمستلم (Delivery SMS)</label>
+                            <span class="text-[11px] text-slate-400 font-normal">(يُترك فارغاً لاستخدام القالب الافتراضي)</span>
+                        </div>
+                        <textarea name="delivery_sms_template" id="delivery_sms_template_input" rows="3"
+                                  placeholder="تم تسليم طردك: {package_type}&#10;مكتب {office_name}&#10;شكراً لتعاملكم معنا."
+                                  class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all">{{ old('delivery_sms_template', $office->delivery_sms_template) }}</textarea>
+                        
+                        <div class="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span class="text-xs font-bold text-slate-600 block mb-2">انقر لإدراج متغير ديناميكي في رسالة تسليم الـ SMS:</span>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{package_type}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package_type} (نوع الطرد)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{office_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {office_name} (اسم المكتب)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{branch_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch_name} (اسم الفرع)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{recipient_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {recipient_name} (اسم المستلم)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{receipt_number}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt_number} (رقم السند)</button>
                             </div>
                         </div>
                     </div>
@@ -441,7 +462,7 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الواتساب</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">قالب رسالة الواتساب (عند وصول/إرسال الطرد)</label>
                         <textarea name="whatsapp_template" id="wa_template_input" rows="4"
                                   class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all">{{ old('whatsapp_template', $office->whatsapp_template) }}</textarea>
                         <div class="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -452,6 +473,26 @@
                                 <button type="button" @click="insertTag('wa_template_input', '{branch}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt}</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 pt-4 border-t border-slate-200/60">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-slate-700">قالب رسالة الواتساب عند تسليم الطرد للمستلم (Delivery WhatsApp)</label>
+                            <span class="text-[11px] text-slate-400 font-normal">(يُترك فارغاً لاستخدام القالب الافتراضي)</span>
+                        </div>
+                        <textarea name="delivery_whatsapp_template" id="delivery_wa_template_input" rows="4"
+                                  placeholder="✅ *إشعار تسليم طرد*&#10;&#10;عميلنا العزيز، تم بحمد الله تسليم طردك: *{package_type}*&#10;من مكتب: *{office_name}*&#10;&#10;نسعد بخدمتكم دائماً."
+                                  class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all">{{ old('delivery_whatsapp_template', $office->delivery_whatsapp_template) }}</textarea>
+                        <div class="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span class="text-xs font-bold text-slate-600 block mb-2">انقر لإدراج متغير ديناميكي في رسالة تسليم الواتساب:</span>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{package_type}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package_type}</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{office_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {office_name}</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{branch_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch_name}</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{recipient_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {recipient_name}</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{receipt_number}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt_number}</button>
                             </div>
                         </div>
                     </div>
