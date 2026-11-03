@@ -47,8 +47,10 @@ class FeatureController extends Controller
     public function store(Request $request): RedirectResponse
     {
         if ($request->has('code')) {
+            $code = strtolower(trim((string) $request->input('code')));
+            $code = str_replace([' ', '-'], '_', $code);
             $request->merge([
-                'code' => strtolower(trim((string) $request->input('code'))),
+                'code' => $code,
             ]);
         }
 

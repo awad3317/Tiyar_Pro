@@ -16,8 +16,10 @@
         </button>
     </form>
 
-    <!-- زر فتح نافذة إضافة ميزة جديدة -->
-    <button type="button" @click="openAddModal()"
+    <!-- زر فتح نافذة إضافة ميزة جديدة في الهيدر -->
+    <button type="button"
+            onclick="window.openAddFeatureModal()"
+            id="btn-header-add-feature"
             class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-primary-950 text-xs font-extrabold hover:brightness-105 transition-all shadow-sm">
         <span class="material-symbols-outlined text-lg">add_circle</span>
         <span>إضافة ميزة جديدة</span>
@@ -25,7 +27,12 @@
 @endsection
 
 @section('content')
-<div class="space-y-6" x-data="featuresManager()">
+<div class="space-y-6"
+     x-data="featuresManager()"
+     @open-add-feature-modal.window="openAddModal()"
+     @close-add-feature-modal.window="closeAddModal()"
+     @open-edit-feature-modal.window="openEditModal($event.detail.id, $event.detail.name, $event.detail.code, $event.detail.category, $event.detail.description)"
+     @close-edit-feature-modal.window="closeEditModal()">
 
     <!-- بطاقات المؤشرات العلوية لحالة وكتالوج المميزات -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -77,7 +84,7 @@
         </div>
     </div>
 
-    <!-- صندوق التوجيه والشرح السريع للربط البرمجي والكاش -->
+    <!-- صندوق التوجيه والشرح السريع للربط البرمجي والكاش مع زر إضافة مباشر -->
     <div class="bg-gradient-to-r from-slate-900 to-primary text-white rounded-3xl p-6 shadow-md border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div class="flex items-center gap-3.5">
             <div class="w-12 h-12 rounded-2xl bg-secondary/20 border border-secondary/30 text-secondary flex items-center justify-center shrink-0">
@@ -96,9 +103,17 @@
             </div>
         </div>
 
-        <div class="shrink-0 flex items-center gap-2">
+        <div class="shrink-0 flex items-center gap-3">
+            <button type="button"
+                    onclick="window.openAddFeatureModal()"
+                    @click="openAddModal()"
+                    class="px-5 py-2.5 rounded-xl text-xs font-black bg-secondary text-primary-950 hover:brightness-105 transition-all shadow-md flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">add_circle</span>
+                <span>إضافة ميزة جديدة</span>
+            </button>
+
             <a href="{{ route('admin.offices.index') }}"
-               class="px-4 py-2 rounded-xl text-xs font-bold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/15 transition-all flex items-center gap-1.5">
+               class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/15 transition-all flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-base">domain</span>
                 <span>تفعيل المميزات للمكاتب</span>
             </a>
@@ -206,7 +221,8 @@
 
                             <!-- زر التعديل -->
                             <button type="button"
-                                    @click="openEditModal({{ json_encode($feature) }})"
+                                    onclick="window.openEditFeatureModal({{ $feature->id }}, '{{ addslashes($feature->name) }}', '{{ $feature->code }}', '{{ $feature->category }}', '{{ addslashes($feature->description ?? '') }}')"
+                                    @click="openEditModal({{ $feature->id }}, '{{ addslashes($feature->name) }}', '{{ $feature->code }}', '{{ $feature->category }}', '{{ addslashes($feature->description ?? '') }}')"
                                     class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white text-xs font-bold hover:bg-slate-50 transition-colors shadow-xs">
                                 <span class="material-symbols-outlined text-base text-slate-500">edit</span>
                                 <span>تعديل</span>
@@ -220,17 +236,26 @@
         <div class="bg-white rounded-3xl p-12 text-center border border-slate-200">
             <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">extension_off</span>
             <p class="text-sm font-bold text-slate-600">لا توجد أي مميزات مسجلة في النظام حالياً.</p>
-            <p class="text-xs text-slate-400 mt-1">اضغط على زر "إضافة ميزة جديدة" بالأعلى لإضافة الميزة الأولى.</p>
+            <p class="text-xs text-slate-400 mt-1 mb-4">اضغط على الزر أدناه لإضافة ميزتك الأولى فوراً.</p>
+            <button type="button"
+                    onclick="window.openAddFeatureModal()"
+                    @click="openAddModal()"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-secondary text-primary-950 text-xs font-black hover:brightness-105 transition-all shadow-md">
+                <span class="material-symbols-outlined text-lg">add_circle</span>
+                <span>إضافة ميزة جديدة الآن</span>
+            </button>
         </div>
     @endforelse
 
     <!-- نافذة إضافة ميزة جديدة (Add Feature Modal) -->
-    <div x-show="addModal.show"
+    <div id="add-feature-modal"
+         x-show="addModal.show"
          x-cloak
+         style="{{ (isset($errors) && $errors->any() && !old('_method')) ? 'display: flex;' : 'display: none;' }}"
          class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         
-        <div @click.outside="addModal.show = false"
-             class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200">
+        <div @click.outside="closeAddModal()"
+             class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative">
             
             <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                 <div class="flex items-center gap-2.5">
@@ -242,7 +267,10 @@
                         <p class="text-xs text-slate-500">سيتم ربط الميزة تلقائياً بجميع المكاتب بحالة معطلة (false)</p>
                     </div>
                 </div>
-                <button type="button" @click="addModal.show = false" class="text-slate-400 hover:text-slate-600">
+                <button type="button"
+                        onclick="window.closeAddFeatureModal()"
+                        @click="closeAddModal()"
+                        class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
@@ -305,7 +333,9 @@
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                    <button type="button" @click="addModal.show = false"
+                    <button type="button"
+                            onclick="window.closeAddFeatureModal()"
+                            @click="closeAddModal()"
                             class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">
                         إلغاء
                     </button>
@@ -320,12 +350,14 @@
     </div>
 
     <!-- نافذة تعديل بيانات ميزة (Edit Feature Modal) -->
-    <div x-show="editModal.show"
+    <div id="edit-feature-modal"
+         x-show="editModal.show"
          x-cloak
+         style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         
-        <div @click.outside="editModal.show = false"
-             class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200">
+        <div @click.outside="closeEditModal()"
+             class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative">
             
             <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
                 <div class="flex items-center gap-2.5">
@@ -337,7 +369,10 @@
                         <p class="text-xs text-slate-500">تعديل الاسم والتصنيف والوصف (الكود البرمجي ثابت)</p>
                     </div>
                 </div>
-                <button type="button" @click="editModal.show = false" class="text-slate-400 hover:text-slate-600">
+                <button type="button"
+                        onclick="window.closeEditFeatureModal()"
+                        @click="closeEditModal()"
+                        class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
@@ -351,7 +386,7 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">
                         الكود البرمجي (ثابت غير قابل للتغيير)
                     </label>
-                    <div class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-600" dir="ltr" x-text="editModal.code">
+                    <div id="edit-modal-code-display" class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-600" dir="ltr" x-text="editModal.code">
                     </div>
                     <p class="text-[11px] text-slate-400 mt-1">لا يمكن تعديل الكود البرمجي لأنه مرتبط مباشرة بفحوصات الكود في المنظومة.</p>
                 </div>
@@ -361,7 +396,7 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">
                         اسم الميزة التوضيحي <span class="text-rose-500">*</span>
                     </label>
-                    <input type="text" name="name" x-model="editModal.name" required
+                    <input type="text" name="name" id="edit-modal-name-input" x-model="editModal.name" required
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-secondary transition-all">
                 </div>
 
@@ -370,7 +405,7 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">
                         تصنيف الميزة <span class="text-rose-500">*</span>
                     </label>
-                    <select name="category" x-model="editModal.category" required
+                    <select name="category" id="edit-modal-category-input" x-model="editModal.category" required
                             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:border-secondary transition-all">
                         <option value="ui_tab">تبويب وعنصر واجهة (UI Tab)</option>
                         <option value="notification">إشعار ورسائل تلقائية (Notification)</option>
@@ -383,12 +418,14 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">
                         وصف الميزة واستخدامها
                     </label>
-                    <textarea name="description" rows="3" x-model="editModal.description"
+                    <textarea name="description" id="edit-modal-description-input" rows="3" x-model="editModal.description"
                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-secondary transition-all"></textarea>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                    <button type="button" @click="editModal.show = false"
+                    <button type="button"
+                            onclick="window.closeEditFeatureModal()"
+                            @click="closeEditModal()"
                             class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">
                         إلغاء
                     </button>
@@ -407,10 +444,58 @@
 
 @push('scripts')
 <script>
+    // دوال عامة لفتح وإغلاق النوافذ المنبثقة من أي مكان بالصفحة بما فيها الهيدر
+    window.openAddFeatureModal = function() {
+        window.dispatchEvent(new CustomEvent('open-add-feature-modal'));
+        const modal = document.getElementById('add-feature-modal');
+        if (modal) {
+            modal.removeAttribute('x-cloak');
+            modal.style.display = 'flex';
+        }
+    };
+
+    window.closeAddFeatureModal = function() {
+        window.dispatchEvent(new CustomEvent('close-add-feature-modal'));
+        const modal = document.getElementById('add-feature-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    window.openEditFeatureModal = function(id, name, code, category, description) {
+        window.dispatchEvent(new CustomEvent('open-edit-feature-modal', {
+            detail: { id, name, code, category, description }
+        }));
+        const modal = document.getElementById('edit-feature-modal');
+        if (modal) {
+            const form = modal.querySelector('form');
+            if (form) form.action = `{{ url('admin/features') }}/${id}`;
+            const codeDisplay = document.getElementById('edit-modal-code-display');
+            if (codeDisplay) codeDisplay.textContent = code || '';
+            const nameInput = document.getElementById('edit-modal-name-input');
+            if (nameInput) nameInput.value = name || '';
+            const catInput = document.getElementById('edit-modal-category-input');
+            if (catInput) catInput.value = category || 'general';
+            const descInput = document.getElementById('edit-modal-description-input');
+            if (descInput) descInput.value = description || '';
+
+            modal.removeAttribute('x-cloak');
+            modal.style.display = 'flex';
+        }
+    };
+
+    window.closeEditFeatureModal = function() {
+        window.dispatchEvent(new CustomEvent('close-edit-feature-modal'));
+        const modal = document.getElementById('edit-feature-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    };
+
     function featuresManager() {
         return {
             addModal: {
-                show: {{ ($errors->any() && !old('_method')) ? 'true' : 'false' }},
+                show: {{ (isset($errors) && $errors->any() && !old('_method')) ? 'true' : 'false' }},
             },
             editModal: {
                 show: false,
@@ -423,18 +508,43 @@
 
             openAddModal() {
                 this.addModal.show = true;
+                const modal = document.getElementById('add-feature-modal');
+                if (modal) {
+                    modal.removeAttribute('x-cloak');
+                    modal.style.display = 'flex';
+                }
             },
 
-            openEditModal(feature) {
-                this.editModal.action = `{{ url('admin/features') }}/${feature.id}`;
-                this.editModal.name = feature.name || '';
-                this.editModal.code = feature.code || '';
-                this.editModal.category = feature.category || 'general';
-                this.editModal.description = feature.description || '';
+            closeAddModal() {
+                this.addModal.show = false;
+                const modal = document.getElementById('add-feature-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            },
+
+            openEditModal(id, name, code, category, description) {
+                this.editModal.action = `{{ url('admin/features') }}/${id}`;
+                this.editModal.name = name || '';
+                this.editModal.code = code || '';
+                this.editModal.category = category || 'general';
+                this.editModal.description = description || '';
                 this.editModal.show = true;
+                const modal = document.getElementById('edit-feature-modal');
+                if (modal) {
+                    modal.removeAttribute('x-cloak');
+                    modal.style.display = 'flex';
+                }
+            },
+
+            closeEditModal() {
+                this.editModal.show = false;
+                const modal = document.getElementById('edit-feature-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
             }
         };
     }
 </script>
 @endpush
-
