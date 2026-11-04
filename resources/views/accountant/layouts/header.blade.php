@@ -11,16 +11,12 @@
         <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
                 <h1 class="font-extrabold text-base sm:text-lg leading-tight truncate text-white">
-                    {{ $office?->name ?? 'المكتب' }}
+                    {{ $office?->name ?? 'المكتب' }} - {{ $office->branch_name }}
                 </h1>
             </div>
             <p class="text-xs text-slate-300 truncate mt-1 flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[14px] text-secondary">person</span>
-                <span>المحاسب: <strong class="text-white font-bold">{{ $accountant?->name ?? '—' }}</strong></span>
-                @if (!empty($office?->branch_name))
-                    <span class="text-slate-500">•</span>
-                    <span class="text-slate-400 text-[11px]">{{ $office->branch_name }}</span>
-                @endif
+                <strong class="text-white font-bold">{{ $accountant?->name ?? '—' }}</strong>
             </p>
         </div>
 
