@@ -1,0 +1,33 @@
+{
+  "id": "/accountant/",
+  "name": "مرسل - تطبيق المحاسبين",
+  "short_name": "محاسب مرسل",
+  "description": "البوابة المالية المستقلة لمحاسبي المكاتب في نظام مرسل",
+  "start_url": "/accountant/dashboard",
+  "scope": "/accountant/",
+  "display": "standalone",
+  "background_color": "#041627",
+  "theme_color": "#041627",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable_icon_x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
+

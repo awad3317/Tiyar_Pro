@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\DB;
 
 trait HasOfficeFeatures
 {
+    /**
+     * كاش داخلي في الذاكرة على مستوى الطلب الواحد (In-Memory Request Cache)
+     * لمنع تكرار استعلامات جدول الكاش عند فحص أكثر من ميزة لنفس المكتب في الصفحة الواحدة
+     */
+    protected static array $runtimeFeaturesCache = [];
+
     public static function bootHasOfficeFeatures(): void
     {
         static::created(function (Office $office): void {
@@ -58,7 +64,11 @@ trait HasOfficeFeatures
 
     public function getFeaturesDictionary(): array
     {
-        return Cache::rememberForever($this->getFeaturesCacheKey(), function () {
+        if ($this->id && isset(static::$runtimeFeaturesCache[$this->id])) {
+            return static::$runtimeFeaturesCache[$this->id];
+        }
+
+        $dictionary = Cache::rememberForever($this->getFeaturesCacheKey(), function () {
             $features = $this->relationLoaded('features')
                 ? $this->features
                 : $this->features()->get();
@@ -78,6 +88,12 @@ trait HasOfficeFeatures
 
             return $dictionary;
         });
+
+        if ($this->id) {
+            static::$runtimeFeaturesCache[$this->id] = $dictionary;
+        }
+
+        return $dictionary;
     }
 
     public function hasFeature(string $code): bool
@@ -101,6 +117,9 @@ trait HasOfficeFeatures
 
     public function clearFeaturesCache(): void
     {
+        if ($this->id) {
+            unset(static::$runtimeFeaturesCache[$this->id]);
+        }
         Cache::forget($this->getFeaturesCacheKey());
         $this->unsetRelation('features');
         $this->unsetRelation('officeFeatures');
@@ -115,6 +134,7 @@ trait HasOfficeFeatures
 
     public static function clearAllOfficesFeaturesCache(): void
     {
+        static::$runtimeFeaturesCache = [];
         $officeIds = Office::query()->pluck('id');
         foreach ($officeIds as $id) {
             Cache::forget("office_features:{$id}");

@@ -45,7 +45,11 @@ return [
         'office' => [
             'driver' => 'session',
             'provider' => 'offices',
-    ],
+        ],
+        'accountant' => [
+            'driver' => 'session',
+            'provider' => 'accountants',
+        ],
     ],
 
     /*
@@ -73,6 +77,10 @@ return [
         'offices' => [
             'driver' => 'eloquent',
             'model' => App\Models\Office::class,
+        ],
+        'accountants' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Accountant::class,
         ],
 
         // 'users' => [

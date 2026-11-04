@@ -27,12 +27,12 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
 
-// 2. التفعيل وحذف النسخ القديمة فوراً
+// 2. التفعيل وحذف النسخ القديمة فوراً (دون المساس بكاش تطبيق المحاسبين المستقل)
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
             return Promise.all(
-                keys.map((k) => k !== CACHE_NAME ? caches.delete(k) : null)
+                keys.map((k) => (k.startsWith('mursal-pwa-') && k !== CACHE_NAME) ? caches.delete(k) : null)
             );
         })
     );
@@ -42,6 +42,14 @@ self.addEventListener('activate', (event) => {
 // 3. الاستجابة السريعة ودعم الأوفلاين
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
+
+    // عزل تام عن مسارات تطبيق المحاسب المستقل (/accountant) ولوحة الأدمن (/admin)
+    if (
+        url.pathname.startsWith('/accountant') ||
+        url.pathname.startsWith('/admin')
+    ) {
+        return;
+    }
 
     // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب
     if (

@@ -13,7 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'accountant.auth' => \App\Http\Middleware\EnsureAccountantAccess::class,
+        ]);
+
         $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('accountant*')) {
+                return route('accountant.dashboard');
+            }
             if ($request->is('admin*') || auth()->guard('web')->check()) {
                 return route('admin.dashboard');
             }
@@ -21,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('accountant*')) {
+                return route('accountant.login');
+            }
             if ($request->is('admin*')) {
                 return route('admin.login');
             }

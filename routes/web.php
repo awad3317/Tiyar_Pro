@@ -15,6 +15,9 @@ use App\Http\Controllers\Admin\ParcelController as AdminParcelController;
 use App\Http\Controllers\Admin\WhatsappInstanceController as AdminWhatsappInstanceController;
 use App\Http\Controllers\Admin\FeatureController as AdminFeatureController;
 use App\Http\Controllers\Admin\FavoriteCustomerController as AdminFavoriteCustomerController;
+use App\Http\Controllers\Admin\AccountantController as AdminAccountantController;
+use App\Http\Controllers\Accountant\AuthController as AccountantAuthController;
+use App\Http\Controllers\Accountant\DashboardController as AccountantDashboardController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -77,6 +80,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // العملاء المميزين للمكاتب
         Route::get('/favorite-customers', [AdminFavoriteCustomerController::class, 'index'])->name('favorite_customers.index');
 
+        // إدارة المحاسبين
+        Route::get('/accountants', [AdminAccountantController::class, 'index'])->name('accountants.index');
+        Route::post('/accountants', [AdminAccountantController::class, 'store'])->name('accountants.store');
+        Route::put('/accountants/{accountant}', [AdminAccountantController::class, 'update'])->name('accountants.update');
+        Route::post('/accountants/{accountant}/toggle-status', [AdminAccountantController::class, 'toggleStatus'])->name('accountants.toggle_status');
+        Route::delete('/accountants/{accountant}', [AdminAccountantController::class, 'destroy'])->name('accountants.destroy');
+
         // إدارة الـ Instances للواتساب
         Route::resource('whatsapp-instances', AdminWhatsappInstanceController::class)->names('whatsapp_instances');
         Route::post('/whatsapp-instances/{whatsapp_instance}/toggle-status', [AdminWhatsappInstanceController::class, 'toggleStatus'])->name('whatsapp_instances.toggle_status');
@@ -133,6 +143,31 @@ Route::prefix('office')->name('office.')->group(function () {
         });
     });
 });
+
+
+/*
+|--------------------------------------------------------------------------
+| مسارات تطبيق المحاسبين المستقل (Accountant App)
+|--------------------------------------------------------------------------
+| معزولة تماماً وتعتمد على حارس auth:accountant وميدل وير accountant.auth
+*/
+Route::prefix('accountant')->name('accountant.')->group(function () {
+
+    // مسارات الزوار (غير المسجلين في حارس المحاسب)
+    Route::middleware('guest:accountant')->group(function () {
+        Route::get('/login', [AccountantAuthController::class, 'showLoginForm'])->name('login');
+        Route::post('/login', [AccountantAuthController::class, 'login'])->name('login.submit');
+    });
+
+    // مسارات المحاسبين المسجلين والمفعلين (accountant.auth)
+    Route::middleware('accountant.auth')->group(function () {
+        Route::post('/logout', [AccountantAuthController::class, 'logout'])->name('logout');
+
+        Route::get('/', [AccountantDashboardController::class, 'index'])->name('home');
+        Route::get('/dashboard', [AccountantDashboardController::class, 'index'])->name('dashboard');
+    });
+});
+
 
 
 

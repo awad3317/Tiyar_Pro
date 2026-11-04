@@ -36,6 +36,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'إتاحة إدخال وعرض المبلغ المطلوب تحصيله من العميل عند تسليم الطرد',
             ],
+            [
+                'code' => 'office_accountants',
+                'name' => 'نظام وتطبيق المحاسبين',
+                'category' => 'general',
+                'description' => 'تفعيل حسابات وتطبيق المحاسبين الخاص بالمكتب',
+            ],
         ];
 
         $features = collect();

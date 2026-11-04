@@ -81,4 +81,9 @@ class Office extends Authenticatable
     {
         return $this->hasMany(FavoriteCustomer::class, 'office_id');
     }
+
+    public function accountants(): HasMany
+    {
+        return $this->hasMany(Accountant::class, 'office_id');
+    }
 }
