@@ -18,6 +18,7 @@ class Parcel extends Model
         'recipient_phone',
         'package_type',
         'receipt_number',
+        'cod_amount',
         'source_office_id',
         'source_office_name',
         'status',
@@ -29,6 +30,7 @@ class Parcel extends Model
         return [
             'status'       => ParcelStatus::class,
             'delivered_at' => 'datetime',
+            'cod_amount'   => 'float',
         ];
     }
 

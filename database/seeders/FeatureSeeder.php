@@ -30,6 +30,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'notification',
                 'description' => 'إرسال رسالة واتساب تلقائياً إلى هاتف العميل فور تغيير حالة الطرد إلى تم التسليم',
             ],
+            [
+                'code' => 'parcel_cod_amount',
+                'name' => 'المبلغ المطلوب عند التسليم',
+                'category' => 'general',
+                'description' => 'إتاحة إدخال وعرض المبلغ المطلوب تحصيله من العميل عند تسليم الطرد',
+            ],
         ];
 
         $features = collect();

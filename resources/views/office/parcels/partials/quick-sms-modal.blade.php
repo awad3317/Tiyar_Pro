@@ -475,10 +475,11 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
+                            quickSms.codAmount = '';
                             $nextTick(() => document.getElementById('streaming-phone-input').focus());
                         } else {
                             showFeedback('رقم الهاتف غير صالح', true);
@@ -501,10 +502,11 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
+                            quickSms.codAmount = '';
                             $nextTick(() => document.getElementById('streaming-phone-input').focus());
                         } else {
                             showFeedback('رقم الهاتف غير صالح', true);
@@ -532,6 +534,44 @@
                 </template>
                 @endif
             </div>
+
+            @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
+            {{-- حقل المبلغ المطلوب عند التسليم (اختياري) --}}
+            <div class="relative">
+                <label class="block text-[11px] font-bold text-amber-700 mb-1 flex items-center justify-between">
+                    <span class="flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[15px] text-amber-600">payments</span>
+                        <span>المبلغ المطلوب عند التسليم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
+                    </span>
+                    <span class="text-[10px] font-mono text-amber-700 font-bold" x-show="quickSms.codAmount && Number(quickSms.codAmount) > 0" x-text="Number(quickSms.codAmount).toLocaleString('en-US') + ' ر.ي'"></span>
+                </label>
+                <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                    <input type="number" step="any" min="0" inputmode="numeric"
+                           x-ref="streamingCodInput"
+                           x-model="quickSms.codAmount"
+                           :disabled="isClosing"
+                           @keydown.enter.prevent="
+                               if (isClosing) return;
+                               const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                               if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                                   addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
+                                   quickSms.phone = '';
+                                   quickSms.description = '';
+                                   quickSms.recipientName = '';
+                                   quickSms.codAmount = '';
+                                   $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                               } else {
+                                   showFeedback('أدخل رقم هاتف صالح', true);
+                                   document.getElementById('streaming-phone-input').focus();
+                               }
+                           "
+                           dir="ltr"
+                           class="w-full py-2.5 px-3.5 pl-10 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                           placeholder="مثال: 5000 (اتركه فارغاً إن لم يوجد)" />
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 select-none pointer-events-none">ر.ي</span>
+                </div>
+            </div>
+            @endif
 
             {{-- رقائق الوصف السريع الذكية (متدرجة: الفئة -> اللون -> الحجم) --}}
             <div x-data="{
@@ -639,10 +679,11 @@
                 if (isClosing) return;
                 const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                 if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                    addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '');
+                    addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
                     quickSms.phone = '';
                     quickSms.description = '';
                     quickSms.recipientName = '';
+                    quickSms.codAmount = '';
                     $nextTick(() => document.getElementById('streaming-phone-input').focus());
                 } else {
                     showFeedback('أدخل رقم هاتف صالح', true);
@@ -700,6 +741,17 @@
                     {{-- نوع الطرد واسم المستلم إن وُجد --}}
                     <span class="text-[11px] font-bold text-slate-500 flex-1 truncate"
                         x-text="entry.recipientName ? (entry.description + ' • ' + entry.recipientName) : entry.description"></span>
+
+                    @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
+                    {{-- شارة المبلغ المطلوب عند التسليم في القائمة الحية --}}
+                    <template x-if="entry.codAmount && Number(entry.codAmount) > 0">
+                        <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5" dir="ltr">
+                            <span>💰</span>
+                            <span x-text="Number(entry.codAmount).toLocaleString('en-US')"></span>
+                            <span>ر.ي</span>
+                        </span>
+                    </template>
+                    @endif
 
                     {{-- زر إعادة المحاولة --}}
                     <template x-if="entry.status === 'failed'">

@@ -101,6 +101,21 @@
             </div>
         </div>
 
+        @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
+        <!-- شارة المبلغ المطلوب عند التسليم -->
+        <template x-if="p.cod_amount && parseFloat(p.cod_amount) > 0">
+            <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs">
+                <span class="flex items-center gap-1.5 text-xs font-black">
+                    <span class="material-symbols-outlined text-amber-600 text-base">payments</span>
+                    <span>مطلوب عند التسليم:</span>
+                </span>
+                <span class="text-xs font-mono font-black text-amber-800" dir="ltr">
+                    <span x-text="Number(p.cod_amount).toLocaleString('en-US')"></span> ر.ي
+                </span>
+            </div>
+        </template>
+        @endif
+
         <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->
         <p x-show="p.status === 'delivered' && p.delivered_at"
             class="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1">

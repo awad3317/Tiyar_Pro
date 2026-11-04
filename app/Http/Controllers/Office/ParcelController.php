@@ -290,6 +290,7 @@ class ParcelController extends Controller
 
         $wa = $whatsAppService->forOffice($office);
         $hasWhatsAppConfigured = $wa->isConfigured();
+        $hasCodFeature = $office->hasFeature('parcel_cod_amount');
 
         foreach ($items as $item) {
             $phone = trim($item['phone'] ?? '');
@@ -299,12 +300,19 @@ class ParcelController extends Controller
                 continue;
             }
 
+            $codAmount = null;
+            if ($hasCodFeature && isset($item['cod_amount']) && $item['cod_amount'] !== null && $item['cod_amount'] !== '') {
+                $val = floatval($item['cod_amount']);
+                $codAmount = $val > 0 ? $val : null;
+            }
+
             // 1. إنشاء الطرد في قاعدة البيانات
             try {
                 $parcel = Parcel::create([
                     'office_id'       => $office->id,
                     'recipient_phone' => $phone,
                     'package_type'    => $desc ?: 'طرد',
+                    'cod_amount'      => $codAmount,
                     'status'          => defined(ParcelStatus::class . '::InOffice') 
                                             ? ParcelStatus::InOffice 
                                             : 'in_office',
@@ -424,6 +432,23 @@ class ParcelController extends Controller
             ], 422);
         }
 
+        // التحقق من ميزة المبلغ المطلوب عند التسليم من الكاش
+        $codAmount = null;
+        if ($office->hasFeature('parcel_cod_amount')) {
+            $rawCod = $request->input('cod_amount');
+            if ($rawCod !== null && $rawCod !== '') {
+                $validatedCod = $request->validate([
+                    'cod_amount' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+                ], [
+                    'cod_amount.numeric' => 'المبلغ المطلوب يجب أن يكون رقماً صالحاً.',
+                    'cod_amount.min'     => 'المبلغ المطلوب يجب ألا يقل عن صفر.',
+                    'cod_amount.max'     => 'المبلغ المطلوب يجب ألا يتجاوز 99,999,999.',
+                ]);
+                $val = floatval($validatedCod['cod_amount'] ?? 0);
+                $codAmount = $val > 0 ? $val : null;
+            }
+        }
+
         // 1. إنشاء الطرد في قاعدة البيانات
         try {
             $parcel = Parcel::create([
@@ -431,6 +456,7 @@ class ParcelController extends Controller
                 'recipient_name'  => $recipientName,
                 'recipient_phone' => $phone,
                 'package_type'    => $desc ?: 'طرد',
+                'cod_amount'      => $codAmount,
                 'status'          => defined(ParcelStatus::class . '::InOffice')
                                         ? ParcelStatus::InOffice
                                         : 'in_office',
@@ -521,6 +547,14 @@ class ParcelController extends Controller
             'message'       => $feedbackMsg,
             'parcel'        => $parcel,
         ]);
+    }
+
+    /**
+     * حفظ طرد جديد (نقطة دخول قياسية للمكتب).
+     */
+    public function store(Request $request, HttpSmsService $smsService, WhatsAppService $whatsAppService)
+    {
+        return $this->quickSendSingle($request, $smsService, $whatsAppService);
     }
 
     /**

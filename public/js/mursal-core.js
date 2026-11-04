@@ -233,6 +233,7 @@
                 phone: '',
                 description: 'طرد',
                 recipientName: '',
+                codAmount: '',
                 channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
@@ -249,6 +250,7 @@
                 this.quickSms.phone = '';
                 this.quickSms.description = 'طرد';
                 this.quickSms.recipientName = '';
+                this.quickSms.codAmount = '';
                 this.quickSms.channel = this.quickSms.channel || 'whatsapp';
                 // autofocus على حقل الهاتف بعد فتح المودال
                 this.$nextTick(() => {
@@ -271,6 +273,7 @@
                 this.quickSms.phone = '';
                 this.quickSms.description = 'طرد';
                 this.quickSms.recipientName = '';
+                this.quickSms.codAmount = '';
             },
 
             showFeedback(message, isError = false) {
@@ -508,13 +511,15 @@
             },
 
             // ---------- الإرسال التدريجي الفردي الموحد (Streaming Dispatch) ----------
-            addToStreamingQueue(phone, description, recipientName = '') {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null) {
                 const id = ++this.streamingIdCounter;
+                const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
                 const entry = {
                     id,
                     phone,
                     description,
                     recipientName: (recipientName || '').trim(),
+                    codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -545,6 +550,7 @@
                             phone: entry.phone,
                             description: entry.description,
                             recipient_name: entry.recipientName || null,
+                            cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
                             channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                         })
                     });

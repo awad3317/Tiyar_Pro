@@ -116,7 +116,7 @@
                 return data;
             },
 
-            async quickSendSingle(phone, description, channel = 'whatsapp') {
+            async quickSendSingle(phone, description, channel = 'whatsapp', recipientName = null, codAmount = null) {
                 const res = await fetch(ROUTES.quickSendSingle, {
                     method: 'POST',
                     headers: {
@@ -124,7 +124,13 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': this.csrfToken,
                     },
-                    body: JSON.stringify({ phone, description, channel }),
+                    body: JSON.stringify({
+                        phone,
+                        description,
+                        channel,
+                        recipient_name: recipientName || null,
+                        cod_amount: (codAmount && codAmount > 0) ? codAmount : null
+                    }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.status === 401 || res.status === 419) {
@@ -509,13 +515,15 @@
 
             // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
 
-            addToStreamingQueue(phone, description, recipientName = '') {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null) {
                 const id = ++this.streamingIdCounter;
+                const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
                 const entry = {
                     id,
                     phone,
                     description,
                     recipientName: (recipientName || '').trim(),
+                    codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -528,72 +536,120 @@
             },
 
             async dispatchSingle(entry) {
-    try {
-        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        
-        // استخدام الرابط المباشر كـ Fallback لو كان ROUTES غير معرف
-        const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
-                    ? ROUTES.quickSendSingle 
-                    : '/office/parcels/quick-send-single';
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                
+                // استخدام الرابط المباشر كـ Fallback لو كان ROUTES غير معرف
+                const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
+                            ? ROUTES.quickSendSingle 
+                            : '/office/parcels/quick-send-single';
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': token || ''
-            },
-            body: JSON.stringify({
-                phone: entry.phone,
-                description: entry.description,
-                recipient_name: entry.recipientName || null,
-                channel: entry.channel || this.quickSms?.channel || 'whatsapp'
-            })
-        });
+                const payload = {
+                    phone: entry.phone,
+                    description: entry.description,
+                    recipient_name: entry.recipientName || null,
+                    cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
+                    channel: entry.channel || this.quickSms?.channel || 'whatsapp'
+                };
 
-        const data = await response.json().catch(() => ({}));
-
-        // البحث عن العنصر في المصفوفة بواسطة الـ id
-        const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
-
-        if (targetIndex !== -1) {
-            if (response.ok && (data.success === true || data.status === 'success')) {
-                // تحديث مباشر داخل المصفوفة
-                this.streamingQueue[targetIndex].status = 'success';
-                this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
-                this.streamingQueue[targetIndex].whatsappSent = Boolean(data.whatsapp_sent);
-            } else {
-                this.streamingQueue[targetIndex].status = 'failed';
-                this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';
-            }
-            
-            // 👈 السطر السحري لإجبار Alpine على تحديث الشاشة والعدادات فوراً
-            this.streamingQueue = [...this.streamingQueue];
-        }
-
-        // تحديث جدول الطرود بالصفحة فوراً بدون إعادة تحميل كامل القائمة من السيرفر
-        if (response.ok) {
-            if (data.parcel && window.MursalDB) {
-                await window.MursalDB.put(window.MURSAL_STORES.parcels, data.parcel);
-                const exists = this.parcels.some((p) => p.id === data.parcel.id);
-                if (!exists) {
-                    this.parcels = [data.parcel, ...this.parcels];
-                    this.$nextTick(() => this.refreshScrollObserver());
+                // إذا كان الجهاز غير متصل بالإنترنت حالياً:
+                if (!navigator.onLine || !this.isOnline) {
+                    await this.handleOfflineSingleDispatch(entry, payload);
+                    return;
                 }
-            } else if (typeof this.refreshFromServer === 'function') {
-                this.refreshFromServer();
-            }
-        }
 
-    } catch (err) {
-        console.error('Streaming dispatch error:', err);
-        const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
-        if (targetIndex !== -1) {
-            this.streamingQueue[targetIndex].status = 'failed';
-            this.streamingQueue = [...this.streamingQueue];
-        }
-    }
-},
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': token || ''
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+
+                    // البحث عن العنصر في المصفوفة بواسطة الـ id
+                    const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+
+                    if (targetIndex !== -1) {
+                        if (response.ok && (data.success === true || data.status === 'success')) {
+                            // تحديث مباشر داخل المصفوفة
+                            this.streamingQueue[targetIndex].status = 'success';
+                            this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
+                            this.streamingQueue[targetIndex].whatsappSent = Boolean(data.whatsapp_sent);
+                        } else {
+                            this.streamingQueue[targetIndex].status = 'failed';
+                            this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';
+                        }
+                        
+                        // 👈 السطر السحري لإجبار Alpine على تحديث الشاشة والعدادات فوراً
+                        this.streamingQueue = [...this.streamingQueue];
+                    }
+
+                    // تحديث جدول الطرود بالصفحة فوراً بدون إعادة تحميل كامل القائمة من السيرفر
+                    if (response.ok) {
+                        if (data.parcel && window.MursalDB) {
+                            await window.MursalDB.put(window.MURSAL_STORES.parcels, data.parcel);
+                            const exists = this.parcels.some((p) => p.id === data.parcel.id);
+                            if (!exists) {
+                                this.parcels = [data.parcel, ...this.parcels];
+                                this.recomputeStatusCounts();
+                                this.$nextTick(() => this.refreshScrollObserver());
+                            }
+                        } else if (typeof this.refreshFromServer === 'function') {
+                            this.refreshFromServer();
+                        }
+                    }
+
+                } catch (err) {
+                    console.warn('Streaming dispatch online error, handling offline fallback:', err);
+                    await this.handleOfflineSingleDispatch(entry, payload);
+                }
+            },
+
+            async handleOfflineSingleDispatch(entry, payload) {
+                const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+                const localParcel = {
+                    id: tempId,
+                    recipient_phone: entry.phone,
+                    recipient_name: entry.recipientName || null,
+                    package_type: entry.description || 'طرد',
+                    cod_amount: payload.cod_amount,
+                    status: 'in_office',
+                    created_at: new Date().toISOString(),
+                    is_local_temp: true,
+                };
+
+                // 1. الحفظ في IndexedDB (MursalDB)
+                if (window.MursalDB) {
+                    await window.MursalDB.put(window.MURSAL_STORES.parcels, localParcel);
+                }
+
+                // 2. الإضافة إلى قائمة الطرود المعروضة فوراً
+                this.parcels = [localParcel, ...this.parcels];
+                this.recomputeStatusCounts();
+                this.$nextTick(() => this.refreshScrollObserver());
+
+                // 3. الإضافة إلى طابور المزامنة MursalSync
+                if (window.MursalSync) {
+                    const url = (typeof ROUTES !== 'undefined' && ROUTES.quickSendSingle) 
+                                ? ROUTES.quickSendSingle 
+                                : '/office/parcels/quick-send-single';
+                    await window.MursalSync.enqueue(url, payload);
+                    this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    this.recomputePendingIds();
+                }
+
+                // 4. تحديث حالة العنصر في القائمة الحية
+                const targetIndex = this.streamingQueue.findIndex(item => item.id === entry.id);
+                if (targetIndex !== -1) {
+                    this.streamingQueue[targetIndex].status = 'success';
+                    this.streamingQueue[targetIndex].message = 'تم الحفظ محلياً (بانتظار المزامنة)';
+                    this.streamingQueue = [...this.streamingQueue];
+                }
+            },
 
             async retryStreamingEntry(entry) {
                 entry.status = 'pending';
