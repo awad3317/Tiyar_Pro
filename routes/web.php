@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\OfficeController as AdminOfficeController;
 use App\Http\Controllers\Admin\ParcelController as AdminParcelController;
 use App\Http\Controllers\Admin\WhatsappInstanceController as AdminWhatsappInstanceController;
 use App\Http\Controllers\Admin\FeatureController as AdminFeatureController;
+use App\Http\Controllers\Admin\FavoriteCustomerController as AdminFavoriteCustomerController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -72,6 +73,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/parcels', [AdminParcelController::class, 'index'])->name('parcels.index');
         Route::patch('/parcels/{parcel}/status', [AdminParcelController::class, 'updateStatus'])->name('parcels.update_status');
         Route::delete('/parcels/{parcel}', [AdminParcelController::class, 'destroy'])->name('parcels.destroy');
+
+        // العملاء المميزين للمكاتب
+        Route::get('/favorite-customers', [AdminFavoriteCustomerController::class, 'index'])->name('favorite_customers.index');
 
         // إدارة الـ Instances للواتساب
         Route::resource('whatsapp-instances', AdminWhatsappInstanceController::class)->names('whatsapp_instances');

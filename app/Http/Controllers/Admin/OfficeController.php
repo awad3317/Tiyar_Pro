@@ -31,6 +31,7 @@ class OfficeController extends Controller
                 'parcels as today_parcels_count' => fn ($q) => $q->whereDate('created_at', today()),
                 'parcels as delivered_count'     => fn ($q) => $q->where('status', ParcelStatus::Delivered),
                 'parcels as in_office_count'     => fn ($q) => $q->where('status', ParcelStatus::InOffice),
+                'favoriteCustomers',
             ]);
 
         // البحث بالنص

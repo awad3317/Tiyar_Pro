@@ -5,6 +5,11 @@
 @section('page-subtitle', 'التحكم بكافة إعدادات المكتب، قوالب الإشعار، وحالة جلسة الواتساب المباشرة')
 
 @section('header-actions')
+    <a href="{{ route('admin.favorite_customers.index', ['office_id' => $office->id]) }}"
+       class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-amber-300 text-amber-800 bg-amber-50 text-xs font-bold hover:bg-amber-100 transition-colors shadow-2xs">
+        <span class="material-symbols-outlined text-base text-amber-600">stars</span>
+        <span>العملاء المميزين ({{ $office->favoriteCustomers()->count() }})</span>
+    </a>
     <a href="{{ route('admin.offices.index') }}"
        class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-white text-xs font-bold hover:bg-slate-50 transition-colors">
         <span class="material-symbols-outlined text-lg">arrow_forward</span>

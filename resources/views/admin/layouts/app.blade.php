@@ -126,6 +126,13 @@
                     <span>مراقبة الطرود الشاملة</span>
                 </a>
 
+                <!-- العملاء المميزين للمكاتب -->
+                <a href="{{ route('admin.favorite_customers.index') }}"
+                   class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.favorite_customers.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
+                    <span class="material-symbols-outlined text-[22px]">stars</span>
+                    <span>العملاء المميزين للمكاتب</span>
+                </a>
+
                 <!-- إدارة المميزات العامة -->
                 <a href="{{ route('admin.features.index') }}"
                    class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.features.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">

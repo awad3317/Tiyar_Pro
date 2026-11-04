@@ -119,7 +119,15 @@
                                         <a href="{{ route('admin.offices.edit', $office) }}" class="font-extrabold text-slate-900 hover:text-secondary transition-colors text-base block">
                                             {{ $office->name }}
                                         </a>
-                                        <p class="text-xs text-slate-500 mt-0.5">{{ $office->branch_name ?: 'الفرع الرئيسي' }}</p>
+                                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                                            <span class="text-xs text-slate-500">{{ $office->branch_name ?: 'الفرع الرئيسي' }}</span>
+                                            <a href="{{ route('admin.favorite_customers.index', ['office_id' => $office->id]) }}"
+                                               class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                                               title="عرض العملاء المميزين لهذا المكتب">
+                                                <span class="material-symbols-outlined text-[13px] text-amber-500">stars</span>
+                                                <span>العملاء المميزين ({{ $office->favorite_customers_count }})</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
