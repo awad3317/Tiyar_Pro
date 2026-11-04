@@ -129,7 +129,7 @@
 
                 <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-bold text-emerald-200">
                     <span class="material-symbols-outlined text-base">calculate</span>
-                    <span>تطبيق المحاسبين - بوابة المحاسب المالي</span>
+                    <span>تطبيق المحاسبين</span>
                 </div>
 
                 <h1 class="text-3xl lg:text-4xl font-extrabold leading-snug font-headline">
@@ -164,14 +164,14 @@
 
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold mb-3">
                         <span class="material-symbols-outlined text-sm">calculate</span>
-                        <span>تطبيق المحاسبين - بوابة المحاسب المالي</span>
+                        <span>تطبيق المحاسبين </span>
                     </div>
 
                     <h2 class="text-2xl sm:text-3xl font-extrabold text-primary font-headline">
                         تسجيل دخول المحاسب
                     </h2>
                     <p class="mt-1.5 text-sm text-slate-500 font-body">
-                        أدخل رقم الجوال والرمز السري الخاص بحسابك المالي
+                        أدخل رقم الجوال والرمز السري الخاص بحسابك 
                     </p>
                 </div>
 
@@ -233,7 +233,7 @@
                     <!-- حقل كلمة المرور / الرمز السري -->
                     <div class="space-y-1.5" x-data="{ showPassword: false }">
                         <label for="password" class="block pr-1 text-sm font-bold text-on-background/80 text-right">
-                            الرمز السري / كلمة المرور
+                            كلمة المرور
                         </label>
                         <div class="relative group">
                             <input id="password" :type="showPassword ? 'text' : 'password'" name="password" required
@@ -296,7 +296,7 @@
     </main>
 
     <footer class="mt-6 text-xs font-bold text-slate-400 text-center">
-        <span>نظام مُرسَل اللوجستي — بوابة المحاسب المالي © {{ date('Y') }}</span>
+        <span>نظام مُرسَل </span>
     </footer>
 
     <script>

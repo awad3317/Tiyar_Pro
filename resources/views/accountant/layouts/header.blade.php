@@ -13,10 +13,6 @@
                 <h1 class="font-extrabold text-base sm:text-lg leading-tight truncate text-white">
                     {{ $office?->name ?? 'المكتب' }}
                 </h1>
-                <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-extrabold">
-                    <span class="material-symbols-outlined text-[13px]">calculate</span>
-                    <span>بوابة المحاسب</span>
-                </span>
             </div>
             <p class="text-xs text-slate-300 truncate mt-1 flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[14px] text-secondary">person</span>
