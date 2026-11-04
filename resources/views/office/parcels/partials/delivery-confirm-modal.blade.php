@@ -87,6 +87,24 @@
             </div>
         </template>
 
+        @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
+        <!-- تنبيه استلام المبلغ المطلوب عند التسليم -->
+        <template x-if="deliveryModal.parcel && deliveryModal.parcel.cod_amount && parseFloat(deliveryModal.parcel.cod_amount) > 0">
+            <div class="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-3.5 flex items-center gap-3 shadow-xs">
+                <div class="w-10 h-10 rounded-xl bg-amber-100/90 border border-amber-300 text-amber-700 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-amber-600">payments</span>
+                </div>
+                <div class="flex-1 text-xs leading-snug">
+                    <span class="font-black text-amber-900">
+                        تنبيه: يجب استلام من العميل مبلغ
+                        <span class="font-mono font-black text-amber-800 text-sm px-1.5 py-0.5 rounded-md bg-amber-100/90 border border-amber-300 inline-block mx-0.5" dir="ltr" x-text="Number(deliveryModal.parcel.cod_amount).toLocaleString('en-US') + ' ر.ي'"></span>
+                        عند تسليم هذا الطرد
+                    </span>
+                </div>
+            </div>
+        </template>
+        @endif
+
         <!-- ملاحظة إيجابية -->
         <div class="bg-emerald-50 border border-emerald-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-emerald-800 leading-snug">
             <span class="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">info</span>
