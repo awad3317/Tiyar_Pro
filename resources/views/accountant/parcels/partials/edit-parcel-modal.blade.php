@@ -24,8 +24,7 @@
                     <span class="material-symbols-outlined text-lg">edit_note</span>
                 </span>
                 <div>
-                    <h3 class="text-sm font-extrabold leading-tight">تعديل بيانات الطرد والمحاسبة</h3>
-                    <p class="text-[10px] text-slate-300">يتم توثيق كافة التعديلات تلقائياً في سجل الرقابة</p>
+                    <h3 class="text-sm font-extrabold leading-tight">تعديل بيانات الطرد </h3>
                 </div>
             </div>
             <button type="button"
@@ -170,11 +169,11 @@
                     <span x-text="editModal.saving ? 'جاري حفظ التعديلات...' : 'حفظ التعديلات'"></span>
                 </button>
 
-                <button type="button"
+                {{-- <button type="button"
                         @click="closeEditModal()"
                         class="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition-colors">
                     إلغاء
-                </button>
+                </button> --}}
             </div>
         </form>
     </div>
