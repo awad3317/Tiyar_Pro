@@ -2,7 +2,7 @@
 
     <!-- زر الرئيسية -->
     @php
-        $isDashboard = request()->routeIs('accountant.dashboard');
+        $isDashboard = request()->routeIs('accountant.dashboard') || request()->routeIs('accountant.home');
     @endphp
     <a href="{{ route('accountant.dashboard') }}"
        class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isDashboard ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
@@ -10,7 +10,14 @@
         <span class="mt-0.5">الرئيسية</span>
     </a>
 
-    {{-- سيتم إضافة تبويبات المحاسب الإضافية هنا في المهام القادمة --}}
+    <!-- زر الطرود غير المصنفة -->
+    @php
+        $isParcels = request()->routeIs('accountant.parcels.*');
+    @endphp
+    <a href="{{ route('accountant.parcels.index') }}"
+       class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isParcels ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+        <span class="material-symbols-outlined text-2xl {{ $isParcels ? 'text-secondary' : '' }}">inventory_2</span>
+        <span class="mt-0.5">الطرود</span>
+    </a>
 
 </footer>
-

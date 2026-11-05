@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Parcel extends Model
 {
@@ -14,11 +15,13 @@ class Parcel extends Model
 
     protected $fillable = [
         'office_id',
+        'manifest_id',
         'recipient_name',
         'recipient_phone',
         'package_type',
         'receipt_number',
         'cod_amount',
+        'payment_type',
         'source_office_id',
         'source_office_name',
         'status',
@@ -34,9 +37,32 @@ class Parcel extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Parcel $parcel): void {
+            if (!$parcel->exists) {
+                if ((float) ($parcel->cod_amount ?? 0) > 0 && (!$parcel->isDirty('payment_type') || empty($parcel->payment_type))) {
+                    $parcel->payment_type = 'postpaid';
+                } elseif (empty($parcel->payment_type)) {
+                    $parcel->payment_type = 'prepaid';
+                }
+            }
+        });
+    }
+
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_id');
+    }
+
+    public function manifest(): BelongsTo
+    {
+        return $this->belongsTo(Manifest::class, 'manifest_id');
+    }
+
+    public function editLogs(): HasMany
+    {
+        return $this->hasMany(ParcelEditLog::class, 'parcel_id')->latest();
     }
 
     /**

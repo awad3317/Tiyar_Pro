@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\FavoriteCustomerController as AdminFavoriteCustom
 use App\Http\Controllers\Admin\AccountantController as AdminAccountantController;
 use App\Http\Controllers\Accountant\AuthController as AccountantAuthController;
 use App\Http\Controllers\Accountant\DashboardController as AccountantDashboardController;
+use App\Http\Controllers\Accountant\ParcelController as AccountantParcelController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -165,6 +166,20 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
 
         Route::get('/', [AccountantDashboardController::class, 'index'])->name('home');
         Route::get('/dashboard', [AccountantDashboardController::class, 'index'])->name('dashboard');
+
+        // شاشة الطرود غير المصنفة للمحاسب
+        Route::get('/parcels', [AccountantParcelController::class, 'index'])->name('parcels.index');
+
+        // مسارات الـ API الخاصة بطرود المحاسب وسجل التعديلات
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::get('/parcels', [AccountantParcelController::class, 'listData'])->name('parcels.list');
+            Route::match(['put', 'patch'], '/parcels/{id}', [AccountantParcelController::class, 'update'])
+                ->whereUuid('id')
+                ->name('parcels.update');
+            Route::get('/parcels/{id}/logs', [AccountantParcelController::class, 'logs'])
+                ->whereUuid('id')
+                ->name('parcels.logs');
+        });
     });
 });
 

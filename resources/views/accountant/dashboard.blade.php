@@ -12,19 +12,23 @@
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
-                        <span class="material-symbols-outlined text-lg">payments</span>
+                <a href="{{ route('accountant.parcels.index') }}"
+                   class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-amber-300 transition-all block">
+                    <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
+                        <span class="material-symbols-outlined text-lg">inventory_2</span>
                     </div>
-                    <p class="text-xs text-slate-400 font-bold">مبالغ التحصيل عند التسليم</p>
-                    <p class="text-xs font-extrabold text-slate-500 mt-1">جاهز للربط بالمرحلة القادمة</p>
-                </div>
+                    <p class="text-xs text-slate-400 font-bold">الطرود غير المصنفة</p>
+                    <p class="text-xs font-extrabold text-primary mt-1 flex items-center gap-1">
+                        <span>مراجعة وتصنيف الطرود</span>
+                        <span class="material-symbols-outlined text-xs text-secondary">arrow_back</span>
+                    </p>
+                </a>
 
                 <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
                         <span class="material-symbols-outlined text-lg">receipt_long</span>
                     </div>
-                    <p class="text-xs text-slate-400 font-bold">سجل العمليات المالية</p>
+                    <p class="text-xs text-slate-400 font-bold">كشوفات السائقين</p>
                     <p class="text-xs font-extrabold text-slate-500 mt-1">جاهز للربط بالمرحلة القادمة</p>
                 </div>
             </div>

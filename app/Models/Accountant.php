@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -36,6 +37,16 @@ class Accountant extends Authenticatable
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_id');
+    }
+
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(Manifest::class, 'accountant_id');
+    }
+
+    public function parcelEditLogs(): HasMany
+    {
+        return $this->hasMany(ParcelEditLog::class, 'accountant_id');
     }
 
     /**

@@ -3,6 +3,7 @@ const CACHE_PREFIX = 'mursal-accountant-pwa-';
 
 const ASSETS_TO_CACHE = [
     '/accountant/dashboard',
+    '/accountant/parcels',
     '/accountant/login',
     '/accountant-manifest.json',
     '/js/tailwind.js',

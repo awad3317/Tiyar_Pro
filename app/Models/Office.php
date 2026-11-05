@@ -86,4 +86,19 @@ class Office extends Authenticatable
     {
         return $this->hasMany(Accountant::class, 'office_id');
     }
+
+    public function drivers(): HasMany
+    {
+        return $this->hasMany(Driver::class, 'office_id');
+    }
+
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(Manifest::class, 'office_id');
+    }
+
+    public function parcelEditLogs(): HasMany
+    {
+        return $this->hasMany(ParcelEditLog::class, 'office_id');
+    }
 }

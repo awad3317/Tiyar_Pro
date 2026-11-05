@@ -162,11 +162,6 @@
                         <span class="material-symbols-outlined text-4xl">account_balance_wallet</span>
                     </div>
 
-                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold mb-3">
-                        <span class="material-symbols-outlined text-sm">calculate</span>
-                        <span>تطبيق المحاسبين </span>
-                    </div>
-
                     <h2 class="text-2xl sm:text-3xl font-extrabold text-primary font-headline">
                         تسجيل دخول المحاسب
                     </h2>
