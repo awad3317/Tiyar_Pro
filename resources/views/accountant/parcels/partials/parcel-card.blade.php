@@ -48,7 +48,7 @@
             <template x-if="p.payment_type !== 'postpaid'">
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                     <span class="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
-                    <span>محاسب (خالص)</span>
+                    <span>محاسب</span>
                 </span>
             </template>
         </div>

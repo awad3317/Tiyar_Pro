@@ -22,17 +22,6 @@
                     <p class="text-[10px] text-slate-400">طرود وصلت للمكتب ولم تُربط بكشف سائق بعد</p>
                 </div>
             </div>
-
-            <!-- ملخص الآجل السريع -->
-            <div class="bg-amber-50 border border-amber-200/90 rounded-xl px-2.5 py-1.5 text-left shrink-0">
-                <div class="flex items-center gap-1 justify-end text-[10px] font-bold text-amber-800">
-                    <span class="material-symbols-outlined text-[13px] text-amber-600">payments</span>
-                    <span>إجمالي الآجل (<span x-text="stats.postpaid_count">0</span>):</span>
-                </div>
-                <p class="text-xs font-black text-amber-900 dir-ltr">
-                    <span x-text="formatAmount(stats.postpaid_amount)">0</span> ر.ي
-                </p>
-            </div>
         </div>
 
         <!-- شريط التحديد المتعدد (يظهر عند تحديد طرد واحد أو أكثر) -->
