@@ -103,13 +103,13 @@
             </button>
 
             <!-- زر سجل التعديلات (يظهر إذا كان للطرد تعديلات سابقة) -->
-            <button type="button"
+            {{-- <button type="button"
                     x-show="p.edit_logs_count > 0"
                     @click="openLogsModal(p)"
                     class="py-1.5 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-extrabold flex items-center gap-1 active:scale-95 transition-all">
                 <span class="material-symbols-outlined text-[14px]">history</span>
                 <span>سجل التعديلات (<span x-text="p.edit_logs_count"></span>)</span>
-            </button>
+            </button> --}}
         </div>
 
         <!-- وقت وصول الطرد -->
