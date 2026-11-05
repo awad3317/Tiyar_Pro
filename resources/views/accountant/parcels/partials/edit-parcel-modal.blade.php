@@ -140,7 +140,7 @@
             </div>
 
             <!-- 5. رقم السند + المكتب المرسل -->
-            <div class="grid grid-cols-2 gap-2.5">
+            {{-- <div class="grid grid-cols-2 gap-2.5">
                 <div>
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم السند:</label>
                     <input type="text"
@@ -158,7 +158,7 @@
                            placeholder="اسم المكتب المرسل..."
                            class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
                 </div>
-            </div>
+            </div> --}}
 
             <!-- أزرار الحفظ والإلغاء -->
             <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
