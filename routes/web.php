@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\WhatsappInstanceController as AdminWhatsappInstan
 use App\Http\Controllers\Admin\FeatureController as AdminFeatureController;
 use App\Http\Controllers\Admin\FavoriteCustomerController as AdminFavoriteCustomerController;
 use App\Http\Controllers\Admin\AccountantController as AdminAccountantController;
+use App\Http\Controllers\Admin\ManifestController as AdminManifestController;
+use App\Http\Controllers\Admin\ParcelEditLogController as AdminParcelEditLogController;
 use App\Http\Controllers\Accountant\AuthController as AccountantAuthController;
 use App\Http\Controllers\Accountant\DashboardController as AccountantDashboardController;
 use App\Http\Controllers\Accountant\ParcelController as AccountantParcelController;
@@ -82,12 +84,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // العملاء المميزين للمكاتب
         Route::get('/favorite-customers', [AdminFavoriteCustomerController::class, 'index'])->name('favorite_customers.index');
 
-        // إدارة المحاسبين
+        // إدارة المحاسبين والرقابة على كشوفات السائقين وسجل تعديلات الطرود
         Route::get('/accountants', [AdminAccountantController::class, 'index'])->name('accountants.index');
         Route::post('/accountants', [AdminAccountantController::class, 'store'])->name('accountants.store');
         Route::put('/accountants/{accountant}', [AdminAccountantController::class, 'update'])->name('accountants.update');
         Route::post('/accountants/{accountant}/toggle-status', [AdminAccountantController::class, 'toggleStatus'])->name('accountants.toggle_status');
         Route::delete('/accountants/{accountant}', [AdminAccountantController::class, 'destroy'])->name('accountants.destroy');
+
+        Route::get('/manifests', [AdminManifestController::class, 'index'])->name('manifests.index');
+        Route::get('/manifests/{id}', [AdminManifestController::class, 'show'])
+            ->whereNumber('id')
+            ->name('manifests.show');
+
+        Route::get('/parcel-edit-logs', [AdminParcelEditLogController::class, 'index'])->name('parcel_edit_logs.index');
 
         // إدارة الـ Instances للواتساب
         Route::resource('whatsapp-instances', AdminWhatsappInstanceController::class)->names('whatsapp_instances');
@@ -171,8 +180,11 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
         // شاشة الطرود غير المصنفة للمحاسب
         Route::get('/parcels', [AccountantParcelController::class, 'index'])->name('parcels.index');
 
-        // شاشة كشوفات السائقين للمحاسب
+        // شاشة كشوفات السائقين للمحاسب وتفاصيل الكشف والخصومات والتصفية
         Route::get('/manifests', [AccountantManifestController::class, 'index'])->name('manifests.index');
+        Route::get('/manifests/{id}', [AccountantManifestController::class, 'show'])
+            ->whereNumber('id')
+            ->name('manifests.show');
 
         // مسارات الـ API الخاصة بطرود المحاسب، السائقين، الكشوفات، وسجل التعديلات
         Route::prefix('api')->name('api.')->group(function () {
@@ -184,15 +196,36 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
                 ->whereUuid('id')
                 ->name('parcels.logs');
 
-            // كشوفات السائقين وقائمة السائقين
+            // كشوفات السائقين وقائمة السائقين والخصومات والتصفية
             Route::get('/manifests', [AccountantManifestController::class, 'listData'])->name('manifests.list');
             Route::post('/manifests', [AccountantManifestController::class, 'store'])->name('manifests.store');
+            Route::get('/manifests/{id}', [AccountantManifestController::class, 'showData'])
+                ->whereNumber('id')
+                ->name('manifests.show_data');
             Route::match(['put', 'patch'], '/manifests/{id}', [AccountantManifestController::class, 'update'])
                 ->whereNumber('id')
                 ->name('manifests.update');
             Route::post('/manifests/{id}/assign-parcels', [AccountantManifestController::class, 'assignParcels'])
                 ->whereNumber('id')
                 ->name('manifests.assign_parcels');
+            Route::delete('/manifests/{id}/parcels/{parcelId}', [AccountantManifestController::class, 'removeParcel'])
+                ->whereNumber('id')
+                ->whereUuid('parcelId')
+                ->name('manifests.remove_parcel');
+            Route::post('/manifests/{id}/deductions', [AccountantManifestController::class, 'storeDeduction'])
+                ->whereNumber('id')
+                ->name('manifests.deductions.store');
+            Route::match(['put', 'patch'], '/manifests/{id}/deductions/{deductionId}', [AccountantManifestController::class, 'updateDeduction'])
+                ->whereNumber('id')
+                ->whereNumber('deductionId')
+                ->name('manifests.deductions.update');
+            Route::delete('/manifests/{id}/deductions/{deductionId}', [AccountantManifestController::class, 'destroyDeduction'])
+                ->whereNumber('id')
+                ->whereNumber('deductionId')
+                ->name('manifests.deductions.destroy');
+            Route::post('/manifests/{id}/toggle-settlement', [AccountantManifestController::class, 'toggleSettlement'])
+                ->whereNumber('id')
+                ->name('manifests.toggle_settlement');
             Route::get('/drivers-list', [AccountantManifestController::class, 'driversList'])->name('drivers.list');
         });
     });

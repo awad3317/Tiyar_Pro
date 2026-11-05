@@ -140,6 +140,20 @@
                     <span>إدارة المحاسبين</span>
                 </a>
 
+                <!-- رقابة كشوفات السائقين والتصفيات -->
+                <a href="{{ route('admin.manifests.index') }}"
+                   class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.manifests.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
+                    <span class="material-symbols-outlined text-[22px]">receipt_long</span>
+                    <span>كشوفات السائقين</span>
+                </a>
+
+                <!-- سجل تعديلات المحاسبين على الطرود -->
+                <a href="{{ route('admin.parcel_edit_logs.index') }}"
+                   class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.parcel_edit_logs.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
+                    <span class="material-symbols-outlined text-[22px]">manage_history</span>
+                    <span>سجل تعديلات المحاسبين</span>
+                </a>
+
                 <!-- إدارة المميزات العامة -->
                 <a href="{{ route('admin.features.index') }}"
                    class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 {{ request()->routeIs('admin.features.*') ? 'bg-secondary text-primary-950 font-extrabold shadow-lg shadow-secondary/25' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}">

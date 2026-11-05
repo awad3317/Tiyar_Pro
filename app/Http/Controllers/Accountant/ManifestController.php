@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Accountant;
 use App\Models\Driver;
 use App\Models\Manifest;
+use App\Models\ManifestDeduction;
 use App\Models\Parcel;
 use App\Models\ParcelEditLog;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,147 @@ class ManifestController extends Controller
     public function index(Request $request): View
     {
         return view('accountant.manifests.index');
+    }
+
+    /**
+     * عرض شاشة تفاصيل الكشف، إدارة طروده، الخصومات، وتصفية حساب السائق
+     */
+    public function show(int $id): View
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        return view('accountant.manifests.show', compact('manifest'));
+    }
+
+    /**
+     * API لجلب كافة تفاصيل الكشف المحدثة: الكشف، السائق، طرود الكشف، خصومات الكشف، والطرود غير المصنفة في المكتب
+     * (محسّن للأداء: يحسب المجاميع والأعداد في الذاكرة من المجموعات المجلوبة ولا ينفذ UPDATE إلا عند وجود اختلاف)
+     */
+    public function showData(int $id): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        if ($manifest->accountant_id) {
+            if ((int) $manifest->accountant_id === (int) $accountant->id) {
+                $manifest->setRelation('accountant', $accountant);
+            } else {
+                if ($manifest->accountant_id) {
+            if ((int) $manifest->accountant_id === (int) $accountant->id) {
+                $manifest->setRelation('accountant', $accountant);
+            } else {
+                $manifest->load('accountant:id,name');
+            }
+        }
+            }
+        }
+
+        $parcels = $manifest->parcels()
+            ->select([
+                'id',
+                'office_id',
+                'manifest_id',
+                'recipient_name',
+                'recipient_phone',
+                'package_type',
+                'receipt_number',
+                'source_office_name',
+                'payment_type',
+                'cod_amount',
+                'status',
+                'created_at',
+                'delivered_at',
+            ])
+            ->where('office_id', $officeId)
+            ->withCount('editLogs')
+            ->latest()
+            ->get();
+
+        $deductions = $manifest->deductions()
+            ->orderBy('id')
+            ->get();
+
+        // حساب الأعداد والمجاميع في الذاكرة مباشرةً من المجموعات المجلوبة لتوفير استعلامات COUNT/SUM الإضافية
+        $totalCount      = $parcels->count();
+        $postpaidItems   = $parcels->where('payment_type', 'postpaid');
+        $postpaidCount   = $postpaidItems->count();
+        $totalPostpaid   = round((float) $postpaidItems->sum(fn (Parcel $p) => (float) ($p->cod_amount ?? 0)), 2);
+        $totalDeductions = round((float) $deductions->sum(fn (ManifestDeduction $d) => (float) ($d->amount ?? 0)), 2);
+        $netDriverAmount = round($totalPostpaid - $totalDeductions, 2);
+
+        $manifest->setAttribute('parcels_count', $totalCount);
+        $manifest->setAttribute('postpaid_parcels_count', $postpaidCount);
+        $manifest->setAttribute('prepaid_parcels_count', $totalCount - $postpaidCount);
+
+        if (
+            round((float) $manifest->total_postpaid_amount, 2) !== $totalPostpaid ||
+            round((float) $manifest->total_deductions, 2) !== $totalDeductions ||
+            round((float) $manifest->net_driver_amount, 2) !== $netDriverAmount
+        ) {
+            Manifest::query()
+                ->whereKey($manifest->id)
+                ->update([
+                    'total_postpaid_amount' => $totalPostpaid,
+                    'total_deductions'      => $totalDeductions,
+                    'net_driver_amount'     => $netDriverAmount,
+                    'updated_at'            => now(),
+                ]);
+
+            $manifest->total_postpaid_amount = $totalPostpaid;
+            $manifest->total_deductions      = $totalDeductions;
+            $manifest->net_driver_amount     = $netDriverAmount;
+        }
+
+        $unclassifiedParcels = Parcel::query()
+            ->select([
+                'id',
+                'office_id',
+                'manifest_id',
+                'recipient_name',
+                'recipient_phone',
+                'package_type',
+                'receipt_number',
+                'source_office_name',
+                'payment_type',
+                'cod_amount',
+                'status',
+                'created_at',
+                'delivered_at',
+            ])
+            ->where('office_id', $officeId)
+            ->whereNull('manifest_id')
+            ->latest()
+            ->get();
+
+        $drivers = Driver::query()
+            ->where('office_id', $officeId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone']);
+
+        $currentDriver = $manifest->driver_id
+            ? $drivers->firstWhere('id', $manifest->driver_id)
+            : null;
+
+        return response()->json([
+            'success'              => true,
+            'manifest'             => $this->serializeManifest($manifest),
+            'driver'               => $currentDriver,
+            'drivers'              => $drivers,
+            'parcels'              => $parcels->map(fn (Parcel $p) => $this->serializeParcel($p))->values(),
+            'deductions'           => $deductions->map(fn (ManifestDeduction $d) => $this->serializeDeduction($d))->values(),
+            'unclassified_parcels' => $unclassifiedParcels->map(fn (Parcel $p) => $this->serializeParcel($p))->values(),
+        ]);
     }
 
     /**
@@ -184,11 +326,7 @@ class ManifestController extends Controller
             return $manifest;
         });
 
-        $manifest->load('driver:id,office_id,name,phone')->loadCount([
-            'parcels',
-            'parcels as postpaid_parcels_count' => fn ($q) => $q->where('payment_type', 'postpaid'),
-            'parcels as prepaid_parcels_count'  => fn ($q) => $q->where('payment_type', 'prepaid'),
-        ]);
+        $manifest->load('driver:id,office_id,name,phone');
 
         $msg = $assignedCount > 0
             ? "تم إنشاء كشف السائق ({$manifest->driver_name}) وضم ({$assignedCount}) طرد إليه بنجاح."
@@ -330,17 +468,328 @@ class ManifestController extends Controller
             ], 422);
         }
 
-        $manifest->loadCount([
-            'parcels',
-            'parcels as postpaid_parcels_count' => fn ($q) => $q->where('payment_type', 'postpaid'),
-            'parcels as prepaid_parcels_count'  => fn ($q) => $q->where('payment_type', 'prepaid'),
-        ]);
-
         return response()->json([
             'success'        => true,
             'message'        => "تم ضم ({$assignedCount}) طرد إلى كشف السائق ({$manifest->driver_name}) بنجاح.",
             'assigned_count' => $assignedCount,
+            'attached_ids'   => $parcelIds,
             'manifest'       => $this->serializeManifest($manifest),
+        ]);
+    }
+
+    /**
+     * إخراج طرد من الكشف وإعادته إلى قائمة "الطرود غير المصنفة" مع توثيق العملية وإعادة حساب المجاميع
+     */
+    public function removeParcel(Request $request, int $id, string $parcelId): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        if ($manifest->status === 'settled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن إخراج طرد من كشف تمت تصفيته وإغلاقه. يرجى إعادة فتح الكشف أولاً.',
+            ], 422);
+        }
+
+        $parcel = Parcel::query()
+            ->where('office_id', $officeId)
+            ->where('manifest_id', $manifest->id)
+            ->findOrFail($parcelId);
+
+        $lockedSettled = false;
+
+        DB::transaction(function () use (&$manifest, &$parcel, &$lockedSettled, $accountant, $officeId, $request) {
+            $manifest = Manifest::query()
+                ->where('office_id', $officeId)
+                ->lockForUpdate()
+                ->findOrFail($manifest->id);
+
+            if ($manifest->status === 'settled') {
+                $lockedSettled = true;
+                return;
+            }
+
+            $parcel = Parcel::query()
+                ->where('office_id', $officeId)
+                ->where('manifest_id', $manifest->id)
+                ->lockForUpdate()
+                ->findOrFail($parcel->id);
+
+            $oldManifestId = $parcel->manifest_id;
+
+            $parcel->update([
+                'manifest_id' => null,
+            ]);
+
+            ParcelEditLog::create([
+                'parcel_id'      => $parcel->id,
+                'office_id'      => $officeId,
+                'accountant_id'  => $accountant->id,
+                'action'         => 'remove_from_manifest',
+                'changed_fields' => ['manifest_id'],
+                'old_values'     => ['manifest_id' => $oldManifestId],
+                'new_values'     => ['manifest_id' => null],
+                'ip_address'     => $request->ip(),
+            ]);
+
+            $manifest->recalculateTotals();
+        });
+
+        if ($lockedSettled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن إخراج طرد من كشف تمت تصفيته وإغلاقه. يرجى إعادة فتح الكشف أولاً.',
+            ], 422);
+        }
+
+        $parcel->loadCount('editLogs');
+
+        return response()->json([
+            'success'        => true,
+            'message'        => 'تم إخراج الطرد من الكشف وإعادته إلى قائمة الطرود غير المصنفة بنجاح.',
+            'manifest'       => $this->serializeManifest($manifest),
+            'removed_parcel' => $this->serializeParcel($parcel),
+        ]);
+    }
+
+    /**
+     * إضافة بند خصم جديد على الكشف (خصم العمال / خصم المكتب / خصم آخر) وإعادة حساب الصافي للسائق
+     */
+    public function storeDeduction(Request $request, int $id): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        if ($manifest->status === 'settled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن إضافة خصومات على كشف تمت تصفيته. يرجى إعادة فتح الكشف أولاً.',
+            ], 422);
+        }
+
+        if ($manifest->deductions()->count() >= 50) {
+            return response()->json([
+                'success' => false,
+                'message' => 'تم الوصول للحد الأقصى المسموح لبنود الخصومات في الكشف الواحد (50 بنداً).',
+            ], 422);
+        }
+
+        $this->sanitizeDeductionInputs($request);
+
+        $validated = $request->validate([
+            'deduction_type' => ['required', 'in:workers_unloading,office_commission,other'],
+            'title'          => ['required', 'string', 'min:2', 'max:150'],
+            'amount'         => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+            'notes'          => ['nullable', 'string', 'max:255'],
+        ], [
+            'deduction_type.required' => 'يرجى اختيار نوع الخصم.',
+            'deduction_type.in'       => 'نوع الخصم المختار غير صالح.',
+            'title.required'          => 'يرجى إدخال بيان الخصم (مثال: خصم العمال أو خصم المكتب).',
+            'title.min'               => 'بيان الخصم يجب ألا يقل عن حرفين.',
+            'amount.required'         => 'يرجى إدخال مبلغ الخصم.',
+            'amount.numeric'          => 'مبلغ الخصم يجب أن يكون رقماً صحيحاً.',
+            'amount.min'              => 'مبلغ الخصم يجب أن يكون أكبر من صفر.',
+        ]);
+
+        $deduction = DB::transaction(function () use (&$manifest, $officeId, $validated) {
+            $manifest = Manifest::query()
+                ->where('office_id', $officeId)
+                ->lockForUpdate()
+                ->findOrFail($manifest->id);
+
+            $deduction = $manifest->deductions()->create([
+                'deduction_type' => $validated['deduction_type'],
+                'title'          => $validated['title'],
+                'amount'         => round((float) $validated['amount'], 2),
+                'notes'          => $validated['notes'] ?? null,
+            ]);
+
+            $manifest->recalculateTotals();
+
+            return $deduction;
+        });
+
+        return response()->json([
+            'success'   => true,
+            'message'   => "تم إضافة بند الخصم ({$deduction->title}) بنجاح.",
+            'deduction' => $this->serializeDeduction($deduction),
+            'manifest'  => $this->serializeManifest($manifest),
+        ]);
+    }
+
+    /**
+     * تعديل بند خصم موجود في الكشف وإعادة حساب الصافي للسائق
+     */
+    public function updateDeduction(Request $request, int $id, int $deductionId): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        if ($manifest->status === 'settled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن تعديل الخصومات في كشف تمت تصفيته. يرجى إعادة فتح الكشف أولاً.',
+            ], 422);
+        }
+
+        /** @var ManifestDeduction $deduction */
+        $deduction = $manifest->deductions()->findOrFail($deductionId);
+
+        $this->sanitizeDeductionInputs($request);
+
+        $validated = $request->validate([
+            'deduction_type' => ['required', 'in:workers_unloading,office_commission,other'],
+            'title'          => ['required', 'string', 'min:2', 'max:150'],
+            'amount'         => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+            'notes'          => ['nullable', 'string', 'max:255'],
+        ], [
+            'deduction_type.required' => 'يرجى اختيار نوع الخصم.',
+            'title.required'          => 'يرجى إدخال بيان الخصم.',
+            'amount.required'         => 'يرجى إدخال مبلغ الخصم.',
+            'amount.numeric'          => 'مبلغ الخصم يجب أن يكون رقماً صحيحاً.',
+            'amount.min'              => 'مبلغ الخصم يجب أن يكون أكبر من صفر.',
+        ]);
+
+        DB::transaction(function () use (&$manifest, $officeId, $deduction, $validated) {
+            $manifest = Manifest::query()
+                ->where('office_id', $officeId)
+                ->lockForUpdate()
+                ->findOrFail($manifest->id);
+
+            $deduction->update([
+                'deduction_type' => $validated['deduction_type'],
+                'title'          => $validated['title'],
+                'amount'         => round((float) $validated['amount'], 2),
+                'notes'          => $validated['notes'] ?? null,
+            ]);
+
+            $manifest->recalculateTotals();
+        });
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'تم تحديث بند الخصم بنجاح.',
+            'deduction' => $this->serializeDeduction($deduction),
+            'manifest'  => $this->serializeManifest($manifest),
+        ]);
+    }
+
+    /**
+     * حذف بند خصم من الكشف وإعادة حساب الصافي للسائق فوراً
+     */
+    public function destroyDeduction(int $id, int $deductionId): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        if ($manifest->status === 'settled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن حذف الخصومات من كشف تمت تصفيته. يرجى إعادة فتح الكشف أولاً.',
+            ], 422);
+        }
+
+        /** @var ManifestDeduction $deduction */
+        $deduction = $manifest->deductions()->findOrFail($deductionId);
+
+        DB::transaction(function () use (&$manifest, $officeId, $deduction) {
+            $manifest = Manifest::query()
+                ->where('office_id', $officeId)
+                ->lockForUpdate()
+                ->findOrFail($manifest->id);
+
+            $deduction->delete();
+            $manifest->recalculateTotals();
+        });
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'تم حذف بند الخصم وإعادة حساب الصافي بنجاح.',
+            'manifest' => $this->serializeManifest($manifest),
+        ]);
+    }
+
+    /**
+     * اعتماد تصفية الكشف وتسليم السائق (settled) أو إعادة فتحه للمراجعة (open)
+     */
+    public function toggleSettlement(Request $request, int $id): JsonResponse
+    {
+        /** @var Accountant $accountant */
+        $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
+
+        $manifest = Manifest::query()
+            ->where('office_id', $officeId)
+            ->findOrFail($id);
+
+        $cleanNotes = $request->has('notes')
+            ? $this->cleanNullableString($request->input('notes'))
+            : $manifest->notes;
+
+        if ($cleanNotes !== null && mb_strlen($cleanNotes) > 500) {
+            $cleanNotes = mb_substr($cleanNotes, 0, 500);
+        }
+
+        DB::transaction(function () use (&$manifest, $officeId, $accountant, $cleanNotes) {
+            $manifest = Manifest::query()
+                ->where('office_id', $officeId)
+                ->lockForUpdate()
+                ->findOrFail($manifest->id);
+
+            $manifest->recalculateTotals();
+
+            if ($manifest->status === 'open') {
+                $manifest->update([
+                    'status'        => 'settled',
+                    'settled_at'    => now(),
+                    'accountant_id' => $accountant->id,
+                    'notes'         => $cleanNotes,
+                ]);
+            } else {
+                $manifest->update([
+                    'status'     => 'open',
+                    'settled_at' => null,
+                ]);
+            }
+        });
+
+        if ($manifest->accountant_id) {
+            if ((int) $manifest->accountant_id === (int) $accountant->id) {
+                $manifest->setRelation('accountant', $accountant);
+            } else {
+                $manifest->load('accountant:id,name');
+            }
+        }
+
+        $msg = $manifest->status === 'settled'
+            ? "تم اعتماد تصفية الكشف وتسليم السائق ({$manifest->driver_name}) بنجاح."
+            : "تم إعادة فتح كشف السائق ({$manifest->driver_name}) للمراجعة والتعديل.";
+
+        return response()->json([
+            'success'  => true,
+            'message'  => $msg,
+            'manifest' => $this->serializeManifest($manifest),
         ]);
     }
 
@@ -460,6 +909,22 @@ class ManifestController extends Controller
         ]);
     }
 
+    /**
+     * تنظيف مدخلات الخصم من وسوم HTML وتحويل الأرقام العربية في مبلغ الخصم
+     */
+    private function sanitizeDeductionInputs(Request $request): void
+    {
+        $cleanTitle  = trim(strip_tags((string) $request->input('title', '')));
+        $cleanAmount = $this->cleanNullableString($this->convertDigits((string) $request->input('amount', '')));
+        $cleanNotes  = $this->cleanNullableString($request->input('notes'));
+
+        $request->merge([
+            'title'  => $cleanTitle,
+            'amount' => $cleanAmount,
+            'notes'  => $cleanNotes,
+        ]);
+    }
+
     private function cleanNullableString(mixed $value): ?string
     {
         if ($value === null) {
@@ -485,6 +950,7 @@ class ManifestController extends Controller
             'id'                     => $manifest->id,
             'office_id'              => $manifest->office_id,
             'accountant_id'          => $manifest->accountant_id,
+            'accountant_name'        => $manifest->relationLoaded('accountant') ? $manifest->accountant?->name : null,
             'driver_id'              => $manifest->driver_id,
             'driver_name'            => $manifest->driver_name,
             'driver_phone'           => $manifest->driver_phone,
@@ -502,6 +968,39 @@ class ManifestController extends Controller
             'postpaid_parcels_count' => (int) ($manifest->postpaid_parcels_count ?? 0),
             'prepaid_parcels_count'  => (int) ($manifest->prepaid_parcels_count ?? 0),
             'created_at'             => $manifest->created_at?->toIso8601String(),
+        ];
+    }
+
+    private function serializeParcel(Parcel $parcel): array
+    {
+        return [
+            'id'                 => $parcel->id,
+            'office_id'          => $parcel->office_id,
+            'manifest_id'        => $parcel->manifest_id,
+            'recipient_name'     => $parcel->recipient_name,
+            'recipient_phone'    => $parcel->recipient_phone,
+            'package_type'       => $parcel->package_type,
+            'receipt_number'     => $parcel->receipt_number,
+            'source_office_name' => $parcel->source_office_name,
+            'payment_type'       => $parcel->payment_type ?: ((float) ($parcel->cod_amount ?? 0) > 0 ? 'postpaid' : 'prepaid'),
+            'cod_amount'         => $parcel->cod_amount !== null ? (float) $parcel->cod_amount : null,
+            'status'             => $parcel->status instanceof \BackedEnum ? $parcel->status->value : (string) $parcel->status,
+            'edit_logs_count'    => (int) ($parcel->edit_logs_count ?? 0),
+            'created_at'         => $parcel->created_at?->toIso8601String(),
+            'delivered_at'       => $parcel->delivered_at?->toIso8601String(),
+        ];
+    }
+
+    private function serializeDeduction(ManifestDeduction $deduction): array
+    {
+        return [
+            'id'             => $deduction->id,
+            'manifest_id'    => $deduction->manifest_id,
+            'deduction_type' => $deduction->deduction_type ?: 'other',
+            'title'          => $deduction->title,
+            'amount'         => (float) $deduction->amount,
+            'notes'          => $deduction->notes,
+            'created_at'     => $deduction->created_at?->toIso8601String(),
         ];
     }
 }

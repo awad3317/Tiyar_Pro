@@ -430,7 +430,7 @@
             },
 
             openManifestDetails(manifest) {
-                this.showToast(`كشف السائق (${manifest.driver_name}) يحتوي على (${manifest.parcels_count}) طرد — سيتم فتح شاشة الخصومات والتصفية التفصيلية في المرحلة القادمة.`, false);
+                window.location.href = `/accountant/manifests/${encodeURIComponent(manifest.id)}`;
             },
 
             normalizeSearch(str) {

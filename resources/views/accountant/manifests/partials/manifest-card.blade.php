@@ -117,12 +117,11 @@
 
     <!-- 4. أزرار التحكم -->
     <div class="flex items-center gap-2 pt-0.5">
-        <button type="button"
-                @click="openManifestDetails(m)"
-                class="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all">
+        <a :href="'/accountant/manifests/' + m.id"
+           class="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all">
             <span class="material-symbols-outlined text-[16px] text-secondary">calculate</span>
             <span>فتح الكشف والخصومات</span>
-        </button>
+        </a>
 
         <button type="button"
                 x-show="m.status === 'open'"

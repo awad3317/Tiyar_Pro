@@ -94,20 +94,54 @@ class Manifest extends Model
 
     /**
      * إعادة حساب مجاميع الكشف (مجموع الآجل، مجموع الخصومات، الصافي المستحق للسائق)
+     * مع حساب أعداد الطرود (الإجمالي، الآجل، المحاسب) في استعلام واحد فقط
      */
     public function recalculateTotals(): void
     {
-        $totalPostpaid = (float) $this->parcels()
+        $parcelStats = $this->parcels()
             ->where('office_id', $this->office_id)
-            ->where('payment_type', 'postpaid')
-            ->sum('cod_amount');
+            ->selectRaw("
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN payment_type = 'postpaid' THEN 1 ELSE 0 END), 0) as postpaid_count,
+                COALESCE(SUM(CASE WHEN payment_type = 'postpaid' THEN COALESCE(cod_amount, 0) ELSE 0 END), 0) as postpaid_sum
+            ")
+            ->first();
 
-        $totalDeductions = (float) $this->deductions()->sum('amount');
+        $totalCount    = (int) ($parcelStats->total_count ?? 0);
+        $postpaidCount = (int) ($parcelStats->postpaid_count ?? 0);
+        $totalPostpaid = round((float) ($parcelStats->postpaid_sum ?? 0), 2);
 
-        $this->update([
-            'total_postpaid_amount' => round($totalPostpaid, 2),
-            'total_deductions'      => round($totalDeductions, 2),
-            'net_driver_amount'     => round($totalPostpaid - $totalDeductions, 2),
+        $totalDeductions = round((float) $this->deductions()->sum('amount'), 2);
+        $netDriverAmount = round($totalPostpaid - $totalDeductions, 2);
+
+        // حفظ أعداد الطرود في الذاكرة ومزامنتها كقيم أصلية حتى لا يعتبرها Eloquent أعمدة معدلة عند الحفظ
+        $this->setAttribute('parcels_count', $totalCount);
+        $this->setAttribute('postpaid_parcels_count', $postpaidCount);
+        $this->setAttribute('prepaid_parcels_count', $totalCount - $postpaidCount);
+        $this->syncOriginalAttributes([
+            'parcels_count',
+            'postpaid_parcels_count',
+            'prepaid_parcels_count',
         ]);
+
+        // تنفيذ استعلام UPDATE فقط إذا تغيرت المجاميع المالية فعلياً
+        if (
+            round((float) $this->total_postpaid_amount, 2) !== $totalPostpaid ||
+            round((float) $this->total_deductions, 2) !== $totalDeductions ||
+            round((float) $this->net_driver_amount, 2) !== $netDriverAmount
+        ) {
+            self::query()
+                ->whereKey($this->id)
+                ->update([
+                    'total_postpaid_amount' => $totalPostpaid,
+                    'total_deductions'      => $totalDeductions,
+                    'net_driver_amount'     => $netDriverAmount,
+                    'updated_at'            => now(),
+                ]);
+
+            $this->total_postpaid_amount = $totalPostpaid;
+            $this->total_deductions      = $totalDeductions;
+            $this->net_driver_amount     = $netDriverAmount;
+        }
     }
 }

@@ -268,7 +268,23 @@
 
                             <!-- أزرار الإجراءات -->
                             <td class="py-4 px-5 text-center">
-                                <div class="flex items-center justify-center gap-1.5">
+                                <div class="flex items-center justify-center gap-1.5 flex-wrap">
+
+                                    <!-- اختصار سريع: كشوفات هذا المحاسب -->
+                                    <a href="{{ route('admin.manifests.index', ['accountant_id' => $accountant->id]) }}"
+                                       title="عرض كشوفات السائقين الخاصة بهذا المحاسب"
+                                       class="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold flex items-center gap-1 transition-colors">
+                                        <span class="material-symbols-outlined text-sm">receipt_long</span>
+                                        <span>الكشوفات</span>
+                                    </a>
+
+                                    <!-- اختصار سريع: سجل تعديلات هذا المحاسب -->
+                                    <a href="{{ route('admin.parcel_edit_logs.index', ['accountant_id' => $accountant->id]) }}"
+                                       title="عرض سجل التعديلات التي أجراها هذا المحاسب على الطرود"
+                                       class="px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-bold flex items-center gap-1 transition-colors">
+                                        <span class="material-symbols-outlined text-sm">manage_history</span>
+                                        <span>سجل التعديلات</span>
+                                    </a>
                                     
                                     <!-- زر التعديل وتغيير الرمز -->
                                     <button type="button"

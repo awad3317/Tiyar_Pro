@@ -198,6 +198,19 @@ class ParcelController extends Controller
         }
 
         $parcel->loadCount('editLogs');
+        $manifestData = null;
+        if ($parcel->manifest_id) {
+            $freshManifest = $parcel->manifest()->first();
+            if ($freshManifest) {
+                $manifestData = [
+                    'id'                    => $freshManifest->id,
+                    'total_postpaid_amount' => (float) $freshManifest->total_postpaid_amount,
+                    'total_deductions'      => (float) $freshManifest->total_deductions,
+                    'net_driver_amount'     => (float) $freshManifest->net_driver_amount,
+                    'status'                => $freshManifest->status,
+                ];
+            }
+        }
 
         return response()->json([
             'success'        => true,
@@ -206,6 +219,7 @@ class ParcelController extends Controller
                 : 'لم يتم إجراء أي تغيير جديد على بيانات الطرد.',
             'changed_fields' => $changedFields,
             'parcel'         => $this->serializeParcel($parcel),
+            'manifest'       => $manifestData,
         ]);
     }
 
