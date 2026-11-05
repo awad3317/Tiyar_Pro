@@ -40,6 +40,14 @@ class Manifest extends Model
     protected static function booted(): void
     {
         static::saving(function (Manifest $manifest): void {
+            if (empty($manifest->manifest_date)) {
+                $manifest->manifest_date = now()->toDateString();
+            }
+
+            if (empty($manifest->status)) {
+                $manifest->status = 'open';
+            }
+
             if (
                 $manifest->office_id &&
                 (!empty($manifest->driver_name) || !empty($manifest->driver_id)) &&

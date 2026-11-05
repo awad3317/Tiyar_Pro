@@ -61,7 +61,11 @@ class ParcelEditLog extends Model
     public static function formatValue(string $field, mixed $value): string
     {
         if ($value === null || $value === '') {
-            return 'فارغ';
+            return $field === 'manifest_id' ? 'غير مصنف (بدون كشف)' : 'فارغ';
+        }
+
+        if ($field === 'manifest_id') {
+            return 'كشف رقم #' . $value;
         }
 
         if ($field === 'payment_type') {

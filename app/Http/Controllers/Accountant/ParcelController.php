@@ -165,6 +165,18 @@ class ParcelController extends Controller
         }
 
         if (!empty($changedFields)) {
+            // حماية نزاهة الكشوفات المصفّاة: منع تعديل المبالغ المالية لطرد مدرج في كشف تمت تصفيته
+            if (
+                $parcel->manifest_id &&
+                (in_array('payment_type', $changedFields, true) || in_array('cod_amount', $changedFields, true)) &&
+                $parcel->manifest?->status === 'settled'
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'لا يمكن تعديل البيانات المالية لطرد مدرج في كشف سائق تمت تصفيته بالفعل.',
+                ], 422);
+            }
+
             DB::transaction(function () use ($parcel, $newData, $accountant, $changedFields, $oldValues, $newValues, $request) {
                 $parcel->update($newData);
 

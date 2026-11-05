@@ -7,19 +7,24 @@
     <!-- الصف العلوي: مربع التحديد + نوع الطرد ورقم السند + شارة نوع الدفع والمبلغ -->
     <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2.5 min-w-0">
-            <!-- مربع تحديد الطرد (لتجهيز الكشف) -->
-            <label class="inline-flex items-center cursor-pointer shrink-0 p-0.5">
+            <!-- مربع تحديد الطرد (مساحة لمس مريحة للجوال لتجهيز الكشف) -->
+            <label class="inline-flex items-center justify-center cursor-pointer shrink-0 p-1.5 -m-1 rounded-xl hover:bg-slate-100 active:scale-95 transition-all"
+                   title="تحديد الطرد لضمّه إلى كشف">
                 <input type="checkbox"
                        :value="p.id"
                        :checked="isSelected(p.id)"
                        @change="toggleSelect(p.id)"
-                       class="w-4 h-4 rounded border-slate-300 text-secondary focus:ring-secondary cursor-pointer">
+                       class="w-5 h-5 rounded-md border-slate-300 text-secondary focus:ring-secondary cursor-pointer">
             </label>
 
-            <span class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                  :class="p.payment_type === 'postpaid' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-primary'">
-                <span class="material-symbols-outlined text-lg">package_2</span>
-            </span>
+            <button type="button"
+                    @click="toggleSelect(p.id)"
+                    class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                    :class="isSelected(p.id)
+                        ? 'bg-secondary text-primary font-black'
+                        : (p.payment_type === 'postpaid' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-primary')">
+                <span class="material-symbols-outlined text-lg" x-text="isSelected(p.id) ? 'check' : 'package_2'"></span>
+            </button>
 
             <div class="min-w-0">
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -100,6 +105,15 @@
                     class="py-1.5 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all">
                 <span class="material-symbols-outlined text-[15px] text-secondary">edit_square</span>
                 <span>تعديل الطرد</span>
+            </button>
+
+            <!-- زر عرض سجل التعديلات إن وُجدت تعديلات سابقة -->
+            <button type="button"
+                    x-show="p.edit_logs_count > 0"
+                    @click="openLogsModal(p)"
+                    class="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-all">
+                <span class="material-symbols-outlined text-[14px] text-slate-500">history</span>
+                <span>السجل (<span x-text="p.edit_logs_count"></span>)</span>
             </button>
         </div>
 

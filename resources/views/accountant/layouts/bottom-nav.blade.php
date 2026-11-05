@@ -20,4 +20,14 @@
         <span class="mt-0.5">الطرود</span>
     </a>
 
+    <!-- زر كشوفات السائقين -->
+    @php
+        $isManifests = request()->routeIs('accountant.manifests.*');
+    @endphp
+    <a href="{{ route('accountant.manifests.index') }}"
+       class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isManifests ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+        <span class="material-symbols-outlined text-2xl {{ $isManifests ? 'text-secondary' : '' }}">receipt_long</span>
+        <span class="mt-0.5">الكشوفات</span>
+    </a>
+
 </footer>

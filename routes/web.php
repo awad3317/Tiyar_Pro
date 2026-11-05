@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\AccountantController as AdminAccountantController
 use App\Http\Controllers\Accountant\AuthController as AccountantAuthController;
 use App\Http\Controllers\Accountant\DashboardController as AccountantDashboardController;
 use App\Http\Controllers\Accountant\ParcelController as AccountantParcelController;
+use App\Http\Controllers\Accountant\ManifestController as AccountantManifestController;
 
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -170,7 +171,10 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
         // شاشة الطرود غير المصنفة للمحاسب
         Route::get('/parcels', [AccountantParcelController::class, 'index'])->name('parcels.index');
 
-        // مسارات الـ API الخاصة بطرود المحاسب وسجل التعديلات
+        // شاشة كشوفات السائقين للمحاسب
+        Route::get('/manifests', [AccountantManifestController::class, 'index'])->name('manifests.index');
+
+        // مسارات الـ API الخاصة بطرود المحاسب، السائقين، الكشوفات، وسجل التعديلات
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/parcels', [AccountantParcelController::class, 'listData'])->name('parcels.list');
             Route::match(['put', 'patch'], '/parcels/{id}', [AccountantParcelController::class, 'update'])
@@ -179,6 +183,17 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
             Route::get('/parcels/{id}/logs', [AccountantParcelController::class, 'logs'])
                 ->whereUuid('id')
                 ->name('parcels.logs');
+
+            // كشوفات السائقين وقائمة السائقين
+            Route::get('/manifests', [AccountantManifestController::class, 'listData'])->name('manifests.list');
+            Route::post('/manifests', [AccountantManifestController::class, 'store'])->name('manifests.store');
+            Route::match(['put', 'patch'], '/manifests/{id}', [AccountantManifestController::class, 'update'])
+                ->whereNumber('id')
+                ->name('manifests.update');
+            Route::post('/manifests/{id}/assign-parcels', [AccountantManifestController::class, 'assignParcels'])
+                ->whereNumber('id')
+                ->name('manifests.assign_parcels');
+            Route::get('/drivers-list', [AccountantManifestController::class, 'driversList'])->name('drivers.list');
         });
     });
 });
