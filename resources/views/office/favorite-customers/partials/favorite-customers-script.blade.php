@@ -179,12 +179,15 @@
                     const queue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                     for (const q of (queue || [])) {
                         const endpoint = String(q?.endpoint || '').trim();
-                        const isFavTask = endpoint.includes('favorite-customers') || (q?.payload && (q.payload.phone || q.payload.name));
+                        const pathname = window.MursalSync?.extractPathname
+                            ? window.MursalSync.extractPathname(endpoint)
+                            : endpoint.replace(/^https?:\/\/[^/]+/i, '');
+                        const isFavTask = pathname.includes('favorite-customers') || (q?.payload && (q.payload.phone || q.payload.name));
                         if (!isFavTask) continue;
 
-                        const hasInvalidId = endpoint.includes('temp_') || endpoint.includes('undefined') || endpoint.includes('null') || endpoint.includes(':');
-                        const isCorruptDelete = q.method === 'DELETE' && (hasInvalidId || !endpoint.match(/\/\d+$/));
-                        const isCorruptPut = (q.method === 'PUT' || q.method === 'PATCH') && (hasInvalidId || !endpoint.match(/\/\d+$/));
+                        const hasInvalidId = pathname.includes('temp_') || pathname.includes('undefined') || pathname.includes('null') || pathname.includes(':');
+                        const isCorruptDelete = q.method === 'DELETE' && (hasInvalidId || !pathname.match(/\/\d+$/));
+                        const isCorruptPut = (q.method === 'PUT' || q.method === 'PATCH') && (hasInvalidId || !pathname.match(/\/\d+$/));
 
                         if (hasInvalidId || isCorruptDelete || isCorruptPut) {
                             console.warn('Purging corrupt queue task:', q);

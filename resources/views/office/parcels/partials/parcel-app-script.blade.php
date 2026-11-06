@@ -686,9 +686,14 @@
             },
 
             async syncData() {
-                if (this.authRequired || this.isSyncing) return;
+                if (this.authRequired) return;
+                if (this.isSyncing) {
+                    this._needsResync = true;
+                    return;
+                }
 
                 this.isSyncing = true;
+                this._needsResync = false;
                 try {
                     // مزامنة الطابور
                     await window.MursalSync.process(() => this.handleSessionExpired());
@@ -708,6 +713,12 @@
                     // تأكيد تحديث الطابور بعد كل العمليات
                     this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                     this.recomputePendingIds();
+
+                    // إذا أضيفت عملية جديدة أثناء انشغال المزامنة الحالية، نبدأ دورة مزامنة فورية لرفعها للسيرفر
+                    if (this._needsResync && this.isOnline && !this.authRequired) {
+                        this._needsResync = false;
+                        this.syncData();
+                    }
                 }
             },
 
@@ -767,14 +778,16 @@
 
             async executeStatusChange(parcel, status) {
                 const delivered_at = status === 'delivered' ? new Date().toISOString() : null;
+                const updatedParcel = { ...parcel, status, delivered_at };
 
-                // 1. تحديث تفاؤلي فوري في الذاكرة وتحديث العدادات بدورة واحدة
+                // 1. تحديث تفاؤلي فوري في الذاكرة والمصفوفة وتحديث العدادات بدورة واحدة
                 Object.assign(parcel, { status, delivered_at });
+                this.parcels = this.parcels.map((p) => (p.id === parcel.id ? { ...p, status, delivered_at } : p));
                 this.recomputeStatusCounts();
 
                 // 2. تحديث التخزين المحلي للطرود
                 try {
-                    await window.MursalDB.put(window.MURSAL_STORES.parcels, parcel);
+                    await window.MursalDB.put(window.MURSAL_STORES.parcels, updatedParcel);
                 } catch (error) {
                     console.warn('IndexedDB write error:', error);
                 }

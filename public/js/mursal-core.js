@@ -103,14 +103,37 @@
             return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         },
 
+        extractPathname(endpoint) {
+            const raw = String(endpoint || '').trim();
+            if (!raw) return '';
+            try {
+                return new URL(raw, window.location.origin).pathname;
+            } catch (_) {
+                return raw.replace(/^https?:\/\/[^/]+/i, '');
+            }
+        },
+
+        isCorruptEndpoint(endpoint) {
+            const raw = String(endpoint || '').trim();
+            if (!raw) return true;
+            const pathname = this.extractPathname(raw);
+            return (
+                !pathname ||
+                pathname.includes('temp_') ||
+                pathname.includes('undefined') ||
+                pathname.includes('null') ||
+                pathname.includes(':')
+            );
+        },
+
         // تسجيل عملية لأي موديول في الطابور
         async enqueue(endpoint, payload, method = 'POST') {
             const cleanEndpoint = String(endpoint || '').trim();
             const upperMethod = String(method || 'POST').toUpperCase();
 
-            // حماية صارمة: منع إدراج مهام DELETE أو PUT تحتوي على معرفات مؤقتة أو غير صالحة
+            // حماية صارمة: منع إدراج مهام DELETE أو PUT تحتوي على معرفات مؤقتة أو غير صالحة في المسار (pathname)
             if (upperMethod === 'DELETE' || upperMethod === 'PUT' || upperMethod === 'PATCH') {
-                if (cleanEndpoint.includes('temp_') || cleanEndpoint.includes('undefined') || cleanEndpoint.includes('null') || cleanEndpoint.includes(':')) {
+                if (this.isCorruptEndpoint(cleanEndpoint)) {
                     console.warn('MursalSync: Blocked invalid enqueue endpoint:', cleanEndpoint);
                     return null;
                 }
@@ -137,67 +160,74 @@
         async process(onSessionExpired) {
             if (this.isSyncing || !navigator.onLine) return;
 
-            const queue = await MursalDB.getAll(STORES.queue);
+            let queue = await MursalDB.getAll(STORES.queue);
             if (!queue || queue.length === 0) return;
 
             this.isSyncing = true;
 
             try {
-                for (const item of queue) {
-                    try {
-                        const endpoint = String(item?.endpoint || '').trim();
-                        const method = String(item?.method || 'POST').toUpperCase();
+                while (queue && queue.length > 0 && navigator.onLine) {
+                    let aborted = false;
 
-                        // 1. تنظيف أي مهمة فاسدة أو مؤقتة عالقة في الطابور
-                        if (!item || !endpoint ||
-                            endpoint.includes('temp_') ||
-                            endpoint.includes('undefined') ||
-                            endpoint.includes('null') ||
-                            endpoint.includes(':')) {
-                            console.warn('MursalSync: Purging corrupt/temp queue item:', item);
-                            await MursalDB.delete(STORES.queue, item.seq);
-                            continue;
-                        }
+                    for (const item of queue) {
+                        try {
+                            const endpoint = String(item?.endpoint || '').trim();
+                            const method = String(item?.method || 'POST').toUpperCase();
 
-                        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                        const fetchOptions = {
-                            method: method,
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': token || ''
+                            // 1. تنظيف أي مهمة فاسدة أو مؤقتة عالقة في مسار الرابط (pathname فقط، دون التأثر بـ http:// أو :port)
+                            if (!item || this.isCorruptEndpoint(endpoint)) {
+                                console.warn('MursalSync: Purging corrupt/temp queue item:', item);
+                                await MursalDB.delete(STORES.queue, item.seq);
+                                continue;
                             }
-                        };
 
-                        // لا نرسل body في طلبات DELETE أو GET أو HEAD
-                        if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE' && item.payload !== null && item.payload !== undefined) {
-                            fetchOptions.body = JSON.stringify(item.payload);
-                        }
+                            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                            const fetchOptions = {
+                                method: method,
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': token || ''
+                                }
+                            };
 
-                        const res = await fetch(endpoint, fetchOptions);
+                            // لا نرسل body في طلبات DELETE أو GET أو HEAD
+                            if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE' && item.payload !== null && item.payload !== undefined) {
+                                fetchOptions.body = JSON.stringify(item.payload);
+                            }
 
-                        if (res.status === 401 || res.status === 419) {
-                            if (typeof onSessionExpired === 'function') onSessionExpired();
-                            return;
-                        }
+                            const res = await fetch(endpoint, fetchOptions);
 
-                        const isDeleteAlreadyDone = method === 'DELETE' && (res.status === 404 || res.status === 410);
-                        const isNonRetryable = (res.status === 400 || res.status === 422 || (method === 'PUT' && res.status === 404));
+                            if (res.status === 401 || res.status === 419) {
+                                if (typeof onSessionExpired === 'function') onSessionExpired();
+                                return;
+                            }
 
-                        if (res.ok || isDeleteAlreadyDone) {
-                            await MursalDB.delete(STORES.queue, item.seq);
-                        } else if (isNonRetryable) {
-                            // خطأ في البيانات لا يمكن حله بإعادة المحاولة: نحذفه من الطابور حتى لا يعلق
-                            console.warn('MursalSync: Item unprocessable (' + res.status + '), removing from queue:', item);
-                            await MursalDB.delete(STORES.queue, item.seq);
-                        } else {
-                            console.error('خطأ مزامنة السيرفر:', await res.json().catch(() => ({})));
+                            const isDeleteAlreadyDone = method === 'DELETE' && (res.status === 404 || res.status === 410);
+                            const isNonRetryable = (res.status === 400 || res.status === 422 || (method === 'PUT' && res.status === 404));
+
+                            if (res.ok || isDeleteAlreadyDone) {
+                                await MursalDB.delete(STORES.queue, item.seq);
+                            } else if (isNonRetryable) {
+                                // خطأ في البيانات لا يمكن حله بإعادة المحاولة: نحذفه من الطابور حتى لا يعلق
+                                console.warn('MursalSync: Item unprocessable (' + res.status + '), removing from queue:', item);
+                                await MursalDB.delete(STORES.queue, item.seq);
+                            } else {
+                                console.error('خطأ مزامنة السيرفر:', await res.json().catch(() => ({})));
+                                aborted = true;
+                                break;
+                            }
+                        } catch (err) {
+                            console.warn('Network sync paused:', err);
+                            aborted = true;
                             break;
                         }
-                    } catch (err) {
-                        console.warn('Network sync paused:', err);
-                        break;
                     }
+
+                    if (aborted) break;
+
+                    // فحص إن كانت هناك عمليات جديدة أضيفت للطابور أثناء انشغال المعالجة الحالية
+                    queue = await MursalDB.getAll(STORES.queue);
                 }
             } finally {
                 this.isSyncing = false;
