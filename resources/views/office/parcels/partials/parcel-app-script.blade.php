@@ -579,6 +579,7 @@
                             this.streamingQueue[targetIndex].status = 'success';
                             this.streamingQueue[targetIndex].smsSent = Boolean(data.sms_sent);
                             this.streamingQueue[targetIndex].whatsappSent = Boolean(data.whatsapp_sent);
+                            this.streamingQueue[targetIndex].whatsappQueued = Boolean(data.whatsapp_queued);
                         } else {
                             this.streamingQueue[targetIndex].status = 'failed';
                             this.streamingQueue[targetIndex].error = data.message || 'فشل الإرسال';

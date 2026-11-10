@@ -68,7 +68,7 @@
                                         <a href="{{ route('admin.whatsapp_instances.edit', $inst) }}" class="hover:text-secondary transition-colors">
                                             {{ $inst->name }}
                                         </a>
-                                        <span class="text-[11px] text-slate-400 block font-normal">{{ $inst->created_at->format('Y-m-d') }}</span>
+                                        <span class="text-[11px] text-slate-400 block font-normal">{{ $inst->created_at?->format('Y-m-d') ?? '—' }}</span>
                                     </div>
                                 </div>
                             </td>

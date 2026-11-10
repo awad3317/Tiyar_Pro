@@ -10,7 +10,8 @@ class DeliveryNotificationService
 {
     public function __construct(
         protected HttpSmsService $smsService,
-        protected WhatsAppService $whatsAppService
+        protected WhatsAppService $whatsAppService,
+        protected WhatsAppMessageComposer $composer
     ) {}
 
     /**
@@ -98,7 +99,10 @@ class DeliveryNotificationService
                         $waTemplate = $office->getDeliveryWhatsappTemplate();
                         $waBody = $wa->parseTemplate($waTemplate, $variables);
 
-                        $waResult = $wa->sendText($phone, $waBody);
+                        // حماية سريعة من بصمة الـ Spam: محارف مخفية + رمز مرجعي عشوائي + تأخير "يكتب الآن..."
+                        $waBody = $this->composer->protect($waBody);
+
+                        $waResult = $wa->sendText($phone, $waBody, random_int(3000, 6000));
                         $status['whatsapp_sent'] = ! empty($waResult['success']) || (empty($waResult['error']) && empty($waResult['message']));
 
                         if (! $status['whatsapp_sent']) {

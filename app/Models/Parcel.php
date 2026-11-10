@@ -26,13 +26,18 @@ class Parcel extends Model
         'source_office_name',
         'status',
         'delivered_at',
+        'whatsapp_status',
+        'whatsapp_scheduled_at',
+        'whatsapp_sent_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'status'       => ParcelStatus::class,
-            'delivered_at' => 'datetime',
+            'status'                => ParcelStatus::class,
+            'delivered_at'          => 'datetime',
+            'whatsapp_scheduled_at' => 'datetime',
+            'whatsapp_sent_at'      => 'datetime',
             'cod_amount'   => 'float',
         ];
     }

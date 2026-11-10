@@ -767,6 +767,9 @@
                         <template x-if="entry.status === 'success' && entry.whatsappSent">
                             <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">واتساب ✓</span>
                         </template>
+                        <template x-if="entry.status === 'success' && entry.whatsappQueued && !entry.whatsappSent">
+                            <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold" title="سيُرسل إشعار الواتساب تلقائياً خلال دقائق لحماية رقم المكتب من الحظر">واتساب ⏳ مجدول</span>
+                        </template>
                         <template x-if="entry.status === 'success' && entry.smsSent">
                             <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">SMS ✓</span>
                         </template>

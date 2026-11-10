@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v14';
+const CACHE_NAME = 'mursal-pwa-v15';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
     '/office/favorite-customers',
     '/manifest.json',
     '/js/tailwind.js',
-    '/js/mursal-core.js?v=14',
+    '/js/mursal-core.js?v=15',
     'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap',
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js'
 ];
