@@ -7,7 +7,7 @@ use App\Models\Parcel;
 
 /**
  * مولّد نصوص رسائل الواتساب المحمية من بصمة الـ Spam:
- * - ترحيب ومقدمة متغيرة (Spintax)
+ * - ترحيب ومقدمة متغيرة (Spintax) دون فرض اسم العميل إلا إذا وُجد في القالب
  * - سطر تحفيز العميل على الرد (يرفع الـ Trust Score للرقم)
  * - حقن محارف غير مرئية بين الكلمات العربية فقط (دون المساس بالأرقام أو الروابط)
  * - رمز مرجعي عشوائي في النهاية بحيث يستحيل تطابق رسالتين بنفس الـ Hash
@@ -53,14 +53,15 @@ class WhatsAppMessageComposer
     public function composeArrival(Office $office, Parcel $parcel, WhatsAppService $wa): string
     {
         $greeting = $this->pick(self::GREETINGS);
-        $recipient = trim((string) $parcel->recipient_name);
-        $greetingLine = $recipient !== '' ? "{$greeting} {$recipient}" : $greeting;
 
         if (! empty($office->whatsapp_template)) {
-            // قالب المكتب هو جسم الرسالة (يحتوي أصلاً على نص التوصيل ورقم التواصل الخاص بالمكتب)
-            $body = $wa->parseTemplate($office->whatsapp_template, $this->templateVariables($parcel));
-            $text = $greetingLine . "\n" . trim($body);
+            // يلتزم بالقالب فقط: إذا وضع المكتب {recipient} في القالب سيتم تعويضه، وإلا فلن يظهر الاسم
+            $body = $wa->parseTemplate($office->whatsapp_template, $this->templateVariables($parcel, $office));
+            $text = $greeting . "\n" . trim($body);
         } else {
+            // في حال ترك القالب فارغاً، يُستخدم النص الافتراضي
+            $recipient = trim((string) $parcel->recipient_name);
+            $greetingLine = $recipient !== '' ? "{$greeting} {$recipient}" : $greeting;
             $text = $this->buildDefaultBody($office, $parcel, $greetingLine);
         }
 
@@ -84,18 +85,22 @@ class WhatsAppMessageComposer
     }
 
     /**
-     * متغيرات قالب المكتب (نفس المفاتيح المستخدمة سابقاً + صيغ إضافية متوافقة).
+     * متغيرات قالب المكتب (تدعم جميع المتغيرات الظاهرة في لوحة التحكم).
      */
-    public function templateVariables(Parcel $parcel): array
+    public function templateVariables(Parcel $parcel, ?Office $office = null): array
     {
+        $office = $office ?? $parcel->office;
+
         $package = $parcel->package_type ?: 'طرد';
         $receipt = $parcel->receipt_number ?? '';
-        $recipient = $parcel->recipient_name ?: 'العميل';
+        $recipient = trim((string) $parcel->recipient_name);
         $cod = (float) ($parcel->cod_amount ?? 0) > 0 ? number_format((float) $parcel->cod_amount) : '';
 
         return [
             '{package}'         => $package,
             '{package_type}'    => $package,
+            '{office}'          => $office?->name ?? '',
+            '{branch}'          => $office?->branch_name ?? '',
             '{receipt}'         => $receipt,
             '{receipt_number}'  => $receipt,
             '{recipient}'       => $recipient,
@@ -124,7 +129,6 @@ class WhatsAppMessageComposer
             $lines[] = 'المبلغ المطلوب عند الاستلام: ' . number_format((float) $parcel->cod_amount) . ' ر.ي';
         }
 
-        // سطر التوصيل يظهر فقط إذا كان للمكتب رقم توصيل معرّف في إعداداته
         $deliveryPhone = trim((string) ($office->getAttribute('delivery_service_phone') ?? ''));
         if ($deliveryPhone !== '') {
             $lines[] = $this->pick(self::DELIVERY_LINES) . ' ' . $deliveryPhone;
@@ -135,7 +139,6 @@ class WhatsAppMessageComposer
 
     /**
      * حقن محارف غير مرئية عشوائياً عند حدود الكلمات العربية فقط.
-     * لا يتم الحقن بجوار أي كلمة تحتوي أرقاماً أو رابطاً أو بريداً أو رمزاً مرجعياً.
      */
     public function injectZeroWidth(string $text): string
     {
@@ -160,7 +163,6 @@ class WhatsAppMessageComposer
             $lines[$li] = implode(' ', $tokens);
         }
 
-        // ضمان وجود محرف مخفي واحد على الأقل حتى لو لم تُصب العشوائية أي موضع
         if ($injected === 0) {
             foreach ($lines as $li => $line) {
                 $tokens = explode(' ', $line);
@@ -183,7 +185,6 @@ class WhatsAppMessageComposer
             return false;
         }
 
-        // أي رقم (لاتيني أو عربي-هندي) أو رابط أو بريد أو رمز يستبعد الكلمة
         if (preg_match('/[0-9\x{0660}-\x{0669}\x{06F0}-\x{06F9}]|https?:|www\.|@|\/|\[|\]/u', $token)) {
             return false;
         }
@@ -196,4 +197,3 @@ class WhatsAppMessageComposer
         return $items[array_rand($items)];
     }
 }
-
