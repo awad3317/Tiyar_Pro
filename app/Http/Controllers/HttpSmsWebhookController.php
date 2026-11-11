@@ -63,6 +63,79 @@ class HttpSmsWebhookController extends Controller
     }
 
     /**
+     * دالة موحدة وذكية للعثور على الطرد المقصود لحدث الويب هوك
+     */
+    protected function findMatchingParcel(array $data, ?Office $office, string $cleanRecipient): ?Parcel
+    {
+        // 1. إذا كان request_id مرسلاً ويحوي المعرف المباشر للطرد
+        if (!empty($data['request_id'])) {
+            $parcel = Parcel::find($data['request_id']);
+            if ($parcel) {
+                return $parcel;
+            }
+        }
+
+        $shortRecipient = substr(preg_replace('/[^0-9]/', '', $cleanRecipient), -9);
+        if (empty($shortRecipient)) {
+            return null;
+        }
+
+        $content = $data['content'] ?? $data['message'] ?? '';
+
+        // 2. البحث في جدول parcels عن طرود اليوم التي تطابق رقم المستلم مع تفضيل المكتب
+        $candidates = collect();
+
+        if ($office) {
+            $candidates = Parcel::where('office_id', $office->id)
+                ->where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
+                ->whereDate('created_at', today())
+                ->latest('created_at')
+                ->get();
+        }
+
+        // إذا لم يُعثر على طرود في المكتب المحدد (بسبب اختلاف الشريحة أو الإعدادات)، نبحث بدون قيد المكتب لليوم
+        if ($candidates->isEmpty()) {
+            $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
+                ->whereDate('created_at', today())
+                ->latest('created_at')
+                ->get();
+        }
+
+        // إذا لم نجد في طرود اليوم، نبحث في آخر 24 ساعة كـ Fallback
+        if ($candidates->isEmpty()) {
+            $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
+                ->where('created_at', '>=', now()->subHours(24))
+                ->latest('created_at')
+                ->get();
+        }
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        // 3. إعطاء الأولوية للطرود المعلقة أو التي فشلت (pending, failed_balance, failed)
+        $priorityCandidates = $candidates->filter(function (Parcel $p) {
+            return in_array($p->sms_status, ['pending', 'failed_balance', 'failed'], true);
+        });
+
+        $pool = $priorityCandidates->isNotEmpty() ? $priorityCandidates : $candidates;
+
+        // 4. إذا وُجد أكثر من طرد، نُطابق نص الرسالة مع package_type للطرد
+        if (!empty($content) && $pool->count() > 1) {
+            $matched = $pool->first(function (Parcel $p) use ($content) {
+                return !empty($p->package_type) && mb_strpos($content, trim($p->package_type)) !== false;
+            });
+
+            if ($matched) {
+                return $matched;
+            }
+        }
+
+        // 5. إذا لم يتطابق النص أو كان هناك طرد واحد فقط، نأخذ أقدم طرد معلق (FIFO)
+        return $pool->last() ?? $pool->first();
+    }
+
+    /**
      * تسجيل الرسالة كمسلّمة لمنع أي Retry لاحق لنفس الطرد وتحديث حالة الطرد بدقة
      */
     protected function markMessageAsDelivered(array $data, string $event): void
@@ -84,7 +157,8 @@ class HttpSmsWebhookController extends Controller
         Cache::put($deliveredKey, true, now()->addHours(6));
         Log::info("✅ [DELIVERED] Event [{$event}]: Saved to cache for +{$cleanRecipient} (Owner: +{$cleanOwner}).");
 
-        // 1. جلب جميع المكاتب المرتبطة برقم الشريحة المرسلة (لتفادي مشكلة تكرار الرقم في أكثر من مكتب)
+        // 1. جلب المكتب الرئيسي والمكاتب المرتبطة برقم الشريحة المرسلة
+        $office = $this->resolveOfficeBySender($cleanOwner);
         $shortSender = substr($cleanOwner, -9);
         $matchingOfficeIds = Office::where(function ($q) use ($shortSender) {
                 $q->where('httpsms_from_phone', 'LIKE', "%{$shortSender}%")
@@ -100,44 +174,8 @@ class HttpSmsWebhookController extends Controller
             Cache::forget("sms_retrying_after_recharge_office_{$officeId}");
         }
 
-        // 2. البحث الذكي عن الطرد المقصود
-        $shortRecipient = substr($cleanRecipient, -9);
-        $parcel = null;
-
-        // أ) إذا كان request_id مرسلاً ويحوي UUID الطرد مباشرة
-        if (!empty($data['request_id'])) {
-            $parcel = Parcel::find($data['request_id']);
-        }
-
-        // ب) البحث في الطرود المعلقة (pending أو failed_balance) لهذا الرقم
-        if (!$parcel) {
-            $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
-                ->when(!empty($matchingOfficeIds), fn ($q) => $q->whereIn('office_id', $matchingOfficeIds))
-                ->whereIn('sms_status', ['pending', 'failed_balance'])
-                ->latest('created_at')
-                ->get();
-
-            // إذا لم نجد في المكاتب المطابقة (بسبب اختلاف رقم المرسل في الإعدادات)، نبحث برقم المستلم في طرود اليوم المعلقة
-            if ($candidates->isEmpty()) {
-                $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
-                    ->whereIn('sms_status', ['pending', 'failed_balance'])
-                    ->where('created_at', '>=', now()->subDay())
-                    ->latest('created_at')
-                    ->get();
-            }
-
-            // مطابقة نوع الطرد (مثل: "كرتون أبيض" أو "ضرف كاكي") مع نص الرسالة لتحديث الطرد الصحيح بالضبط
-            if (!empty($content) && $candidates->count() > 1) {
-                $parcel = $candidates->first(function (Parcel $p) use ($content) {
-                    return !empty($p->package_type) && mb_strpos($content, trim($p->package_type)) !== false;
-                });
-            }
-
-            // إذا لم يتطابق النص أو كان هناك طرد واحد فقط، نأخذ أقدم طرد معلق (FIFO) ليتم تحديث الطرود بالترتيب
-            if (!$parcel) {
-                $parcel = $candidates->last() ?? $candidates->first();
-            }
-        }
+        // 2. البحث الذكي عن الطرد المقصود عبر الدالة الموحدة
+        $parcel = $this->findMatchingParcel($data, $office, $cleanRecipient);
 
         if ($parcel) {
             $isDelivered = in_array($event, ['message.phone.delivered', 'message.send.delivered'], true);
@@ -158,7 +196,7 @@ class HttpSmsWebhookController extends Controller
 
             Log::info("📦 [PARCEL UPDATED] Parcel ID [{$parcel->id}] (Type: {$parcel->package_type}) sms_status set to [{$newStatus}].");
         } else {
-            Log::warning("❓ [PARCEL NOT FOUND] Could not find pending parcel for recipient [{$shortRecipient}] and sender [{$shortSender}].");
+            Log::warning("❓ [PARCEL NOT FOUND] Could not find pending parcel for recipient [{$cleanRecipient}] and sender [{$cleanOwner}].");
         }
     }
 
@@ -232,42 +270,41 @@ class HttpSmsWebhookController extends Controller
             if ($office) {
                 Log::info("🏢 [STEP 10] Office found: [{$office->name}] (ID: {$office->id})");
             } else {
-                Log::error("❌ [STEP 10] Office NOT found in DB matching sender phone [{$cleanOwner}].");
+                Log::warning("⚠️ [STEP 10] Office NOT found in DB matching sender phone [{$cleanOwner}].");
             }
 
             // ========================================================
-            // حالة خطأ 108: نفاد الرصيد أو الباقة في الشريحة
+            // 1. تحديث الطرد فوراً في قاعدة البيانات عند أي فشل (قبل حسابات الإعادة)
+            // ========================================================
+            $parcel = $this->findMatchingParcel($data, $office, $cleanRecipient);
+            if ($parcel) {
+                $statusToSet = $is108Error ? 'failed_balance' : 'failed';
+                $parcel->update([
+                    'sms_status'         => $statusToSet,
+                    'sms_failure_reason' => $this->formatSmsFailureReason($errorMessage, $event),
+                ]);
+                Log::info("📦 [PARCEL UPDATED ON FAILURE] Parcel ID [{$parcel->id}] (Type: {$parcel->package_type}) set to [{$statusToSet}], reason: [{$parcel->sms_failure_reason}].");
+            } else {
+                Log::warning("❓ [PARCEL NOT FOUND ON FAILURE] No matching parcel found for recipient [{$cleanRecipient}] and sender [{$cleanOwner}].");
+            }
+
+            // ========================================================
+            // 2. حالة خطأ 108: نفاد الرصيد أو الباقة في الشريحة
             // ========================================================
             if ($is108Error) {
                 Log::warning("🚫 [ERROR 108] Out of balance detected on sender [{$cleanOwner}], sim [{$simSlot}]: {$errorMessage}");
 
-                if ($office) {
-                    // 1. تحديث أحدث طرد مسجل اليوم للمكتب يطابق رقم العميل إلى failed_balance
-                    $shortRecipient = substr($cleanRecipient, -9);
-                    $parcel = Parcel::where('office_id', $office->id)
-                        ->where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
-                        ->whereDate('created_at', today())
-                        ->latest('created_at')
-                        ->first();
-
-                    if ($parcel) {
-                        $parcel->update([
-                            'sms_status'         => 'failed_balance',
-                            'sms_failure_reason' => $this->formatSmsFailureReason($errorMessage, $event),
-                        ]);
-                        Log::info("📦 [PARCEL UPDATED] Parcel ID [{$parcel->id}] sms_status set to 'failed_balance'.");
-                    }
-
-                    // 2. حساب العداد المتتالي لفشل 108 وتفعيل حالة نفاد الباقة
-                    $streakKey = "sms_108_streak_office_{$office->id}";
+                $targetOfficeId = $office?->id ?? $parcel?->office_id;
+                if ($targetOfficeId) {
+                    $streakKey = "sms_108_streak_office_{$targetOfficeId}";
                     $streak = (int) Cache::get($streakKey, 0) + 1;
                     Cache::put($streakKey, $streak, now()->addHours(6));
 
-                    $isRetryingAfterRecharge = Cache::has("sms_retrying_after_recharge_office_{$office->id}");
-                    Log::info("📊 [STREAK 108] Office [{$office->name}] streak=[{$streak}], isRetryingAfterRecharge=" . ($isRetryingAfterRecharge ? 'YES' : 'NO'));
+                    $isRetryingAfterRecharge = Cache::has("sms_retrying_after_recharge_office_{$targetOfficeId}");
+                    Log::info("📊 [STREAK 108] Office ID [{$targetOfficeId}] streak=[{$streak}], isRetryingAfterRecharge=" . ($isRetryingAfterRecharge ? 'YES' : 'NO'));
 
                     if ($streak >= 3 || $isRetryingAfterRecharge) {
-                        Cache::put("sms_out_of_balance_office_{$office->id}", [
+                        Cache::put("sms_out_of_balance_office_{$targetOfficeId}", [
                             'out_of_balance' => true,
                             'error_code'     => $errorMessage,
                             'sim'            => $simSlot,
@@ -276,13 +313,16 @@ class HttpSmsWebhookController extends Controller
                             'message'        => "توقف إرسال الرسائل النصية (SMS) بسبب انتهاء الباقة أو نفاد الرصيد في الشريحة ({$simSlot} - خطأ 108).",
                         ], now()->addHours(12));
 
-                        Log::error("🚨 [OUT OF BALANCE ACTIVE] Office [{$office->name}] locked in out_of_balance state for 12 hours.");
+                        Log::error("🚨 [OUT OF BALANCE ACTIVE] Office ID [{$targetOfficeId}] locked in out_of_balance state for 12 hours.");
 
                         // إرسال إشعار واتساب للمسؤول والمكتب (مع قفل منع التكرار كل ساعتين)
-                        $waAlertKey = "sms_108_wa_alert_office_{$office->id}";
+                        $waAlertKey = "sms_108_wa_alert_office_{$targetOfficeId}";
                         if (!Cache::has($waAlertKey)) {
                             Cache::put($waAlertKey, true, now()->addHours(2));
-                            $this->notifyOutOfBalance($office, $errorMessage, $simSlot, $streak);
+                            $alertOffice = $office ?? Office::find($targetOfficeId);
+                            if ($alertOffice) {
+                                $this->notifyOutOfBalance($alertOffice, $errorMessage, $simSlot, $streak);
+                            }
                         }
                     }
                 }
@@ -292,14 +332,17 @@ class HttpSmsWebhookController extends Controller
             }
 
             // ========================================================
-            // حالات الفشل الأخرى (غير 108): منطق إعادة المحاولة التقليدي
+            // 3. حالة تعطل الإرسال من داخل تطبيق httpSMS في الهاتف
             // ========================================================
-            // التحقق من فترة التهدئة لمنع التكرار المتزامن
-            if (Cache::has($cooldownKey)) {
-                Log::warning("⏳ [COOLDOWN] Skipped: Retry cooldown is active for +{$cleanRecipient}. Awaiting delivery report.");
+            $isAppDisabled = str_contains($errorMessage, 'DISABLED ON THE MOBILE APP');
+            if ($isAppDisabled) {
+                Log::warning("🚫 [APP DISABLED] Outgoing messages disabled on mobile app for sender [{$cleanOwner}]. Skipping retry.");
                 return;
             }
 
+            // ========================================================
+            // 4. حالات الفشل الأخرى: منطق إعادة المحاولة التقليدي (بدون حجب cooldownKey)
+            // ========================================================
             if (empty($content)) {
                 Log::warning("⚠ [STEP 7] Cannot retry: message content is empty.");
                 return;
@@ -311,10 +354,7 @@ class HttpSmsWebhookController extends Controller
             if ($attemptCount < 2) {
                 $newAttempt = $attemptCount + 1;
                 Cache::put($retryKey, $newAttempt, now()->addHours(2));
-
-                // تفعيل فترة تهدئة لمدة 3 دقائق لمنع أي سبايك أو حدث مكرر
-                Cache::put($cooldownKey, true, now()->addMinutes(3));
-                Log::info("📈 [STEP 8] Counter incremented to [{$newAttempt}]. Cooldown activated for 3 mins.");
+                Log::info("📈 [STEP 8] Counter incremented to [{$newAttempt}].");
 
                 Log::warning("🔄 [STEP 9] Triggering SMS Retry to +{$cleanRecipient} via office {$cleanOwner} (Attempt #{$newAttempt})");
 
@@ -341,23 +381,6 @@ class HttpSmsWebhookController extends Controller
                 
                 Cache::put($retryKey, 99, now()->addDay());
                 Log::info("🔒 [DROP] Retry counter key [{$retryKey}] locked for 24 hours.");
-
-                if ($office) {
-                    $shortRecipient = substr($cleanRecipient, -9);
-                    $parcel = Parcel::where('office_id', $office->id)
-                        ->where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
-                        ->whereDate('created_at', today())
-                        ->latest('created_at')
-                        ->first();
-
-                    if ($parcel) {
-                        $parcel->update([
-                            'sms_status'         => 'failed',
-                            'sms_failure_reason' => $this->formatSmsFailureReason($errorMessage, $event),
-                        ]);
-                        Log::info("📦 [PARCEL UPDATED] Parcel ID [{$parcel->id}] sms_status set to 'failed'.");
-                    }
-                }
 
                 $this->notifyAdminFailedSms($office, $cleanRecipient, $cleanOwner, $content, $event);
             }
@@ -487,6 +510,10 @@ class HttpSmsWebhookController extends Controller
     {
         $codeUpper = strtoupper(trim($errorCode));
         $eventUpper = strtoupper(trim($event));
+
+        if (str_contains($codeUpper, 'DISABLED ON THE MOBILE APP')) {
+            return "APP_DISABLED - إرسال الرسائل معطل من داخل تطبيق httpSMS في الهاتف";
+        }
 
         if (str_contains($codeUpper, '108')) {
             return "UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة";
