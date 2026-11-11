@@ -63,7 +63,7 @@ class HttpSmsWebhookController extends Controller
     }
 
     /**
-     * تسجيل الرسالة كمسلّمة لمنع أي Retry لاحق لنفس الطرد وتحديث حالة الطرد
+     * تسجيل الرسالة كمسلّمة لمنع أي Retry لاحق لنفس الطرد وتحديث حالة الطرد بدقة
      */
     protected function markMessageAsDelivered(array $data, string $event): void
     {
@@ -72,6 +72,7 @@ class HttpSmsWebhookController extends Controller
         $content = $data['content'] ?? $data['message'] ?? '';
 
         if (!$contact || !$owner) {
+            Log::warning("⚠️ [DELIVERED] Missing contact or owner in payload.");
             return;
         }
 
@@ -80,33 +81,84 @@ class HttpSmsWebhookController extends Controller
         $contentHash    = md5(trim($content));
 
         $deliveredKey = "sms_delivered_{$cleanOwner}_{$cleanRecipient}_{$contentHash}";
-        
-        // حفظ القفل في الكاش لمدة 6 ساعات
         Cache::put($deliveredKey, true, now()->addHours(6));
-        Log::info("✅ [DELIVERED] Event [{$event}]: Saved to cache for +{$cleanRecipient} (Hash: {$contentHash}).");
+        Log::info("✅ [DELIVERED] Event [{$event}]: Saved to cache for +{$cleanRecipient} (Owner: +{$cleanOwner}).");
 
-        // البحث عن المكتب لتصفير العداد وتحديث حالة الطرد
-        $office = $this->resolveOfficeBySender($cleanOwner);
-        if ($office) {
-            Cache::forget("sms_108_streak_office_{$office->id}");
-            Cache::forget("sms_out_of_balance_office_{$office->id}");
-            Cache::forget("sms_retrying_after_recharge_office_{$office->id}");
+        // 1. جلب جميع المكاتب المرتبطة برقم الشريحة المرسلة (لتفادي مشكلة تكرار الرقم في أكثر من مكتب)
+        $shortSender = substr($cleanOwner, -9);
+        $matchingOfficeIds = Office::where(function ($q) use ($shortSender) {
+                $q->where('httpsms_from_phone', 'LIKE', "%{$shortSender}%")
+                  ->orWhere('whatsapp_sender_phone', 'LIKE', "%{$shortSender}%");
+            })
+            ->pluck('id')
+            ->toArray();
 
-            $shortRecipient = substr($cleanRecipient, -9);
-            $parcel = Parcel::where('office_id', $office->id)
-                ->where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
-                ->whereDate('created_at', today())
+        // تصفير عدادات نفاد الرصيد لجميع المكاتب التي تستخدم هذه الشريحة
+        foreach ($matchingOfficeIds as $officeId) {
+            Cache::forget("sms_108_streak_office_{$officeId}");
+            Cache::forget("sms_out_of_balance_office_{$officeId}");
+            Cache::forget("sms_retrying_after_recharge_office_{$officeId}");
+        }
+
+        // 2. البحث الذكي عن الطرد المقصود
+        $shortRecipient = substr($cleanRecipient, -9);
+        $parcel = null;
+
+        // أ) إذا كان request_id مرسلاً ويحوي UUID الطرد مباشرة
+        if (!empty($data['request_id'])) {
+            $parcel = Parcel::find($data['request_id']);
+        }
+
+        // ب) البحث في الطرود المعلقة (pending أو failed_balance) لهذا الرقم
+        if (!$parcel) {
+            $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
+                ->when(!empty($matchingOfficeIds), fn ($q) => $q->whereIn('office_id', $matchingOfficeIds))
+                ->whereIn('sms_status', ['pending', 'failed_balance'])
                 ->latest('created_at')
-                ->first();
+                ->get();
 
-            if ($parcel) {
-                $isDelivered = in_array($event, ['message.phone.delivered', 'message.send.delivered'], true);
+            // إذا لم نجد في المكاتب المطابقة (بسبب اختلاف رقم المرسل في الإعدادات)، نبحث برقم المستلم في طرود اليوم المعلقة
+            if ($candidates->isEmpty()) {
+                $candidates = Parcel::where('recipient_phone', 'LIKE', "%{$shortRecipient}%")
+                    ->whereIn('sms_status', ['pending', 'failed_balance'])
+                    ->where('created_at', '>=', now()->subDay())
+                    ->latest('created_at')
+                    ->get();
+            }
+
+            // مطابقة نوع الطرد (مثل: "كرتون أبيض" أو "ضرف كاكي") مع نص الرسالة لتحديث الطرد الصحيح بالضبط
+            if (!empty($content) && $candidates->count() > 1) {
+                $parcel = $candidates->first(function (Parcel $p) use ($content) {
+                    return !empty($p->package_type) && mb_strpos($content, trim($p->package_type)) !== false;
+                });
+            }
+
+            // إذا لم يتطابق النص أو كان هناك طرد واحد فقط، نأخذ أقدم طرد معلق (FIFO) ليتم تحديث الطرود بالترتيب
+            if (!$parcel) {
+                $parcel = $candidates->last() ?? $candidates->first();
+            }
+        }
+
+        if ($parcel) {
+            $isDelivered = in_array($event, ['message.phone.delivered', 'message.send.delivered'], true);
+            $newStatus   = $isDelivered ? 'delivered' : 'sent';
+
+            // عدم خفض الحالة من delivered إلى sent إذا وصل الحدثان بترتيب معكوس
+            if ($parcel->sms_status !== 'delivered') {
                 $parcel->update([
-                    'sms_status'         => $isDelivered ? 'delivered' : 'sent',
+                    'sms_status'         => $newStatus,
                     'sms_failure_reason' => null,
                 ]);
-                Log::info("📦 [PARCEL UPDATED] Parcel ID [{$parcel->id}] sms_status set to [{$parcel->sms_status}].");
             }
+
+            // تصفير قفل الرصيد لمكتب الطرد الفعلي أيضاً
+            Cache::forget("sms_108_streak_office_{$parcel->office_id}");
+            Cache::forget("sms_out_of_balance_office_{$parcel->office_id}");
+            Cache::forget("sms_retrying_after_recharge_office_{$parcel->office_id}");
+
+            Log::info("📦 [PARCEL UPDATED] Parcel ID [{$parcel->id}] (Type: {$parcel->package_type}) sms_status set to [{$newStatus}].");
+        } else {
+            Log::warning("❓ [PARCEL NOT FOUND] Could not find pending parcel for recipient [{$shortRecipient}] and sender [{$shortSender}].");
         }
     }
 
@@ -421,8 +473,7 @@ class HttpSmsWebhookController extends Controller
 
         $shortSender = substr($digits, -9);
 
-        return Office::where('is_active', true)
-            ->where(function ($q) use ($shortSender) {
+        return Office::where(function ($q) use ($shortSender) {
                 $q->where('httpsms_from_phone', 'LIKE', "%{$shortSender}%")
                   ->orWhere('whatsapp_sender_phone', 'LIKE', "%{$shortSender}%");
             })
