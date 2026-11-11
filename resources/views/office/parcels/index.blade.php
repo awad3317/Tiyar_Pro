@@ -9,6 +9,9 @@
 
 
 @section('content')
+    <!-- تنبيه نفاد باقة الـ SMS والشريط التذكيري -->
+    @include('office.parcels.partials.sms-balance-modal')
+
     <!-- تبويبات التصفية -->
     <nav class="flex border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
         <template x-for="tab in filters" :key="tab.key">

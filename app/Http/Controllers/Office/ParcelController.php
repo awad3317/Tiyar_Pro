@@ -126,6 +126,22 @@ class ParcelController extends Controller
             ], 422);
         }
 
+        // التحقق من حالة رصيد/باقة الـ SMS في الكاش
+        $outOfBalanceKey = "sms_out_of_balance_office_{$office->id}";
+        if (Cache::has($outOfBalanceKey)) {
+            $parcel->update([
+                'sms_status'         => 'failed_balance',
+                'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+            ]);
+
+            return response()->json([
+                'success'            => false,
+                'sms_out_of_balance' => true,
+                'sms_status_data'    => Cache::get($outOfBalanceKey),
+                'message'            => 'باقة الرسائل (SMS) منتهية في هاتف المكتب (خطأ 108). يرجى شحن الرصيد أولاً.',
+            ], 422);
+        }
+
         // التحقق من وجود إعدادات httpSMS للمكتب
         if (empty($office->httpsms_api_key) || empty($office->httpsms_from_phone)) {
             return response()->json([
@@ -159,16 +175,28 @@ class ParcelController extends Controller
             $office->httpsms_from_phone
         );
 
-        if ($result['success']) {
+        if (!empty($result['success']) || (is_bool($result) && $result)) {
+            $parcel->update([
+                'sms_status'         => 'pending',
+                'sms_failure_reason' => null,
+            ]);
+
             return response()->json([
-                'success' => true,
-                'message' => 'تم إعادة إرسال رسالة الـ SMS للمستلم بنجاح.'
+                'success'    => true,
+                'sms_status' => 'pending',
+                'message'    => 'تم إعادة إرسال رسالة الـ SMS للمستلم بنجاح.'
             ]);
         }
 
+        $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
+        $parcel->update([
+            'sms_status'         => 'failed',
+            'sms_failure_reason' => $failureReason,
+        ]);
+
         return response()->json([
             'success' => false,
-            'message' => 'تعذر إرسال رسالة SMS: ' . ($result['error'] ?? 'خطأ في بوابة الرسائل')
+            'message' => 'تعذر إرسال رسالة SMS: ' . $failureReason
         ], 500);
     }
 
@@ -290,6 +318,7 @@ class ParcelController extends Controller
         $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
         $smsTemplate = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
         $hasSmsGatewayConfigured = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
+        $isSmsOutOfBalance = Cache::has("sms_out_of_balance_office_{$office->id}");
 
         $waScheduler = app(WhatsAppQueueScheduler::class);
         $hasCodFeature = $office->hasFeature('parcel_cod_amount');
@@ -311,13 +340,15 @@ class ParcelController extends Controller
             // 1. إنشاء الطرد في قاعدة البيانات
             try {
                 $parcel = Parcel::create([
-                    'office_id'       => $office->id,
-                    'recipient_phone' => $phone,
-                    'package_type'    => $desc ?: 'طرد',
-                    'cod_amount'      => $codAmount,
-                    'status'          => defined(ParcelStatus::class . '::InOffice') 
+                    'office_id'          => $office->id,
+                    'recipient_phone'    => $phone,
+                    'package_type'       => $desc ?: 'طرد',
+                    'cod_amount'         => $codAmount,
+                    'status'             => defined(ParcelStatus::class . '::InOffice') 
                                             ? ParcelStatus::InOffice 
                                             : 'in_office',
+                    'sms_status'         => (in_array($channel, ['sms', 'both']) && $isSmsOutOfBalance) ? 'failed_balance' : null,
+                    'sms_failure_reason' => (in_array($channel, ['sms', 'both']) && $isSmsOutOfBalance) ? 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة' : null,
                 ]);
 
                 $createdParcels[] = $parcel;
@@ -330,40 +361,61 @@ class ParcelController extends Controller
             }
 
             // 2. إرسال رسالة SMS عبر البوابة
-            if (in_array($channel, ['sms', 'both']) && $hasSmsGatewayConfigured) {
-                $smsBody = str_replace(
-                    ['{office}', '{branch}', '{package}', '{receipt}'],
-                    [
-                        $office->name,
-                        $office->branch_name ?? '',
-                        $parcel->package_type,
-                        $parcel->receipt_number ?? ''
-                    ],
-                    $smsTemplate
-                );
-
-                $smsBody = str_replace(' ()', '', $smsBody);
-
-                try {
-                    $result = $smsService->send(
-                        $parcel->recipient_phone,
-                        $smsBody,
-                        $office->httpsms_api_key,
-                        $office->httpsms_from_phone
+            if (in_array($channel, ['sms', 'both'])) {
+                if ($isSmsOutOfBalance) {
+                    $smsFailedCount++;
+                    $parcel->update([
+                        'sms_status'         => 'failed_balance',
+                        'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                    ]);
+                } elseif ($hasSmsGatewayConfigured) {
+                    $smsBody = str_replace(
+                        ['{office}', '{branch}', '{package}', '{receipt}'],
+                        [
+                            $office->name,
+                            $office->branch_name ?? '',
+                            $parcel->package_type,
+                            $parcel->receipt_number ?? ''
+                        ],
+                        $smsTemplate
                     );
 
-                    if (!empty($result['success']) || (is_bool($result) && $result)) {
-                        $smsSuccessCount++;
-                    } else {
-                        $smsFailedCount++;
-                        Log::warning("Quick Send - SMS لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
-                    }
-                } catch (\Throwable $e) {
-                    $smsFailedCount++;
-                    Log::error("Quick Send - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
-                }
+                    $smsBody = str_replace(' ()', '', $smsBody);
 
-                sleep(1);
+                    try {
+                        $result = $smsService->send(
+                            $parcel->recipient_phone,
+                            $smsBody,
+                            $office->httpsms_api_key,
+                            $office->httpsms_from_phone
+                        );
+
+                        if (!empty($result['success']) || (is_bool($result) && $result)) {
+                            $parcel->update([
+                                'sms_status'         => 'pending',
+                                'sms_failure_reason' => null,
+                            ]);
+                            $smsSuccessCount++;
+                        } else {
+                            $smsFailedCount++;
+                            $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
+                            $parcel->update([
+                                'sms_status'         => 'failed',
+                                'sms_failure_reason' => $failureReason,
+                            ]);
+                            Log::warning("Quick Send - SMS لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
+                        }
+                    } catch (\Throwable $e) {
+                        $smsFailedCount++;
+                        $parcel->update([
+                            'sms_status'         => 'failed',
+                            'sms_failure_reason' => $e->getMessage() ?: 'تعذر الاتصال ببوابة الرسائل httpSMS',
+                        ]);
+                        Log::error("Quick Send - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
+                    }
+
+                    sleep(1);
+                }
             }
 
             // 3. جدولة إشعار الواتساب في الطابور الذكي (لا إرسال فوري لحماية رقم المكتب من الحظر)
@@ -380,15 +432,17 @@ class ParcelController extends Controller
         $totalSaved = count($createdParcels);
 
         return response()->json([
-            'success'          => true,
-            'count'            => $totalSaved,
-            'sms_sent'         => $smsSuccessCount,
-            'sms_failed'       => $smsFailedCount,
-            'whatsapp_sent'    => 0,
-            'whatsapp_failed'  => 0,
-            'whatsapp_queued'  => $whatsappQueuedCount,
-            'message'          => "تم تسجيل {$totalSaved} طرد بنجاح (SMS: {$smsSuccessCount} ، واتساب مجدول: {$whatsappQueuedCount}).",
-            'parcels'          => $createdParcels,
+            'success'            => true,
+            'count'              => $totalSaved,
+            'sms_sent'           => $smsSuccessCount,
+            'sms_failed'         => $smsFailedCount,
+            'sms_out_of_balance' => (bool) $isSmsOutOfBalance,
+            'sms_status_data'    => $isSmsOutOfBalance ? Cache::get("sms_out_of_balance_office_{$office->id}") : null,
+            'whatsapp_sent'      => 0,
+            'whatsapp_failed'    => 0,
+            'whatsapp_queued'    => $whatsappQueuedCount,
+            'message'            => "تم تسجيل {$totalSaved} طرد بنجاح (SMS: {$smsSuccessCount} ، واتساب مجدول: {$whatsappQueuedCount}).",
+            'parcels'            => $createdParcels,
         ]);
     }
 
@@ -460,42 +514,65 @@ class ParcelController extends Controller
             ], 500);
         }
 
+        $isSmsOutOfBalance = Cache::has("sms_out_of_balance_office_{$office->id}");
         $smsSent      = false;
         $whatsappSent = false;
 
         // 2. إرسال رسالة SMS إذا طُلب
         $hasSmsGateway = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
-        if (in_array($channel, ['sms', 'both']) && $hasSmsGateway) {
-            $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-            $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+        if (in_array($channel, ['sms', 'both'])) {
+            if ($isSmsOutOfBalance) {
+                $parcel->update([
+                    'sms_status'         => 'failed_balance',
+                    'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                ]);
+                $smsSent = false;
+            } elseif ($hasSmsGateway) {
+                $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+                $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
-            $smsBody = str_replace(
-                ['{office}', '{branch}', '{package}', '{receipt}'],
-                [
-                    $office->name,
-                    $office->branch_name ?? '',
-                    $parcel->package_type,
-                    $parcel->receipt_number ?? ''
-                ],
-                $template
-            );
-            $smsBody = str_replace(' ()', '', $smsBody);
-
-            try {
-                $result = $smsService->send(
-                    $parcel->recipient_phone,
-                    $smsBody,
-                    $office->httpsms_api_key,
-                    $office->httpsms_from_phone
+                $smsBody = str_replace(
+                    ['{office}', '{branch}', '{package}', '{receipt}'],
+                    [
+                        $office->name,
+                        $office->branch_name ?? '',
+                        $parcel->package_type,
+                        $parcel->receipt_number ?? ''
+                    ],
+                    $template
                 );
+                $smsBody = str_replace(' ()', '', $smsBody);
 
-                $smsSent = !empty($result['success']) || (is_bool($result) && $result);
+                try {
+                    $result = $smsService->send(
+                        $parcel->recipient_phone,
+                        $smsBody,
+                        $office->httpsms_api_key,
+                        $office->httpsms_from_phone
+                    );
 
-                if (!$smsSent) {
-                    Log::warning("QuickSendSingle - البوابة لم تؤكد النجاح للرقم: {$parcel->recipient_phone}");
+                    $smsSent = !empty($result['success']) || (is_bool($result) && $result);
+
+                    if ($smsSent) {
+                        $parcel->update([
+                            'sms_status'         => 'pending',
+                            'sms_failure_reason' => null,
+                        ]);
+                    } else {
+                        $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
+                        $parcel->update([
+                            'sms_status'         => 'failed',
+                            'sms_failure_reason' => $failureReason,
+                        ]);
+                        Log::warning("QuickSendSingle - البوابة لم تؤكد النجاح للرقم: {$parcel->recipient_phone}");
+                    }
+                } catch (\Throwable $e) {
+                    $parcel->update([
+                        'sms_status'         => 'failed',
+                        'sms_failure_reason' => $e->getMessage() ?: 'تعذر الاتصال ببوابة الرسائل httpSMS',
+                    ]);
+                    Log::error("QuickSendSingle - خطأ SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                 }
-            } catch (\Throwable $e) {
-                Log::error("QuickSendSingle - خطأ SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
             }
         }
 
@@ -521,6 +598,8 @@ class ParcelController extends Controller
         return response()->json([
             'success'               => true,
             'sms_sent'              => $smsSent,
+            'sms_out_of_balance'    => (bool) $isSmsOutOfBalance,
+            'sms_status_data'       => $isSmsOutOfBalance ? Cache::get("sms_out_of_balance_office_{$office->id}") : null,
             'whatsapp_sent'         => $whatsappSent,
             'whatsapp_queued'       => $whatsappQueued,
             'whatsapp_scheduled_at' => $waQueue['scheduled_at']?->toIso8601String(),
@@ -545,5 +624,126 @@ class ParcelController extends Controller
         $eastern = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩','۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
         $western = ['0','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8','9'];
         return str_replace($eastern, $western, $str);
+    }
+
+    /**
+     * استرجاع حالة بوابة الـ SMS ورصيد الشريحة لدايلوق المكتب.
+     */
+    public function getSmsGatewayStatus()
+    {
+        $office = Auth::guard('office')->user();
+        if (!$office) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح'], 401);
+        }
+
+        $outOfBalanceKey = "sms_out_of_balance_office_{$office->id}";
+        $isOutOfBalance  = Cache::has($outOfBalanceKey);
+        $cacheData       = $isOutOfBalance ? Cache::get($outOfBalanceKey) : null;
+
+        $inOfficeStatus = defined(ParcelStatus::class . '::InOffice') ? ParcelStatus::InOffice : 'in_office';
+
+        $failedTodayCount = Parcel::where('office_id', $office->id)
+            ->where('status', $inOfficeStatus)
+            ->where('sms_status', 'failed_balance')
+            ->whereDate('created_at', today())
+            ->count();
+
+        return response()->json([
+            'success'            => true,
+            'out_of_balance'     => $isOutOfBalance,
+            'failed_today_count' => $failedTodayCount,
+            'data'               => $cacheData,
+        ]);
+    }
+
+    /**
+     * تأكيد تجديد باقة/رصيد SMS وإعادة إرسال رسائل اليوم الفاشلة في الخلفية.
+     */
+    public function confirmRechargeAndRetryToday(HttpSmsService $smsService)
+    {
+        $office = Auth::guard('office')->user();
+        if (!$office) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح'], 401);
+        }
+
+        // 1. مسح قفل التوقف والعداد
+        Cache::forget("sms_out_of_balance_office_{$office->id}");
+        Cache::forget("sms_108_streak_office_{$office->id}");
+
+        // 2. وضع علامة المراقبة الفورية لمدة 10 دقائق
+        Cache::put("sms_retrying_after_recharge_office_{$office->id}", true, now()->addMinutes(10));
+
+        // 3. جلب فقط طرود نفس اليوم التي فشلت بسبب الرصيد ولا تزال في المكتب (لم تُسلّم بعد)
+        $inOfficeStatus = defined(ParcelStatus::class . '::InOffice') ? ParcelStatus::InOffice : 'in_office';
+
+        $parcelsToRetry = Parcel::where('office_id', $office->id)
+            ->where('status', $inOfficeStatus)
+            ->where('sms_status', 'failed_balance')
+            ->whereDate('created_at', today())
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $count = $parcelsToRetry->count();
+
+        if ($count > 0) {
+            // 4. تحديث حالة الطرود إلى pending وتصفير سبب الفشل
+            $ids = $parcelsToRetry->pluck('id')->all();
+            Parcel::whereIn('id', $ids)->update([
+                'sms_status'         => 'pending',
+                'sms_failure_reason' => null,
+            ]);
+
+            // 5. إرسال الرسائل في الخلفية عبر dispatch(...)->afterResponse()
+            dispatch(function () use ($parcelsToRetry, $office) {
+                if (empty($office->httpsms_api_key) || empty($office->httpsms_from_phone)) {
+                    return;
+                }
+
+                $smsService = app(HttpSmsService::class);
+                $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+                $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
+
+                foreach ($parcelsToRetry as $p) {
+                    // إذا وصل حدث 108 وتفعّل قفل الرصيد أثناء الإرسال نوقف فوراً
+                    if (Cache::has("sms_out_of_balance_office_{$office->id}")) {
+                        Log::warning("confirmRechargeAndRetryToday - توقف إعادة الإرسال للمكتب {$office->id} بسبب تجدد نفاد الرصيد (خطأ 108).");
+                        break;
+                    }
+
+                    $smsBody = str_replace(
+                        ['{office}', '{branch}', '{package}', '{receipt}'],
+                        [
+                            $office->name,
+                            $office->branch_name ?? '',
+                            $p->package_type,
+                            $p->receipt_number ?? ''
+                        ],
+                        $template
+                    );
+                    $smsBody = str_replace(' ()', '', $smsBody);
+
+                    try {
+                        $smsService->send(
+                            $p->recipient_phone,
+                            $smsBody,
+                            $office->httpsms_api_key,
+                            $office->httpsms_from_phone
+                        );
+                    } catch (\Throwable $e) {
+                        Log::error("confirmRecharge retry error for parcel #{$p->id}: " . $e->getMessage());
+                    }
+
+                    sleep(1);
+                }
+            })->afterResponse();
+        }
+
+        return response()->json([
+            'success' => true,
+            'count'   => $count,
+            'message' => $count > 0
+                ? "تم تأكيد الشحن، وجاري إعادة إرسال رسائل {$count} طرد في الخلفية."
+                : "تم تأكيد الشحن بنجاح (لا توجد طرود فاشلة معلقة لليوم).",
+        ]);
     }
 }

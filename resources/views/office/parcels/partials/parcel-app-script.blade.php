@@ -11,6 +11,8 @@
             resendWhatsapp: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-whatsapp`,
             quickSendSms: @json(route('office.parcels.quick_send_sms')),
             quickSendSingle: @json(route('office.parcels.quick_send_single')),
+            smsGatewayStatus: @json(route('office.sms_gateway.status')),
+            smsGatewayConfirmRecharge: @json(route('office.sms_gateway.confirm_recharge')),
         };
 
         // القواعد مستوردة من الباك إند مباشرة
@@ -78,7 +80,34 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    throw new Error(data.message || `تعذر الإرسال (رمز: ${res.status})`);
+                    const err = new Error(data.message || `تعذر الإرسال (رمز: ${res.status})`);
+                    err.data = data;
+                    err.status = res.status;
+                    throw err;
+                }
+                return data;
+            },
+
+            async getSmsGatewayStatus() {
+                const res = await fetch(ROUTES.smsGatewayStatus, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!res.ok) throw new Error(`Status check failed (${res.status})`);
+                return res.json();
+            },
+
+            async confirmSmsRecharge() {
+                const res = await fetch(ROUTES.smsGatewayConfirmRecharge, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.message || `تعذر تأكيد الشحن (${res.status})`);
                 }
                 return data;
             },
@@ -208,6 +237,17 @@
             sendingSmsId: null,
             sendingWhatsappId: null,
 
+            // حالة بوابة الرسائل SMS ورصيد الشريحة
+            smsGateway: {
+                outOfBalance: false,
+                failedTodayCount: 0,
+                showDialog: false,
+                bannerDismissed: false,
+                isRecharging: false,
+                data: null,
+            },
+            _smsCheckTimer: null,
+
             // مودال تأكيد الإرجاع للمكتب المرسل
             returnModal: {
                 open: false,
@@ -255,6 +295,7 @@
                 // 6. مزامنة البيانات وتحديث القائمة في حال توفر اتصال
                 if (this.isOnline) {
                     this.syncData();
+                    this.checkSmsGatewayStatus();
                 }
 
                 // 7. الاستماع لأمر الـ Service Worker للمزامنة بالخلفية
@@ -433,8 +474,17 @@
                 this.sendingSmsId = parcel.id;
                 try {
                     const response = await ParcelApi.resendSms(parcel.id);
+                    parcel.sms_status = 'pending';
+                    if (window.MursalDB) {
+                        await window.MursalDB.put(window.MURSAL_STORES.parcels, parcel);
+                    }
+                    this.parcels = [...this.parcels];
                     this.showFeedback(response.message || 'تم إرسال رسالة SMS بنجاح!', false);
+                    this.scheduleSmsStatusCheck(7000);
                 } catch (err) {
+                    if (err.data && err.data.sms_out_of_balance) {
+                        this.handleSmsOutOfBalance(err.data.sms_status_data);
+                    }
                     this.showFeedback(err.message || 'تعذر إرسال رسالة SMS.', true);
                 } finally {
                     this.sendingSmsId = null;
@@ -589,6 +639,11 @@
                         this.streamingQueue = [...this.streamingQueue];
                     }
 
+                    // التحقق مما إذا كان السيرفر أرجع أن رصيد SMS منتهي
+                    if (data && data.sms_out_of_balance) {
+                        this.handleSmsOutOfBalance(data.sms_status_data);
+                    }
+
                     // تحديث جدول الطرود بالصفحة فوراً بدون إعادة تحميل كامل القائمة من السيرفر
                     if (response.ok) {
                         if (data.parcel && window.MursalDB) {
@@ -598,10 +653,21 @@
                                 this.parcels = [data.parcel, ...this.parcels];
                                 this.recomputeStatusCounts();
                                 this.$nextTick(() => this.refreshScrollObserver());
+                            } else {
+                                const idx = this.parcels.findIndex((p) => p.id === data.parcel.id);
+                                if (idx !== -1) {
+                                    this.parcels[idx] = data.parcel;
+                                    this.parcels = [...this.parcels];
+                                }
                             }
                         } else if (typeof this.refreshFromServer === 'function') {
                             this.refreshFromServer();
                         }
+                    }
+
+                    // جدولة فحص حالة البوابة بعد 7 ثوانٍ لرصد نتيجة الـ Webhook
+                    if (data.sms_sent || payload.channel === 'sms' || payload.channel === 'both') {
+                        this.scheduleSmsStatusCheck(7000);
                     }
 
                 } catch (err) {
@@ -926,6 +992,112 @@
 
             get hasMoreParcels() {
                 return this.visibleLimit < this.filteredParcels.length;
+            },
+
+            // ---------- إدارة ومراقبة بوابة الـ SMS ورصيد الشريحة ----------
+
+            async checkSmsGatewayStatus() {
+                if (!this.isOnline) return;
+                try {
+                    const res = await ParcelApi.getSmsGatewayStatus();
+                    if (res && res.success) {
+                        this.smsGateway.outOfBalance = Boolean(res.out_of_balance);
+                        this.smsGateway.failedTodayCount = res.failed_today_count || 0;
+                        this.smsGateway.data = res.data || null;
+
+                        if (res.out_of_balance) {
+                            if (!this.smsGateway.bannerDismissed) {
+                                this.smsGateway.showDialog = true;
+                            }
+                        } else {
+                            this.smsGateway.showDialog = false;
+                            this.smsGateway.bannerDismissed = false;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('checkSmsGatewayStatus error:', e);
+                }
+            },
+
+            handleSmsOutOfBalance(cacheData = null) {
+                this.smsGateway.outOfBalance = true;
+                this.smsGateway.showDialog = true;
+                this.smsGateway.bannerDismissed = false;
+                if (cacheData) {
+                    this.smsGateway.data = cacheData;
+                }
+                this.checkSmsGatewayStatus();
+            },
+
+            scheduleSmsStatusCheck(delay = 7000) {
+                if (this._smsCheckTimer) {
+                    clearTimeout(this._smsCheckTimer);
+                }
+                this._smsCheckTimer = setTimeout(() => {
+                    this.checkSmsGatewayStatus();
+                }, delay);
+            },
+
+            dismissSmsDialog() {
+                this.smsGateway.showDialog = false;
+                this.smsGateway.bannerDismissed = true;
+            },
+
+            openSmsDialog() {
+                this.smsGateway.showDialog = true;
+                this.smsGateway.bannerDismissed = false;
+            },
+
+            async confirmRecharge() {
+                if (this.smsGateway.isRecharging) return;
+                if (!this.isOnline) {
+                    this.showFeedback('يتطلب تأكيد الشحن وجود اتصال نشط بالإنترنت.', true);
+                    return;
+                }
+
+                this.smsGateway.isRecharging = true;
+
+                try {
+                    const res = await ParcelApi.confirmSmsRecharge();
+                    this.smsGateway.showDialog = false;
+                    this.showFeedback(res.message || 'تم تأكيد الشحن، وجاري إعادة إرسال رسائل اليوم...', false);
+
+                    // تحديث حالة الطرود الفاشلة لليوم محلياً إلى pending
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    for (let i = 0; i < this.parcels.length; i++) {
+                        const p = this.parcels[i];
+                        if (p.status === 'in_office' && p.sms_status === 'failed_balance') {
+                            const pDate = (p.created_at || '').slice(0, 10);
+                            if (pDate === todayStr) {
+                                p.sms_status = 'pending';
+                                if (window.MursalDB) {
+                                    await window.MursalDB.put(window.MURSAL_STORES.parcels, p);
+                                }
+                            }
+                        }
+                    }
+                    this.parcels = [...this.parcels];
+
+                    // عمل فحص تلقائي (Poll) بعد 8 ثوانٍ وبعد 16 ثانية
+                    setTimeout(async () => {
+                        await this.checkSmsGatewayStatus();
+                        if (typeof this.refreshFromServer === 'function') {
+                            await this.refreshFromServer();
+                        }
+                    }, 8000);
+
+                    setTimeout(async () => {
+                        await this.checkSmsGatewayStatus();
+                        if (typeof this.refreshFromServer === 'function') {
+                            await this.refreshFromServer();
+                        }
+                        this.smsGateway.isRecharging = false;
+                    }, 16000);
+
+                } catch (err) {
+                    this.smsGateway.isRecharging = false;
+                    this.showFeedback(err.message || 'تعذر تأكيد تجديد الباقة.', true);
+                }
             },
         });
     })();

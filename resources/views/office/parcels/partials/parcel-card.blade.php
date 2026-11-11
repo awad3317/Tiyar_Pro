@@ -26,6 +26,29 @@
                     </span>
                 </template>
 
+                <!-- مؤشر حالة الـ SMS -->
+                <template x-if="p.sms_status === 'failed_balance'">
+                    <span title="لم تصل SMS - نفاد الرصيد"
+                        class="inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300 shadow-xs animate-pulse">
+                        <span class="material-symbols-outlined text-[13px] text-rose-600 font-black">error</span>
+                        <span>فشل SMS</span>
+                    </span>
+                </template>
+                <template x-if="p.sms_status === 'delivered' || p.sms_status === 'sent'">
+                    <span :title="p.sms_status === 'delivered' ? 'تم تسليم SMS للعميل' : 'تم إرسال SMS بنجاح'"
+                        class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="material-symbols-outlined text-[12px] text-emerald-600">check_circle</span>
+                        <span>SMS</span>
+                    </span>
+                </template>
+                <template x-if="p.sms_status === 'pending'">
+                    <span title="جاري إرسال SMS / بانتظار التأكيد"
+                        class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                        <span class="material-symbols-outlined text-[12px] text-amber-600 animate-spin">sync</span>
+                        <span>SMS</span>
+                    </span>
+                </template>
+
                 <!-- بادج كم له الطرد في المكتب (يظهر فقط إذا كان بالمكتب) -->
                 <span x-show="p.status === 'in_office' && p.created_at"
                     class="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70"
@@ -49,11 +72,13 @@
             <div class="flex items-center gap-1.5">
                 <!-- زر إعادة إرسال SMS (يظهر فقط إذا كان الطرد بالمكتب) -->
                 <button type="button" x-show="p.status === 'in_office'" @click="resendSms(p)"
-                    :disabled="sendingSmsId === p.id" title="إعادة إرسال إشعار SMS للمستلم"
-                    class="h-8 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/80 flex items-center justify-center gap-1 text-[11px] font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
+                    :disabled="sendingSmsId === p.id"
+                    :title="p.sms_status === 'failed_balance' ? 'فشل إرسال SMS بسبب نفاد الرصيد - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
+                    :class="p.sms_status === 'failed_balance' ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80'"
+                    class="h-8 px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
                     <span class="material-symbols-outlined text-[15px]"
                         :class="sendingSmsId === p.id ? 'animate-spin' : ''"
-                        x-text="sendingSmsId === p.id ? 'sync' : 'sms'"></span>
+                        x-text="sendingSmsId === p.id ? 'sync' : (p.sms_status === 'failed_balance' ? 'priority_high' : 'sms')"></span>
                     <span x-text="sendingSmsId === p.id ? 'جاري...' : 'SMS'"></span>
                 </button>
 

@@ -125,6 +125,10 @@ Route::prefix('office')->name('office.')->group(function () {
         Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // حالة بوابة الرسائل النصية وإعادة الإرسال بعد الشحن
+        Route::get('/sms-gateway/status', [ParcelController::class, 'getSmsGatewayStatus'])->name('sms_gateway.status');
+        Route::post('/sms-gateway/confirm-recharge', [ParcelController::class, 'confirmRechargeAndRetryToday'])->name('sms_gateway.confirm_recharge');
+
         // صفحة العملاء المميزين (PWA)
         Route::get('/favorite-customers', [FavoriteCustomerController::class, 'page'])->name('favorite_customers.index');
 

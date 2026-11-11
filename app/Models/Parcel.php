@@ -25,6 +25,8 @@ class Parcel extends Model
         'source_office_id',
         'source_office_name',
         'status',
+        'sms_status',
+        'sms_failure_reason',
         'delivered_at',
         'whatsapp_status',
         'whatsapp_scheduled_at',
