@@ -26,28 +26,7 @@
                     </span>
                 </template>
 
-                <!-- مؤشر حالة الـ SMS -->
-                <template x-if="p.sms_status === 'failed_balance'">
-                    <span title="لم تصل SMS - نفاد الرصيد"
-                        class="inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300 shadow-xs animate-pulse">
-                        <span class="material-symbols-outlined text-[13px] text-rose-600 font-black">error</span>
-                        <span>فشل SMS</span>
-                    </span>
-                </template>
-                <template x-if="p.sms_status === 'delivered' || p.sms_status === 'sent'">
-                    <span :title="p.sms_status === 'delivered' ? 'تم تسليم SMS للعميل' : 'تم إرسال SMS بنجاح'"
-                        class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span class="material-symbols-outlined text-[12px] text-emerald-600">check_circle</span>
-                        <span>SMS</span>
-                    </span>
-                </template>
-                <template x-if="p.sms_status === 'pending'">
-                    <span title="جاري إرسال SMS / بانتظار التأكيد"
-                        class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                        <span class="material-symbols-outlined text-[12px] text-amber-600 animate-spin">sync</span>
-                        <span>SMS</span>
-                    </span>
-                </template>
+               
 
                 <!-- بادج كم له الطرد في المكتب (يظهر فقط إذا كان بالمكتب) -->
                 <span x-show="p.status === 'in_office' && p.created_at"
