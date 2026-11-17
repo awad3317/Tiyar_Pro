@@ -314,7 +314,7 @@
                 try {
                     const summaryStore = window.MursalAccountantStores.summary;
                     const [parcelsCache, driversCache] = await Promise.all([
-                        window.MursalAccountantDB.get(summaryStore, 'unclassified_parcels_cache'),
+                        window.MursalAccountantDB.get(summaryStore, 'unclassified_parcels_cache_v2'),
                         window.MursalAccountantDB.get(summaryStore, 'drivers_manifests_cache'),
                     ]);
 
@@ -340,7 +340,7 @@
                 try {
                     const cleanParcels = parcels.map(({ _searchKey, ...rest }) => rest);
                     await window.MursalAccountantDB.put(window.MursalAccountantStores.summary, {
-                        id: 'unclassified_parcels_cache',
+                        id: 'unclassified_parcels_cache_v2',
                         version: version || '',
                         parcels: cleanParcels,
                         cached_at: Date.now(),

@@ -46,7 +46,7 @@ class ParcelController extends Controller
         $meta = DB::table('parcels')
             ->where('office_id', $officeId)
             ->whereNull('manifest_id')
-            ->selectRaw('COUNT(*) as total_count, COALESCE(MAX(updated_at), "") as max_updated_at, COALESCE(MAX(id), 0) as max_id')
+            ->selectRaw("COUNT(*) as total_count, COALESCE(MAX(updated_at), '') as max_updated_at, COALESCE(MAX(id), '') as max_id")
             ->first();
 
         $totalCount = (int) ($meta->total_count ?? 0);
@@ -123,7 +123,7 @@ class ParcelController extends Controller
             }
 
             return [
-                'id'                 => (int) $row->id,
+                'id'                 => (string) $row->id,
                 'recipient_name'     => $row->recipient_name,
                 'recipient_phone'    => $row->recipient_phone,
                 'package_type'       => $row->package_type,
