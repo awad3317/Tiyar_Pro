@@ -463,12 +463,19 @@
                     </template>
 
                     <!-- أزرار مشاركة كشف التصفية عبر واتساب أو النسخ أو الطباعة -->
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                    <div class="grid grid-cols-2 gap-2 pt-1">
                         <button type="button"
                                 @click="shareSettlementViaWhatsApp()"
-                                class="col-span-2 sm:col-span-1 py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                                class="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all">
                             <span class="material-symbols-outlined text-base text-emerald-600">share</span>
                             <span>مشاركة التصفية واتساب</span>
+                        </button>
+
+                        <button type="button"
+                                @click="copyDriverLink()"
+                                class="py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                            <span class="material-symbols-outlined text-base text-amber-700">link</span>
+                            <span>نسخ رابط السائق</span>
                         </button>
 
                         <button type="button"
@@ -693,6 +700,7 @@
             ...baseShell,
 
             manifestId: manifestId,
+            driverPublicUrl: @json(\Illuminate\Support\Facades\URL::signedRoute('driver.manifest.public', ['manifest' => $manifest->id])),
             isLoading: true,
             activeTab: 'parcels', // parcels | settlement
             parcelFilter: 'all', // all | postpaid | prepaid
@@ -1518,8 +1526,23 @@
                     lines.push(`📝 *ملاحظات:* ${this.manifest.notes}`);
                 }
                 lines.push(`حالة الكشف: ${this.manifest.status === 'settled' ? 'تمت التصفية ✔️' : 'قيد المراجعة ⏳'}`);
+                if (this.driverPublicUrl) {
+                    lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+                    lines.push(`🔗 *عرض الكشف الكامل:*`);
+                    lines.push(this.driverPublicUrl);
+                }
 
                 return lines.join('\n');
+            },
+
+            async copyDriverLink() {
+                if (!this.driverPublicUrl) return;
+                try {
+                    await navigator.clipboard.writeText(this.driverPublicUrl);
+                    this.showToast('تم نسخ رابط الكشف للسائق بنجاح.', false);
+                } catch (e) {
+                    this.showToast('تعذر نسخ الرابط تلقائياً.', true);
+                }
             },
 
             shareSettlementViaWhatsApp() {

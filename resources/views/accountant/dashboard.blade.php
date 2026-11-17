@@ -68,28 +68,46 @@
             </div>
         </div>
 
-        <!-- 2. الملخص المالي للكشوفات -->
-        <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-2.5">
-            <h4 class="text-xs font-extrabold text-slate-800 border-b border-slate-100 pb-2">الموقف المالي للكشوفات</h4>
-
-            <div class="flex items-center justify-between text-xs py-1">
-                <span class="font-bold text-slate-600">صافي الكشوفات غير المعتمدة:</span>
-                <span class="font-mono font-black text-amber-700 dir-ltr">{{ number_format($stats['open_net_amount'], 0) }} ر.ي</span>
+        <!-- 2. خدمات وميزات مستقبلية -->
+        <div class="space-y-2.5">
+            <div class="flex items-center justify-between px-1">
+                <h3 class="text-sm font-extrabold text-slate-800">خدمات وميزات قادمة</h3>
+                <span class="text-[10px] font-bold text-slate-400">قيد التطوير</span>
             </div>
 
-            <div class="flex items-center justify-between text-xs py-1 border-t border-slate-100">
-                <span class="font-bold text-slate-600">إجمالي المبالغ المصفّاة للسائقين:</span>
-                <span class="font-mono font-black text-emerald-700 dir-ltr">{{ number_format($stats['settled_net_amount'], 0) }} ر.ي</span>
-            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-dashed border-slate-200 flex flex-col gap-1.5 opacity-80">
+                    <div class="flex items-center justify-between">
+                        <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-lg">summarize</span>
+                        </span>
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">قريباً</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-700 mt-1">التقارير المالية</p>
+                    <p class="text-[10px] text-slate-400 font-bold">ملخصات يومية وشهرية</p>
+                </div>
 
-            <div class="flex items-center justify-between text-xs py-1 border-t border-slate-100">
-                <span class="font-bold text-slate-600">إجمالي الخصومات المسجلة:</span>
-                <span class="font-mono font-black text-rose-700 dir-ltr">{{ number_format($stats['total_deductions'], 0) }} ر.ي</span>
-            </div>
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-dashed border-slate-200 flex flex-col gap-1.5 opacity-80">
+                    <div class="flex items-center justify-between">
+                        <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-lg">account_balance</span>
+                        </span>
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">قريباً</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-700 mt-1">حسابات السائقين</p>
+                    <p class="text-[10px] text-slate-400 font-bold">كشف حساب وسلف كل سائق</p>
+                </div>
 
-            <div class="flex items-center justify-between text-xs py-1 border-t border-slate-100">
-                <span class="font-bold text-slate-600">آجل الطرود غير المصنفة:</span>
-                <span class="font-mono font-black text-slate-800 dir-ltr">{{ number_format($stats['unclassified_postpaid_amount'], 0) }} ر.ي</span>
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-dashed border-slate-200 flex flex-col gap-1.5 opacity-80">
+                    <div class="flex items-center justify-between">
+                        <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-lg">payments</span>
+                        </span>
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">قريباً</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-700 mt-1">المصروفات والسندات</p>
+                    <p class="text-[10px] text-slate-400 font-bold">سندات القبض والصرف</p>
+                </div>
             </div>
         </div>
     </main>

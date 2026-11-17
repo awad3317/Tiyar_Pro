@@ -213,6 +213,40 @@ class ManifestController extends Controller
     }
 
     /**
+     * عرض صفحة الكشف العامة للسائق عبر الرابط الموقّع (بدون تسجيل دخول)
+     */
+    public function publicDriverView(int|string $manifest): View
+    {
+        $manifestModel = Manifest::query()
+            ->with([
+                'office:id,name,branch_name',
+                'accountant:id,name',
+                'deductions' => fn ($q) => $q->orderBy('id'),
+                'parcels' => fn ($q) => $q->select([
+                    'id',
+                    'manifest_id',
+                    'recipient_name',
+                    'recipient_phone',
+                    'package_type',
+                    'receipt_number',
+                    'source_office_name',
+                    'payment_type',
+                    'cod_amount',
+                ])->orderByDesc('created_at'),
+            ])
+            ->findOrFail($manifest);
+
+        $postpaidCount = $manifestModel->parcels->where('payment_type', 'postpaid')->count();
+        $prepaidCount  = $manifestModel->parcels->count() - $postpaidCount;
+
+        return view('public.driver-manifest', [
+            'manifest'      => $manifestModel,
+            'postpaidCount' => $postpaidCount,
+            'prepaidCount'  => $prepaidCount,
+        ]);
+    }
+
+    /**
      * API خفيف لجلب سائقي المكتب والكشوفات المفتوحة مع دعم التحقق بالبصمة (Version) لتقليل استهلاك البيانات
      */
     public function driversList(Request $request): JsonResponse
