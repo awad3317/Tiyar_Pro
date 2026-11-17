@@ -1,15 +1,15 @@
-{{-- نافذة تعديل الطرد للمحاسب (تتموضع في الأعلى items-start pt-4 حتى لا يغطي كيبورد الجوال زر الحفظ) --}}
+{{-- نافذة تعديل الطرد للمحاسب (تتموضع في الأعلى تماماً بدون my-auto حتى لا يغطي كيبورد الجوال المودال أو زر الحفظ) --}}
 <div x-show="editModal.open"
      x-cloak
      @keydown.escape.window="closeEditModal()"
-     class="fixed inset-0 z-50 flex items-start justify-center pt-4 px-3 pb-4 overflow-y-auto">
+     class="fixed inset-0 z-50 flex items-start justify-center pt-2 px-2.5 pb-4 overflow-y-auto">
 
     <!-- خلفية التعتيم -->
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
          @click="closeEditModal()"></div>
 
     <!-- بطاقة المودال -->
-    <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 z-10 overflow-hidden my-auto sm:my-0"
+    <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 z-10 overflow-hidden"
          x-transition:enter="ease-out duration-200"
          x-transition:enter-start="opacity-0 -translate-y-4 scale-95"
          x-transition:enter-end="opacity-100 translate-y-0 scale-100"
@@ -18,14 +18,12 @@
          x-transition:leave-end="opacity-0 -translate-y-4 scale-95">
 
         <!-- الهيدر المدمج -->
-        <div class="bg-primary text-white px-4 py-3 flex items-center justify-between">
+        <div class="bg-primary text-white px-3.5 py-2.5 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="w-7 h-7 rounded-lg bg-secondary/20 text-secondary flex items-center justify-center">
-                    <span class="material-symbols-outlined text-lg">edit_note</span>
+                <span class="w-6 h-6 rounded-lg bg-secondary/20 text-secondary flex items-center justify-center">
+                    <span class="material-symbols-outlined text-base">edit_note</span>
                 </span>
-                <div>
-                    <h3 class="text-sm font-extrabold leading-tight">تعديل بيانات الطرد </h3>
-                </div>
+                <h3 class="text-xs font-extrabold leading-tight">تعديل بيانات الطرد</h3>
             </div>
             <button type="button"
                     @click="closeEditModal()"
@@ -35,7 +33,7 @@
         </div>
 
         <!-- النموذج -->
-        <form @submit.prevent="submitParcelEdit()" class="p-3.5 space-y-3">
+        <form @submit.prevent="submitParcelEdit()" class="p-3 space-y-2.5">
 
             <!-- رسالة خطأ إن وجدت -->
             <div x-show="editModal.error" x-cloak
@@ -90,39 +88,41 @@
                 </div>
             </div>
 
-            <!-- 3. اسم المستلم + رقم الجوال -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المستلم:</label>
-                    <input type="text"
-                           x-ref="editRecipientNameInput"
-                           x-model="editModal.form.recipient_name"
-                           maxlength="100"
-                           placeholder="اكتب اسم المستلم الكامل..."
-                           class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم جوال المستلم <span class="text-rose-500">*</span>:</label>
-                    <input type="tel"
-                           x-model="editModal.form.recipient_phone"
-                           inputmode="numeric"
-                           maxlength="9"
-                           required
-                           placeholder="7XXXXXXXX"
-                           class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none dir-ltr text-right">
-                </div>
+            <!-- 3. رقم جوال المستلم في الأعلى -->
+            <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم جوال المستلم <span class="text-rose-500">*</span>:</label>
+                <input type="tel"
+                       x-model="editModal.form.recipient_phone"
+                       inputmode="numeric"
+                       maxlength="9"
+                       required
+                       placeholder="7XXXXXXXX"
+                       class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-800 outline-none dir-ltr text-right">
             </div>
 
-            <!-- 4. نوع الطرد مع أزرار اختصار سريعة -->
+            <!-- 4. اسم المستلم + نوع الطرد في نفس السطر لتقليل مساحة المودال -->
             <div>
-                <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد <span class="text-rose-500">*</span>:</label>
-                <input type="text"
-                       x-model="editModal.form.package_type"
-                       maxlength="100"
-                       required
-                       placeholder="طرد، كيس، ضرف، كرتون..."
-                       class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المستلم:</label>
+                        <input type="text"
+                               x-ref="editRecipientNameInput"
+                               x-model="editModal.form.recipient_name"
+                               maxlength="100"
+                               placeholder="اسم المستلم..."
+                               class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد <span class="text-rose-500">*</span>:</label>
+                        <input type="text"
+                               x-model="editModal.form.package_type"
+                               maxlength="100"
+                               required
+                               placeholder="طرد، كيس..."
+                               class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none">
+                    </div>
+                </div>
 
                 <!-- أزرار الاختصار السريع لنوع الطرد -->
                 <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -132,7 +132,7 @@
                                 :class="editModal.form.package_type === quickType
                                     ? 'bg-primary text-white border-primary'
                                     : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'"
-                                class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors"
+                                class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold border transition-colors"
                                 x-text="quickType"></button>
                     </template>
                 </div>
