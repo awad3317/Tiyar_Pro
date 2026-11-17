@@ -4,9 +4,34 @@
 
 @section('alpine', 'accountantManifestShowApp(' . $manifest->id . ')')
 
+@push('styles')
+<style>
+    @media print {
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+        body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        table.print-table thead {
+            display: table-header-group;
+        }
+        table.print-table tfoot {
+            display: table-footer-group;
+        }
+        table.print-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
-    <!-- 1. بطاقة رأس الكشف والمعادلة المالية الحية + تبويبات التنقل -->
-    <div class="bg-white border-b border-slate-200 sticky top-[68px] z-20 shadow-2xs print:static print:shadow-none">
+    <!-- 1. بطاقة رأس الكشف والمعادلة المالية الحية + تبويبات التنقل (للشاشة فقط) -->
+    <div class="bg-white border-b border-slate-200 sticky top-[68px] z-20 shadow-2xs print:hidden">
 
         <!-- صف العنوان وبيانات السائق والمصدر + حالة الكشف -->
         <div class="px-3.5 pt-3 pb-2 flex items-start justify-between gap-2">
@@ -131,8 +156,8 @@
         </nav>
     </div>
 
-    <!-- 2. محتوى الصفحة حسب التبويب المختار -->
-    <main class="flex-1 p-3 space-y-3">
+    <!-- 2. محتوى الصفحة حسب التبويب المختار (للشاشة فقط) -->
+    <main class="flex-1 p-3 space-y-3 print:hidden">
 
         <!-- حالة التحميل المبدئية -->
         <div x-show="isLoading" class="py-12 text-center text-slate-400 space-y-2">
@@ -480,6 +505,178 @@
         </div>
 
     </main>
+
+    <!-- ========================================================= -->
+    <!-- قالب الطباعة الرسمي الشامل (يظهر فقط عند الطباعة A4)       -->
+    <!-- ========================================================= -->
+    <section class="hidden print:block w-full bg-white text-slate-900 text-[11px] leading-snug">
+        <!-- ترويسة الكشف -->
+        <div class="border-b-2 border-slate-800 pb-3 mb-3 flex items-start justify-between gap-4">
+            <div>
+                <p class="text-[11px] font-bold text-slate-600">
+                    {{ auth('accountant')->user()?->office?->name ?? 'المكتب' }}
+                    @if(auth('accountant')->user()?->office?->branch_name)
+                        - {{ auth('accountant')->user()->office->branch_name }}
+                    @endif
+                </p>
+                <h1 class="text-lg font-black text-slate-900 mt-0.5">كشف حساب وتسليم طرود سائق</h1>
+            </div>
+
+            <div class="text-left space-y-0.5">
+                <p class="font-bold">
+                    <span>رقم الكشف: </span>
+                    <span class="font-mono font-black" x-text="manifest.manifest_number ? '#' + manifest.manifest_number : '#' + manifest.id"></span>
+                </p>
+                <p>
+                    <span>تاريخ الكشف: </span>
+                    <span class="font-mono font-bold dir-ltr" x-text="manifest.manifest_date || '—'"></span>
+                </p>
+                <p>
+                    <span>الحالة: </span>
+                    <span class="font-extrabold" x-text="manifest.status === 'settled' ? 'مصفّى ومعتمد' : 'مفتوح (قيد التسوية)'"></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- بيانات السائق والمصدر -->
+        <div class="grid grid-cols-3 gap-2 mb-3 p-2.5 border border-slate-300 rounded-lg bg-slate-50/70">
+            <div>
+                <span class="text-slate-500">السائق: </span>
+                <strong class="font-extrabold text-slate-900" x-text="manifest.driver_name || '—'"></strong>
+            </div>
+            <div>
+                <span class="text-slate-500">جوال السائق: </span>
+                <strong class="font-mono font-bold dir-ltr" x-text="manifest.driver_phone || '—'"></strong>
+            </div>
+            <div>
+                <span class="text-slate-500">إجمالي الطرود: </span>
+                <strong class="font-mono font-black" x-text="parcels.length">0</strong>
+                <span class="text-[10px] text-slate-600">
+                    (<span x-text="postpaidParcelsCount">0</span> آجل / <span x-text="prepaidParcelsCount">0</span> محاسب)
+                </span>
+            </div>
+
+            <div>
+                <span class="text-slate-500">الجهة المرسلة: </span>
+                <strong class="font-bold" x-text="(manifest.source_office_name || '—') + (manifest.source_branch_name ? ' (' + manifest.source_branch_name + ')' : '')"></strong>
+            </div>
+            <div>
+                <span class="text-slate-500">المحاسب: </span>
+                <strong class="font-bold" x-text="manifest.accountant_name || '{{ addslashes(auth('accountant')->user()?->name ?? '—') }}'"></strong>
+            </div>
+            <div>
+                <span class="text-slate-500">تاريخ الطباعة: </span>
+                <strong class="font-mono dir-ltr">{{ now()->format('Y-m-d H:i') }}</strong>
+            </div>
+        </div>
+
+        <!-- جدول الطرود الشامل -->
+        <div class="mb-4">
+            <h2 class="text-xs font-black text-slate-900 mb-1.5">أولاً: بيان الطرود المدرجة في الكشف</h2>
+            <table class="print-table w-full border-collapse border border-slate-400 text-[10px]">
+                <thead>
+                    <tr class="bg-slate-200 text-slate-900 font-extrabold">
+                        <th class="border border-slate-400 px-1.5 py-1.5 text-center w-8">#</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">رقم السند</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">اسم المستلم</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">رقم الجوال</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">النوع</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">المصدر</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-center w-16">الدفع</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-left w-24">المبلغ (ر.ي)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(p, idx) in parcels" :key="'print-p-' + p.id">
+                        <tr class="odd:bg-white even:bg-slate-50/50">
+                            <td class="border border-slate-300 px-1.5 py-1 text-center font-mono" x-text="idx + 1"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-mono" x-text="p.receipt_number || '—'"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-bold" x-text="p.recipient_name || 'بدون اسم'"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-mono dir-ltr text-right" x-text="p.recipient_phone || '—'"></td>
+                            <td class="border border-slate-300 px-2 py-1" x-text="p.package_type || 'طرد'"></td>
+                            <td class="border border-slate-300 px-2 py-1" x-text="p.source_office_name || '—'"></td>
+                            <td class="border border-slate-300 px-2 py-1 text-center font-bold"
+                                x-text="p.payment_type === 'postpaid' ? 'آجل' : 'محاسب'"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-mono font-bold text-left dir-ltr"
+                                x-text="p.payment_type === 'postpaid' ? formatAmount(p.cod_amount) : '—'"></td>
+                        </tr>
+                    </template>
+                    <tr x-show="parcels.length === 0">
+                        <td colspan="8" class="border border-slate-300 px-2 py-3 text-center text-slate-500">لا توجد طرود في هذا الكشف</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="bg-slate-100 font-black text-slate-900">
+                        <td colspan="7" class="border border-slate-400 px-2 py-1.5 text-left">إجمالي مبلغ طرود الآجل:</td>
+                        <td class="border border-slate-400 px-2 py-1.5 font-mono text-left dir-ltr"
+                            x-text="formatAmount(manifest.total_postpaid_amount) + ' ر.ي'"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- جدول الخصومات (إن وجدت) -->
+        <div x-show="deductions.length > 0" class="mb-4" style="break-inside: avoid;">
+            <h2 class="text-xs font-black text-slate-900 mb-1.5">ثانياً: بيان الخصومات المسجلة على الكشف</h2>
+            <table class="print-table w-full border-collapse border border-slate-400 text-[10px]">
+                <thead>
+                    <tr class="bg-slate-200 text-slate-900 font-extrabold">
+                        <th class="border border-slate-400 px-1.5 py-1.5 text-center w-8">#</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-right">بيان الخصم</th>
+                        <th class="border border-slate-400 px-2 py-1.5 text-left w-28">المبلغ (ر.ي)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(d, idx) in deductions" :key="'print-d-' + d.id">
+                        <tr>
+                            <td class="border border-slate-300 px-1.5 py-1 text-center font-mono" x-text="idx + 1"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-bold" x-text="d.title"></td>
+                            <td class="border border-slate-300 px-2 py-1 font-mono font-bold text-left dir-ltr"
+                                x-text="'- ' + formatAmount(d.amount)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tfoot>
+                    <tr class="bg-slate-100 font-black text-slate-900">
+                        <td colspan="2" class="border border-slate-400 px-2 py-1.5 text-left">مجموع الخصومات:</td>
+                        <td class="border border-slate-400 px-2 py-1.5 font-mono text-left dir-ltr"
+                            x-text="'- ' + formatAmount(manifest.total_deductions) + ' ر.ي'"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- الملخص النهائي والتوقيعات -->
+        <div class="border-t-2 border-slate-800 pt-3 mt-3 space-y-4" style="break-inside: avoid;">
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="border border-slate-300 rounded-lg p-2 bg-slate-50">
+                    <p class="text-[10px] text-slate-600 font-bold">إجمالي طرود الآجل</p>
+                    <p class="text-xs font-mono font-black mt-0.5 dir-ltr" x-text="formatAmount(manifest.total_postpaid_amount) + ' ر.ي'"></p>
+                </div>
+                <div class="border border-slate-300 rounded-lg p-2 bg-slate-50">
+                    <p class="text-[10px] text-slate-600 font-bold">ناقص مجموع الخصومات</p>
+                    <p class="text-xs font-mono font-black mt-0.5 dir-ltr" x-text="'- ' + formatAmount(manifest.total_deductions) + ' ر.ي'"></p>
+                </div>
+                <div class="border-2 border-slate-800 rounded-lg p-2 bg-slate-100">
+                    <p class="text-[10px] text-slate-800 font-extrabold">الصافي الواجب تسليمه للسائق</p>
+                    <p class="text-sm font-mono font-black mt-0.5 dir-ltr" x-text="formatAmount(manifest.net_driver_amount) + ' ر.ي'"></p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 pt-4 text-center text-[11px] font-bold text-slate-700">
+                <div>
+                    <p class="mb-6">توقيع المحاسب</p>
+                    <p class="border-t border-slate-400 w-44 mx-auto pt-1 text-[10px] text-slate-500"
+                       x-text="manifest.accountant_name || '{{ addslashes(auth('accountant')->user()?->name ?? '') }}'"></p>
+                </div>
+                <div>
+                    <p class="mb-6">توقيع السائق / المستلم</p>
+                    <p class="border-t border-slate-400 w-44 mx-auto pt-1 text-[10px] text-slate-500"
+                       x-text="manifest.driver_name || ''"></p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- النوافذ المنبثقة (Modals) -->
     <!-- 1. نافذة تعديل الطرد للمحاسب -->

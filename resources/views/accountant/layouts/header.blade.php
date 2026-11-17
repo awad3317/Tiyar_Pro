@@ -5,7 +5,7 @@
 @endphp
 
 <!-- شريط الهيدر المستقل لتطبيق المحاسبين -->
-<header class="bg-primary text-white p-4 sticky top-0 z-30 shadow-md">
+<header class="bg-primary text-white p-4 sticky top-0 z-30 shadow-md print:hidden">
     <div class="flex items-center justify-between gap-3">
         <!-- الجهة اليمنى: اسم المكتب واسم المحاسب وشارة التطبيق -->
         <div class="min-w-0 flex-1">

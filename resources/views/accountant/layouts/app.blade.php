@@ -36,10 +36,10 @@
 
     @stack('styles')
 </head>
-<body class="bg-slate-100 text-slate-900 select-none">
+<body class="bg-slate-100 text-slate-900 select-none print:bg-white">
 
     <div x-data="@yield('alpine', 'accountantShell()')"
-         class="max-w-md mx-auto min-h-screen bg-slate-50 relative pb-20 shadow-xl flex flex-col @yield('shell-class', '')">
+         class="max-w-md mx-auto min-h-screen bg-slate-50 relative pb-20 shadow-xl flex flex-col print:max-w-none print:w-full print:min-h-0 print:bg-white print:pb-0 print:shadow-none @yield('shell-class', '')">
 
         @section('header')
             @include('accountant.layouts.header')
