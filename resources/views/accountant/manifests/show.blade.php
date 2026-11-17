@@ -311,16 +311,16 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <input type="text"
                                x-model="newDeduction.notes"
                                maxlength="255"
                                placeholder="ملاحظة إضافية على الخصم (اختياري)..."
-                               class="flex-1 bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
+                               class="w-full sm:flex-1 min-w-0 bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
 
                         <button type="submit"
                                 :disabled="newDeduction.saving"
-                                class="shrink-0 py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition-all disabled:opacity-60">
+                                class="w-full sm:w-auto shrink-0 py-2.5 sm:py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-60">
                             <span x-show="!newDeduction.saving" class="material-symbols-outlined text-base">add_circle</span>
                             <span x-show="newDeduction.saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                             <span x-text="newDeduction.saving ? 'جاري الإضافة...' : 'إضافة الخصم للكشف'"></span>
@@ -332,9 +332,8 @@
             <!-- ب. قائمة الخصومات المضافة على هذا الكشف -->
             <section class="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-sm space-y-2.5">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-rose-600">receipt</span>
-                        <span>بنود الخصومات المسجلة على الكشف (<span x-text="deductions.length">0</span>)</span>
+                    <h3 class="text-xs font-extrabold text-slate-800">
+                        بنود الخصومات المسجلة على الكشف (<span x-text="deductions.length">0</span>)
                     </h3>
 
                     <span class="text-xs font-black text-rose-700 dir-ltr"
@@ -346,13 +345,9 @@
                     <div class="divide-y divide-slate-100 border border-slate-200/80 rounded-xl">
                         <template x-for="d in deductions" :key="d.id">
                             <div class="p-2.5 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between gap-2 first:rounded-t-xl">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <span class="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 text-xs"
-                                          x-text="deductionIcon(d.deduction_type)"></span>
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-extrabold text-slate-800 truncate" x-text="d.title"></p>
-                                        <p x-show="d.notes" class="text-[10px] text-slate-500 truncate" x-text="d.notes"></p>
-                                    </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-extrabold text-slate-800 truncate" x-text="d.title"></p>
+                                    <p x-show="d.notes" class="text-[10px] text-slate-500 truncate mt-0.5" x-text="d.notes"></p>
                                 </div>
 
                                 <div class="flex items-center gap-1.5 shrink-0">
@@ -457,15 +452,6 @@
                     </div>
                 </div>
 
-                <!-- ملاحظات الكشف / التصفية -->
-                <div x-show="manifest.status === 'open'" class="print:hidden">
-                    <label class="block text-[11px] font-bold text-slate-600 mb-1">ملاحظات التصفية / الاستلام (اختياري):</label>
-                    <input type="text"
-                           x-model="manifest.notes"
-                           maxlength="500"
-                           placeholder="مثال: تم تسليم المبلغ نقداً للسائق يداً بيد..."
-                           class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
-                </div>
                 <p x-show="manifest.notes && manifest.status === 'settled'"
                    class="text-xs font-bold text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200"
                    x-text="'ملاحظة التصفية: ' + manifest.notes"></p>
