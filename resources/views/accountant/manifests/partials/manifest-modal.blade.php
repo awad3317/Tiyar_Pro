@@ -59,23 +59,7 @@
                 <span x-text="manifestModal.error"></span>
             </div>
 
-            <!-- 1. الاختيار السريع من السائقين المسجلين للمكتب (Autocomplete / Quick Select) -->
-            <div x-show="drivers && drivers.length > 0" class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                <label class="block text-[11px] font-extrabold text-slate-700 mb-1 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-secondary">badge</span>
-                    <span>اختيار سريع من السائقين المسجلين للمكتب:</span>
-                </label>
-                <select @change="selectSavedDriver($event.target.value)"
-                        :value="manifestModal.form.driver_id || ''"
-                        class="w-full bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
-                    <option value="">-- سائق جديد (اكتب الاسم والرقم بالأسفل) --</option>
-                    <template x-for="drv in drivers" :key="drv.id">
-                        <option :value="drv.id" x-text="drv.name + (drv.phone ? ' (' + drv.phone + ')' : '')"></option>
-                    </template>
-                </select>
-            </div>
-
-            <!-- 2. اسم السائق + رقم جوال السائق -->
+            <!-- 1. اسم السائق + رقم جوال السائق -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div class="relative">
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">
@@ -149,16 +133,16 @@
 
             <!-- 4. تاريخ الكشف + رقم الكشف الورقي -->
             <div class="grid grid-cols-2 gap-2.5">
-                <div>
+                <div class="min-w-0">
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">
                         تاريخ الكشف:
                     </label>
                     <input type="date"
                            x-model="manifestModal.form.manifest_date"
-                           class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none dir-ltr text-right">
+                           class="w-full min-w-0 bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-slate-800 outline-none text-right">
                 </div>
 
-                <div>
+                <div class="min-w-0">
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">
                         رقم الكشف الورقي (اختياري):
                     </label>
@@ -166,7 +150,7 @@
                            x-model="manifestModal.form.manifest_number"
                            maxlength="50"
                            placeholder="رقم الكشف..."
-                           class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none">
+                           class="w-full min-w-0 bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-slate-800 outline-none">
                 </div>
             </div>
 
