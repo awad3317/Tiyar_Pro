@@ -126,10 +126,7 @@
                         ? 'border-b-2 border-emerald-600 text-emerald-800 bg-emerald-50/40'
                         : 'text-slate-500 hover:text-slate-700'"
                     class="flex-1 py-2.5 flex items-center justify-center gap-1.5 transition-colors">
-                <span>💸 الخصومات وتصفية السائق</span>
-                <span x-show="deductions.length > 0"
-                      class="px-1.5 py-0.5 rounded-md text-[10px] font-mono bg-rose-100 text-rose-800"
-                      x-text="deductions.length">0</span>
+                <span>💸 الخصومات والتصفية </span>
             </button>
         </nav>
     </div>
@@ -408,39 +405,6 @@
                             <h3 class="text-sm font-black text-slate-800">بطاقة التصفية النهائية لحساب السائق</h3>
                             <p class="text-[10px] text-slate-500">ملخص الحساب الصافي الواجب تسليمه للسائق</p>
                         </div>
-                    </div>
-                </div>
-
-                <!-- جدول المعادلة النهائية -->
-                <div class="space-y-2 text-xs">
-                    <!-- 1. مجموع طرود الآجل -->
-                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
-                        <div class="flex items-center gap-1.5 font-extrabold text-amber-950">
-                            <span class="material-symbols-outlined text-base text-amber-600">payments</span>
-                            <span>مجموع طرود الآجل (<span x-text="postpaidParcelsCount">0</span> طرد آجل من أصل <span x-text="parcels.length">0</span>):</span>
-                        </div>
-                        <span class="font-mono font-black text-sm text-amber-950 dir-ltr"
-                              x-text="formatAmount(manifest.total_postpaid_amount) + ' ر.ي'"></span>
-                    </div>
-
-                    <!-- 2. ناقص مجموع الخصومات -->
-                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/70 border border-rose-200/80">
-                        <div class="flex items-center gap-1.5 font-extrabold text-rose-900">
-                            <span class="material-symbols-outlined text-base text-rose-600">remove_circle</span>
-                            <span>ناقص مجموع الخصومات (<span x-text="deductions.length">0</span> بند):</span>
-                        </div>
-                        <span class="font-mono font-black text-sm text-rose-800 dir-ltr"
-                              x-text="'- ' + formatAmount(manifest.total_deductions) + ' ر.ي'"></span>
-                    </div>
-
-                    <!-- 3. المبلغ الصافي الواجب تسليمه للسائق -->
-                    <div class="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-600 text-white shadow-md">
-                        <div class="flex items-center gap-2 font-black text-xs sm:text-sm">
-                            <span class="material-symbols-outlined text-xl text-emerald-200">verified</span>
-                            <span>الصافي الواجب تسليمه للسائق:</span>
-                        </div>
-                        <span class="font-mono font-black text-base sm:text-lg dir-ltr"
-                              x-text="formatAmount(manifest.net_driver_amount) + ' ر.ي'"></span>
                     </div>
                 </div>
 
