@@ -19,9 +19,6 @@
                         كشوفات السائقين
                         <span class="text-slate-400 font-mono">(<span x-text="stats.total_count">0</span>)</span>
                     </h2>
-                    <p class="text-[10px] text-slate-500 mt-0.5">
-                        صافي السائقين: <strong class="text-emerald-700 font-black dir-ltr" x-text="formatAmount(stats.total_net_driver_amount) + ' ر.ي'">0 ر.ي</strong>
-                    </p>
                 </div>
             </div>
 
@@ -67,7 +64,7 @@
                     @click="filter = 'open'; visibleLimit = 25"
                     :class="filter === 'open' ? 'border-b-2 border-amber-500 text-amber-800 bg-amber-50/40' : 'text-slate-500 hover:text-slate-700'"
                     class="flex-1 py-2.5 transition-colors">
-                <span>مفتوحة (قيد المراجعة)</span>
+                <span>(قيد المراجعة)</span>
                 (<span x-text="stats.open_count">0</span>)
             </button>
 

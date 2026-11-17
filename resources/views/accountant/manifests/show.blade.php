@@ -273,42 +273,6 @@
                     </h3>
                 </div>
 
-                <!-- 3 أزرار اختصار سريعة بضغطة واحدة لتعبئة نوع وعنوان الخصم تلقائياً -->
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 mb-1.5">اختيار سريع لنوع الخصم بضغطة واحدة:</p>
-                    <div class="grid grid-cols-3 gap-1.5">
-                        <button type="button"
-                                @click="selectQuickDeduction('workers_unloading', 'خصم العمال (تنزيل الطرود)')"
-                                :class="newDeduction.deduction_type === 'workers_unloading'
-                                    ? 'bg-primary text-white border-primary ring-2 ring-primary/15'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
-                                class="py-2 px-2 rounded-xl border text-[11px] font-extrabold flex flex-col items-center gap-0.5 transition-all active:scale-95">
-                            <span>👷 خصم العمال</span>
-                            <span class="text-[9px] opacity-75">تنزيل الطرود</span>
-                        </button>
-
-                        <button type="button"
-                                @click="selectQuickDeduction('office_commission', 'خصم عمولة المكتب')"
-                                :class="newDeduction.deduction_type === 'office_commission'
-                                    ? 'bg-primary text-white border-primary ring-2 ring-primary/15'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
-                                class="py-2 px-2 rounded-xl border text-[11px] font-extrabold flex flex-col items-center gap-0.5 transition-all active:scale-95">
-                            <span>🏢 خصم المكتب</span>
-                            <span class="text-[9px] opacity-75">عمولة المكتب</span>
-                        </button>
-
-                        <button type="button"
-                                @click="selectQuickDeduction('other', '')"
-                                :class="newDeduction.deduction_type === 'other'
-                                    ? 'bg-primary text-white border-primary ring-2 ring-primary/15'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
-                                class="py-2 px-2 rounded-xl border text-[11px] font-extrabold flex flex-col items-center gap-0.5 transition-all active:scale-95">
-                            <span>➕ خصم آخر</span>
-                            <span class="text-[9px] opacity-75">مصاريف / سلفة</span>
-                        </button>
-                    </div>
-                </div>
-
                 <!-- رسالة خطأ إن وجدت -->
                 <div x-show="newDeduction.error" x-cloak
                      class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
@@ -379,9 +343,9 @@
 
                 <!-- بنود الخصومات -->
                 <template x-if="deductions.length > 0">
-                    <div class="divide-y divide-slate-100 border border-slate-200/80 rounded-xl overflow-hidden">
+                    <div class="divide-y divide-slate-100 border border-slate-200/80 rounded-xl">
                         <template x-for="d in deductions" :key="d.id">
-                            <div class="p-2.5 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between gap-2">
+                            <div class="p-2.5 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between gap-2 first:rounded-t-xl">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <span class="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 text-xs"
                                           x-text="deductionIcon(d.deduction_type)"></span>
@@ -395,28 +359,43 @@
                                     <span class="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-mono text-xs font-black dir-ltr"
                                           x-text="'- ' + formatAmount(d.amount) + ' ر.ي'"></span>
 
-                                    <!-- أزرار التعديل والحذف لبند الخصم (عندما يكون الكشف مفتوحاً) -->
-                                    <button type="button"
-                                            x-show="manifest.status === 'open'"
-                                            @click="openEditDeductionModal(d)"
-                                            title="تعديل بند الخصم"
-                                            class="w-7 h-7 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center print:hidden">
-                                        <span class="material-symbols-outlined text-[15px]">edit</span>
-                                    </button>
+                                    <!-- قائمة الثلاث نقاط (تعديل / حذف) عند فتح الكشف -->
+                                    <div x-show="manifest.status === 'open'"
+                                         x-data="{ menuOpen: false }"
+                                         @click.outside="menuOpen = false"
+                                         class="relative print:hidden">
+                                        <button type="button"
+                                                @click="menuOpen = !menuOpen"
+                                                title="خيارات الخصم"
+                                                class="w-7 h-7 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                        </button>
 
-                                    <button type="button"
-                                            x-show="manifest.status === 'open'"
-                                            @click="promptDeleteDeduction(d)"
-                                            title="حذف بند الخصم"
-                                            class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center print:hidden">
-                                        <span class="material-symbols-outlined text-[15px]">delete</span>
-                                    </button>
+                                        <div x-show="menuOpen"
+                                             x-cloak
+                                             x-transition
+                                             class="absolute left-0 top-full mt-1 w-32 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30">
+                                            <button type="button"
+                                                    @click="menuOpen = false; openEditDeductionModal(d)"
+                                                    class="w-full px-3 py-2 text-right text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-[15px] text-slate-500">edit</span>
+                                                <span>تعديل</span>
+                                            </button>
+
+                                            <button type="button"
+                                                    @click="menuOpen = false; promptDeleteDeduction(d)"
+                                                    class="w-full px-3 py-2 text-right text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-[15px]">delete</span>
+                                                <span>حذف</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </template>
 
                         <!-- إجمالي الخصومات في أسفل القائمة -->
-                        <div class="p-2.5 bg-rose-50/70 flex items-center justify-between text-xs font-extrabold text-rose-900">
+                        <div class="p-2.5 bg-rose-50/70 rounded-b-xl flex items-center justify-between text-xs font-extrabold text-rose-900">
                             <span>مجموع الخصومات الكلي:</span>
                             <span class="font-mono font-black dir-ltr" x-text="formatAmount(manifest.total_deductions) + ' ر.ي'"></span>
                         </div>
@@ -621,8 +600,8 @@
             drivers: [],
 
             newDeduction: {
-                deduction_type: 'workers_unloading',
-                title: 'خصم العمال (تنزيل الطرود)',
+                deduction_type: 'other',
+                title: '',
                 amount: '',
                 notes: '',
                 saving: false,
