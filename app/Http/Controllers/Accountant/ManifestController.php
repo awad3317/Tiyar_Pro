@@ -213,13 +213,38 @@ class ManifestController extends Controller
     }
 
     /**
-     * API خفيف لجلب سائقي المكتب والكشوفات المفتوحة (يُستخدم في شاشة الطرود غير المصنفة لضم الطرود)
+     * API خفيف لجلب سائقي المكتب والكشوفات المفتوحة مع دعم التحقق بالبصمة (Version) لتقليل استهلاك البيانات
      */
     public function driversList(Request $request): JsonResponse
     {
         /** @var Accountant $accountant */
         $accountant = auth('accountant')->user();
         $officeId   = (int) $accountant->office_id;
+
+        $driverMeta = DB::table('drivers')
+            ->where('office_id', $officeId)
+            ->selectRaw('COUNT(*) as cnt, COALESCE(MAX(updated_at), "") as max_upd')
+            ->first();
+
+        $manifestMeta = DB::table('manifests')
+            ->where('office_id', $officeId)
+            ->where('status', 'open')
+            ->selectRaw('COUNT(*) as cnt, COALESCE(MAX(updated_at), "") as max_upd')
+            ->first();
+
+        $version = md5(
+            ($driverMeta->cnt ?? 0) . '|' . ($driverMeta->max_upd ?? '') . '|' .
+            ($manifestMeta->cnt ?? 0) . '|' . ($manifestMeta->max_upd ?? '')
+        );
+
+        $clientVersion = trim((string) $request->query('v', ''));
+        if ($clientVersion !== '' && hash_equals($version, $clientVersion)) {
+            return response()->json([
+                'success'   => true,
+                'unchanged' => true,
+                'version'   => $version,
+            ]);
+        }
 
         $drivers = Driver::query()
             ->where('office_id', $officeId)
@@ -258,6 +283,8 @@ class ManifestController extends Controller
 
         return response()->json([
             'success'        => true,
+            'unchanged'      => false,
+            'version'        => $version,
             'drivers'        => $drivers,
             'open_manifests' => $openManifests,
         ]);

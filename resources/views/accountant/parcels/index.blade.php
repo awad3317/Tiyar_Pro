@@ -8,7 +8,7 @@
     <!-- 1. شريط الإحصائيات العلوي المدمج + البحث الفوري + تبويبات الفلترة -->
     <div class="bg-white border-b border-slate-200 sticky top-[68px] z-20 shadow-2xs">
 
-        <!-- شريط الإحصائيات المدمج -->
+        <!-- رأس الصفحة: الطرود غير المصنفة وعددها -->
         <div class="px-3.5 pt-3 pb-2 flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
                 <span class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -17,21 +17,15 @@
                 <div>
                     <h2 class="text-xs font-extrabold text-slate-800 leading-tight">
                         الطرود غير المصنفة
-                        <span class="text-slate-400 font-mono">(<span x-text="stats.total_count">0</span>)</span>
                     </h2>
                     <p class="text-[10px] text-slate-400">حدد الطرود بعلامة (✓) لضمها إلى كشف سائق</p>
                 </div>
             </div>
 
-            <!-- ملخص الآجل السريع -->
-            <div class="bg-amber-50 border border-amber-200/90 rounded-xl px-2.5 py-1.5 text-left shrink-0">
-                <div class="flex items-center gap-1 justify-end text-[10px] font-bold text-amber-800">
-                    <span class="material-symbols-outlined text-[13px] text-amber-600">payments</span>
-                    <span>إجمالي الآجل (<span x-text="stats.postpaid_count">0</span>):</span>
-                </div>
-                <p class="text-xs font-black text-amber-900 dir-ltr">
-                    <span x-text="formatAmount(stats.postpaid_amount)">0</span> ر.ي
-                </p>
+            <!-- عدد الطرود غير المصنفة -->
+            <div class="bg-slate-100 border border-slate-200/80 rounded-xl px-2.5 py-1 text-center shrink-0">
+                <span class="text-xs font-black text-slate-800 font-mono" x-text="stats.total_count">0</span>
+                <span class="text-[10px] font-bold text-slate-500 mr-0.5">طرد</span>
             </div>
         </div>
 
@@ -198,6 +192,8 @@
             parcels: [],
             drivers: [],
             openManifests: [],
+            parcelsVersion: '',
+            driversVersion: '',
             filter: 'all', // all | postpaid | prepaid
             search: '',
             visibleLimit: 30,
@@ -265,64 +261,242 @@
                 if (typeof baseShell.init === 'function') {
                     await baseShell.init.call(this);
                 }
-                await Promise.all([
-                    this.fetchParcels(),
-                    this.fetchDriversAndOpenManifests(),
-                ]);
+
+                // 1. تحميل الكاش المحلي فوراً (0ms) لتجنب شاشة الانتظار عند ضعف الإنترنت
+                await this.loadFromLocalCache();
+
+                // 2. التحقق من التحديثات من السيرفر دون حجب الواجهة
+                await this.fetchParcels(false);
+
+                // 3. جلب قائمة السائقين والكشوفات المفتوحة لاحقاً حتى لا تزاحم طلب الطرود
+                this.fetchDriversAndOpenManifests(false);
             },
 
             async refreshData() {
-                await Promise.all([
-                    this.fetchParcels(),
-                    this.fetchDriversAndOpenManifests(),
-                ]);
+                await this.fetchParcels(true);
+                await this.fetchDriversAndOpenManifests(true);
             },
 
-            async fetchParcels() {
-                this.isLoading = true;
-                this.isSyncing = true;
+            async fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
                 try {
-                    const res = await fetch('{{ route("accountant.api.parcels.list") }}', {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
+                    return await fetch(url, {
+                        ...options,
+                        signal: controller.signal,
                     });
+                } finally {
+                    clearTimeout(timer);
+                }
+            },
 
-                    if (res.status === 401 || res.status === 419) {
+            prepareParcel(p) {
+                const haystack = [
+                    p.recipient_phone || '',
+                    p.recipient_name || '',
+                    p.receipt_number || '',
+                    p.package_type || '',
+                    p.source_office_name || '',
+                ].join(' ');
+                return {
+                    ...p,
+                    _searchKey: this.normalizeSearch(haystack),
+                };
+            },
+
+            prepareParcels(list) {
+                if (!Array.isArray(list)) return [];
+                return list.map((p) => this.prepareParcel(p));
+            },
+
+            async loadFromLocalCache() {
+                if (!window.MursalAccountantDB || !window.MursalAccountantStores) return;
+                try {
+                    const summaryStore = window.MursalAccountantStores.summary;
+                    const [parcelsCache, driversCache] = await Promise.all([
+                        window.MursalAccountantDB.get(summaryStore, 'unclassified_parcels_cache'),
+                        window.MursalAccountantDB.get(summaryStore, 'drivers_manifests_cache'),
+                    ]);
+
+                    if (parcelsCache && Array.isArray(parcelsCache.parcels)) {
+                        this.parcels = this.prepareParcels(parcelsCache.parcels);
+                        this.parcelsVersion = parcelsCache.version || '';
+                        this.recalculateStats();
+                        this.isLoading = false;
+                    }
+
+                    if (driversCache) {
+                        if (Array.isArray(driversCache.drivers)) this.drivers = driversCache.drivers;
+                        if (Array.isArray(driversCache.open_manifests)) this.openManifests = driversCache.open_manifests;
+                        this.driversVersion = driversCache.version || '';
+                    }
+                } catch (e) {
+                    // تجاهل أخطاء قراءة الكاش المحلي والمتابعة للتحميل من السيرفر
+                }
+            },
+
+            async saveParcelsCache(parcels, version) {
+                if (!window.MursalAccountantDB || !window.MursalAccountantStores) return;
+                try {
+                    const cleanParcels = parcels.map(({ _searchKey, ...rest }) => rest);
+                    await window.MursalAccountantDB.put(window.MursalAccountantStores.summary, {
+                        id: 'unclassified_parcels_cache',
+                        version: version || '',
+                        parcels: cleanParcels,
+                        cached_at: Date.now(),
+                    });
+                } catch (e) {
+                    // ignore cache write failure
+                }
+            },
+
+            async saveDriversCache(drivers, openManifests, version) {
+                if (!window.MursalAccountantDB || !window.MursalAccountantStores) return;
+                try {
+                    await window.MursalAccountantDB.put(window.MursalAccountantStores.summary, {
+                        id: 'drivers_manifests_cache',
+                        version: version || '',
+                        drivers: drivers || [],
+                        open_manifests: openManifests || [],
+                        cached_at: Date.now(),
+                    });
+                } catch (e) {
+                    // ignore cache write failure
+                }
+            },
+
+            async fetchParcels(forceFull = false) {
+                const hasCachedData = this.parcels.length > 0;
+                if (!hasCachedData) {
+                    this.isLoading = true;
+                }
+                this.isSyncing = true;
+
+                try {
+                    const baseUrl = '{{ route("accountant.api.parcels.list") }}';
+                    const headers = {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    };
+
+                    // إذا لدينا نسخة مخزنة، نتحقق أولاً بالبصمة (60 بايت فقط إذا لم يتغير شيء)
+                    const versionQuery = (!forceFull && this.parcelsVersion)
+                        ? `&v=${encodeURIComponent(this.parcelsVersion)}`
+                        : '';
+
+                    // عند الفتح لأول مرة بدون كاش نجلب 60 طرداً أولاً للعرض الفوري، ثم نستكمل البقية بالخلفية
+                    const firstLimit = hasCachedData ? 250 : 60;
+                    const firstRes = await this.fetchWithTimeout(
+                        `${baseUrl}?offset=0&limit=${firstLimit}${versionQuery}`,
+                        { headers },
+                        15000
+                    );
+
+                    if (firstRes.status === 401 || firstRes.status === 419) {
                         this.authModal.open = true;
                         return;
                     }
 
-                    const data = await res.json();
-                    if (data && data.success) {
-                        this.parcels = Array.isArray(data.parcels) ? data.parcels : [];
+                    const firstData = await firstRes.json();
+                    if (!firstData || !firstData.success) return;
+
+                    if (firstData.unchanged) {
+                        return;
+                    }
+
+                    const latestVersion = firstData.version || '';
+                    const firstBatch = Array.isArray(firstData.parcels) ? firstData.parcels : [];
+
+                    if (!hasCachedData) {
+                        // عرض الدفعة الأولى فوراً دون انتظار بقية الطرود
+                        this.parcels = this.prepareParcels(firstBatch);
+                        this.recalculateStats();
+                        this.isLoading = false;
+
+                        let offset = firstBatch.length;
+                        let hasMore = Boolean(firstData.has_more);
+
+                        while (hasMore) {
+                            const chunkRes = await this.fetchWithTimeout(
+                                `${baseUrl}?offset=${offset}&limit=200`,
+                                { headers },
+                                15000
+                            );
+                            if (!chunkRes.ok) break;
+                            const chunkData = await chunkRes.json();
+                            if (!chunkData || !chunkData.success || !Array.isArray(chunkData.parcels) || chunkData.parcels.length === 0) {
+                                break;
+                            }
+                            this.parcels = this.parcels.concat(this.prepareParcels(chunkData.parcels));
+                            this.recalculateStats();
+                            offset += chunkData.parcels.length;
+                            hasMore = Boolean(chunkData.has_more);
+                        }
+
+                        this.parcelsVersion = latestVersion;
+                        await this.saveParcelsCache(this.parcels, latestVersion);
+                    } else {
+                        // تجميع الدفعات في الخلفية ثم التبديل الذري للحفاظ على سلاسة الواجهة
+                        let fresh = [...firstBatch];
+                        let offset = firstBatch.length;
+                        let hasMore = Boolean(firstData.has_more);
+
+                        while (hasMore) {
+                            const chunkRes = await this.fetchWithTimeout(
+                                `${baseUrl}?offset=${offset}&limit=250`,
+                                { headers },
+                                15000
+                            );
+                            if (!chunkRes.ok) break;
+                            const chunkData = await chunkRes.json();
+                            if (!chunkData || !chunkData.success || !Array.isArray(chunkData.parcels) || chunkData.parcels.length === 0) {
+                                break;
+                            }
+                            fresh = fresh.concat(chunkData.parcels);
+                            offset += chunkData.parcels.length;
+                            hasMore = Boolean(chunkData.has_more);
+                        }
+
+                        this.parcels = this.prepareParcels(fresh);
                         const validIds = new Set(this.parcels.map((p) => p.id));
                         this.selectedIds = this.selectedIds.filter((id) => validIds.has(id));
+                        this.parcelsVersion = latestVersion;
                         this.recalculateStats();
+                        await this.saveParcelsCache(this.parcels, latestVersion);
                     }
                 } catch (e) {
-                    this.showToast('تعذر الاتصال بالسيرفر لجلب الطرود.', true);
+                    // في حال ضعف/انقطاع النت: نُبقي البيانات المخزنة ظاهرة وننبه فقط عند عدم وجود كاش أو عند التحديث اليدوي
+                    if (this.parcels.length === 0 || forceFull) {
+                        this.showToast('تعذر الاتصال بالسيرفر، يتم عرض البيانات المخزنة محلياً.', true);
+                    }
                 } finally {
                     this.isLoading = false;
                     this.isSyncing = false;
                 }
             },
 
-            async fetchDriversAndOpenManifests() {
+            async fetchDriversAndOpenManifests(forceFull = false) {
                 try {
-                    const res = await fetch('{{ route("accountant.api.drivers.list") }}', {
+                    const baseUrl = '{{ route("accountant.api.drivers.list") }}';
+                    const vQuery = (!forceFull && this.driversVersion)
+                        ? `?v=${encodeURIComponent(this.driversVersion)}`
+                        : '';
+
+                    const res = await this.fetchWithTimeout(`${baseUrl}${vQuery}`, {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
                         },
-                    });
+                    }, 12000);
 
                     if (res.ok) {
                         const data = await res.json();
                         if (data && data.success) {
+                            if (data.unchanged) return;
                             this.drivers = Array.isArray(data.drivers) ? data.drivers : [];
                             this.openManifests = Array.isArray(data.open_manifests) ? data.open_manifests : [];
+                            this.driversVersion = data.version || '';
+                            await this.saveDriversCache(this.drivers, this.openManifests, this.driversVersion);
                         }
                     }
                 } catch (e) {
@@ -370,15 +544,7 @@
 
                     if (!q) return true;
 
-                    const haystack = [
-                        p.recipient_phone || '',
-                        p.recipient_name || '',
-                        p.receipt_number || '',
-                        p.package_type || '',
-                        p.source_office_name || '',
-                    ].join(' ').toLowerCase();
-
-                    return this.normalizeSearch(haystack).includes(q);
+                    return (p._searchKey || '').includes(q);
                 });
             },
 
@@ -503,11 +669,13 @@
                         return;
                     }
 
-                    // إزالة الطرود المصنفة من قائمة "غير المصنفة" فوراً
+                    // إزالة الطرود المصنفة من قائمة "غير المصنفة" فوراً وتحديث الكاش المحلي
                     const assignedSet = new Set(this.selectedIds);
                     this.parcels = this.parcels.filter((p) => !assignedSet.has(p.id));
                     this.selectedIds = [];
+                    this.parcelsVersion = '';
                     this.recalculateStats();
+                    this.saveParcelsCache(this.parcels, '');
 
                     // تحديث قائمة السائقين والكشوفات المفتوحة محلياً
                     if (data.driver && data.driver.id) {
@@ -521,6 +689,8 @@
                     if (data.manifest) {
                         this.openManifests.unshift(data.manifest);
                     }
+                    this.driversVersion = '';
+                    this.saveDriversCache(this.drivers, this.openManifests, '');
 
                     this.manifestModal.open = false;
                     this.showToast(data.message || 'تم إنشاء الكشف وضم الطرود بنجاح.', false);
@@ -586,11 +756,14 @@
                         return;
                     }
 
-                    // إزالة الطرود المصنفة من قائمة "غير المصنفة" فوراً
+                    // إزالة الطرود المصنفة من قائمة "غير المصنفة" فوراً وتحديث الكاش المحلي
                     const assignedSet = new Set(this.selectedIds);
                     this.parcels = this.parcels.filter((p) => !assignedSet.has(p.id));
                     this.selectedIds = [];
+                    this.parcelsVersion = '';
+                    this.driversVersion = '';
                     this.recalculateStats();
+                    this.saveParcelsCache(this.parcels, '');
 
                     this.assignModal.open = false;
                     this.showToast(data.message || 'تم ضم الطرود إلى الكشف بنجاح.', false);
@@ -697,9 +870,11 @@
 
                     const idx = this.parcels.findIndex((item) => item.id === this.editModal.parcelId);
                     if (idx !== -1 && data.parcel) {
-                        this.parcels.splice(idx, 1, data.parcel);
+                        this.parcels.splice(idx, 1, this.prepareParcel(data.parcel));
                     }
+                    this.parcelsVersion = '';
                     this.recalculateStats();
+                    this.saveParcelsCache(this.parcels, '');
 
                     this.editModal.open = false;
                     this.showToast(data.message || 'تم حفظ التعديلات بنجاح.', false);

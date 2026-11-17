@@ -35,18 +35,51 @@ class ParcelController extends Controller
     }
 
     /**
-     * API لجلب الطرود غير المصنفة التابعة لمكتب المحاسب مع الإحصائيات السريعة
+     * API لجلب الطرود غير المصنفة التابعة لمكتب المحاسب مع دعم التحقق بالبصمة (ETag/Version) والتحميل المجزأ للنت الضعيف
      */
     public function listData(Request $request): JsonResponse
     {
         /** @var Accountant $accountant */
         $accountant = auth('accountant')->user();
+        $officeId   = (int) $accountant->office_id;
 
-        $parcels = Parcel::query()
+        $meta = DB::table('parcels')
+            ->where('office_id', $officeId)
+            ->whereNull('manifest_id')
+            ->selectRaw('COUNT(*) as total_count, COALESCE(MAX(updated_at), "") as max_updated_at, COALESCE(MAX(id), 0) as max_id')
+            ->first();
+
+        $totalCount = (int) ($meta->total_count ?? 0);
+        $version    = md5("{$totalCount}|{$meta->max_updated_at}|{$meta->max_id}");
+
+        $clientVersion = trim((string) $request->query('v', ''));
+        $limitParam    = $request->query('limit');
+        $offset        = max(0, (int) $request->query('offset', 0));
+        $limit         = $limitParam !== null ? max(1, min(500, (int) $limitParam)) : null;
+
+        if ($clientVersion !== '' && $offset === 0 && hash_equals($version, $clientVersion)) {
+            return response()->json([
+                'success'   => true,
+                'unchanged' => true,
+                'version'   => $version,
+            ]);
+        }
+
+        if ($totalCount === 0) {
+            return response()->json([
+                'success'     => true,
+                'unchanged'   => false,
+                'version'     => $version,
+                'total_count' => 0,
+                'offset'      => 0,
+                'has_more'    => false,
+                'parcels'     => [],
+            ]);
+        }
+
+        $query = DB::table('parcels')
             ->select([
                 'id',
-                'office_id',
-                'manifest_id',
                 'recipient_name',
                 'recipient_phone',
                 'package_type',
@@ -56,29 +89,64 @@ class ParcelController extends Controller
                 'cod_amount',
                 'status',
                 'created_at',
-                'delivered_at',
             ])
-            ->where('office_id', $accountant->office_id)
+            ->where('office_id', $officeId)
             ->whereNull('manifest_id')
-            ->withCount('editLogs')
-            ->latest()
-            ->get();
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
-        $totalCount     = $parcels->count();
-        $postpaidItems  = $parcels->where('payment_type', 'postpaid');
-        $postpaidCount  = $postpaidItems->count();
-        $postpaidAmount = (float) $postpaidItems->sum(fn (Parcel $p) => (float) ($p->cod_amount ?? 0));
-        $prepaidCount   = $totalCount - $postpaidCount;
+        if ($limit !== null) {
+            $query->offset($offset)->limit($limit);
+        }
+
+        $rows = $query->get();
+
+        // جلب عدد التعديلات باستعلام واحد مجمع بدلاً من subquery لكل صف
+        $parcelIds = $rows->pluck('id')->all();
+        $editLogCounts = empty($parcelIds)
+            ? []
+            : DB::table('parcel_edit_logs')
+                ->selectRaw('parcel_id, COUNT(*) as cnt')
+                ->where('office_id', $officeId)
+                ->whereIn('parcel_id', $parcelIds)
+                ->groupBy('parcel_id')
+                ->pluck('cnt', 'parcel_id')
+                ->all();
+
+        $serialized = $rows->map(function (object $row) use ($editLogCounts): array {
+            $codAmount   = $row->cod_amount !== null ? (float) $row->cod_amount : null;
+            $paymentType = $row->payment_type ?: (($codAmount ?? 0) > 0 ? 'postpaid' : 'prepaid');
+            $createdAtIso = null;
+            if ($row->created_at) {
+                $ts = strtotime((string) $row->created_at);
+                $createdAtIso = $ts !== false ? date('c', $ts) : (string) $row->created_at;
+            }
+
+            return [
+                'id'                 => (int) $row->id,
+                'recipient_name'     => $row->recipient_name,
+                'recipient_phone'    => $row->recipient_phone,
+                'package_type'       => $row->package_type,
+                'receipt_number'     => $row->receipt_number,
+                'source_office_name' => $row->source_office_name,
+                'payment_type'       => $paymentType,
+                'cod_amount'         => $codAmount,
+                'status'             => (string) $row->status,
+                'edit_logs_count'    => (int) ($editLogCounts[$row->id] ?? 0),
+                'created_at'         => $createdAtIso,
+            ];
+        })->values();
+
+        $hasMore = $limit !== null && ($offset + $rows->count()) < $totalCount;
 
         return response()->json([
-            'success' => true,
-            'stats'   => [
-                'total_count'     => $totalCount,
-                'postpaid_count'  => $postpaidCount,
-                'postpaid_amount' => round($postpaidAmount, 2),
-                'prepaid_count'   => $prepaidCount,
-            ],
-            'parcels' => $parcels->map(fn (Parcel $p) => $this->serializeParcel($p))->values(),
+            'success'     => true,
+            'unchanged'   => false,
+            'version'     => $version,
+            'total_count' => $totalCount,
+            'offset'      => $offset,
+            'has_more'    => $hasMore,
+            'parcels'     => $serialized,
         ]);
     }
 
