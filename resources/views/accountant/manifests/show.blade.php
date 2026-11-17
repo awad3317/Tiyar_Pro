@@ -282,21 +282,21 @@
 
                 <!-- نموذج إضافة الخصم -->
                 <form @submit.prevent="submitNewDeduction()" class="space-y-2.5">
-                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                        <div class="sm:col-span-7">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">بيان الخصم <span class="text-rose-500">*</span>:</label>
-                            <input type="text"
-                                   x-ref="newDeductionTitleInput"
-                                   x-model="newDeduction.title"
-                                   maxlength="150"
-                                   required
-                                   placeholder="مثال: خصم العمال (تنزيل الطرود)..."
-                                   class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
-                        </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">بيان الخصم <span class="text-rose-500">*</span>:</label>
+                        <input type="text"
+                               x-ref="newDeductionTitleInput"
+                               x-model="newDeduction.title"
+                               maxlength="150"
+                               required
+                               placeholder="مثال: تنزيل طرود، عمولة مكتب، سلفة..."
+                               class="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
+                    </div>
 
-                        <div class="sm:col-span-5">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">مبلغ الخصم (ر.ي) <span class="text-rose-500">*</span>:</label>
-                            <div class="relative">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">مبلغ الخصم (ر.ي) <span class="text-rose-500">*</span>:</label>
+                        <div class="flex items-stretch gap-2">
+                            <div class="relative flex-1 min-w-0">
                                 <input type="number"
                                        x-ref="newDeductionAmountInput"
                                        x-model="newDeduction.amount"
@@ -304,27 +304,19 @@
                                        min="0.01"
                                        step="any"
                                        required
-                                       placeholder="مثال: 2000"
-                                       class="w-full bg-rose-50/40 focus:bg-white border border-rose-200 focus:border-rose-500 rounded-xl py-2 pr-3 pl-10 text-sm font-mono font-black text-rose-800 outline-none dir-ltr text-right">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-extrabold text-rose-600">ر.ي</span>
+                                       placeholder="0"
+                                       class="w-full bg-rose-50/40 focus:bg-white border border-rose-200 focus:border-rose-500 rounded-xl py-2 pr-3 pl-9 text-sm font-mono font-black text-rose-800 outline-none dir-ltr text-right">
+                                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-extrabold text-rose-600">ر.ي</span>
                             </div>
+
+                            <button type="submit"
+                                    :disabled="newDeduction.saving"
+                                    class="shrink-0 py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-60">
+                                <span x-show="!newDeduction.saving" class="material-symbols-outlined text-base">add_circle</span>
+                                <span x-show="newDeduction.saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                <span x-text="newDeduction.saving ? 'جاري...' : 'إضافة الخصم'"></span>
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <input type="text"
-                               x-model="newDeduction.notes"
-                               maxlength="255"
-                               placeholder="ملاحظة إضافية على الخصم (اختياري)..."
-                               class="w-full sm:flex-1 min-w-0 bg-slate-50 focus:bg-white border border-slate-200 focus:border-secondary rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none">
-
-                        <button type="submit"
-                                :disabled="newDeduction.saving"
-                                class="w-full sm:w-auto shrink-0 py-2.5 sm:py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-60">
-                            <span x-show="!newDeduction.saving" class="material-symbols-outlined text-base">add_circle</span>
-                            <span x-show="newDeduction.saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                            <span x-text="newDeduction.saving ? 'جاري الإضافة...' : 'إضافة الخصم للكشف'"></span>
-                        </button>
                     </div>
                 </form>
             </section>
