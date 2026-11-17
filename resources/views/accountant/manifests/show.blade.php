@@ -262,20 +262,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- زر انتقال سريع إلى تبويب الخصومات والتصفية -->
-            <div x-show="parcels.length > 0" class="pt-1">
-                <button type="button"
-                        @click="activeTab = 'settlement'"
-                        class="w-full py-3 px-4 rounded-2xl bg-primary hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-between shadow-md active:scale-98 transition-all">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-lg text-secondary">calculate</span>
-                        <span>الانتقال لحساب الخصومات وتصفية السائق</span>
-                    </div>
-                    <span class="font-mono font-black text-emerald-300 dir-ltr"
-                          x-text="'الصافي: ' + formatAmount(manifest.net_driver_amount) + ' ر.ي'"></span>
-                </button>
-            </div>
         </div>
 
         <!-- ========================================================= -->
@@ -448,7 +434,7 @@
                             <span x-show="settling" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                             <span x-text="settling
                                 ? 'جاري اعتماد تصفية الكشف...'
-                                : '✅ اعتماد تصفية الكشف وتسليم السائق (' + formatAmount(manifest.net_driver_amount) + ' ر.ي)'"></span>
+                                : 'اعتماد تصفية الكشف وتسليم السائق (' + formatAmount(manifest.net_driver_amount) + ' ر.ي)'"></span>
                         </button>
                     </template>
 
@@ -482,7 +468,7 @@
                                 @click="shareSettlementViaWhatsApp()"
                                 class="col-span-2 sm:col-span-1 py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all">
                             <span class="material-symbols-outlined text-base text-emerald-600">share</span>
-                            <span>📲 مشاركة التصفية واتساب</span>
+                            <span>مشاركة التصفية واتساب</span>
                         </button>
 
                         <button type="button"
@@ -496,7 +482,7 @@
                                 @click="window.print()"
                                 class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all">
                             <span class="material-symbols-outlined text-base text-slate-600">print</span>
-                            <span>🖨️ طباعة الكشف</span>
+                            <span>طباعة الكشف</span>
                         </button>
                     </div>
                 </div>

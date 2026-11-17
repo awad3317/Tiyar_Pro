@@ -33,8 +33,8 @@
             </div>
         </div>
 
-        <!-- شارة حالة الكشف -->
-        <div class="shrink-0">
+        <!-- شارة حالة الكشف + قائمة الثلاث نقاط للإجراءات -->
+        <div class="shrink-0 flex items-center gap-1.5">
             <template x-if="m.status === 'open'">
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -48,6 +48,38 @@
                     <span>تمت التصفية</span>
                 </span>
             </template>
+
+            <!-- قائمة الثلاث نقاط (فتح الكشف / تعديل) -->
+            <div x-data="{ menuOpen: false }"
+                 @click.outside="menuOpen = false"
+                 class="relative">
+                <button type="button"
+                        @click="menuOpen = !menuOpen"
+                        title="خيارات الكشف"
+                        class="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+
+                <div x-show="menuOpen"
+                     x-cloak
+                     x-transition
+                     class="absolute left-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30">
+                    <a :href="'/accountant/manifests/' + m.id"
+                       @click="menuOpen = false"
+                       class="w-full px-3 py-2 text-right text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[15px] text-primary">calculate</span>
+                        <span>فتح الكشف والخصومات</span>
+                    </a>
+
+                    <button type="button"
+                            x-show="m.status === 'open'"
+                            @click="menuOpen = false; openEditManifestModal(m)"
+                            class="w-full px-3 py-2 text-right text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[15px] text-slate-500">edit</span>
+                        <span>تعديل بيانات الكشف</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -114,23 +146,6 @@
     <p x-show="m.notes"
        class="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 truncate"
        x-text="'ملاحظة: ' + m.notes"></p>
-
-    <!-- 4. أزرار التحكم -->
-    <div class="flex items-center gap-2 pt-0.5">
-        <a :href="'/accountant/manifests/' + m.id"
-           class="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all">
-            <span class="material-symbols-outlined text-[16px] text-secondary">calculate</span>
-            <span>فتح الكشف والخصومات</span>
-        </a>
-
-        <button type="button"
-                x-show="m.status === 'open'"
-                @click="openEditManifestModal(m)"
-                class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all">
-            <span class="material-symbols-outlined text-[16px]">edit</span>
-            <span>تعديل</span>
-        </button>
-    </div>
 
 </article>
 
