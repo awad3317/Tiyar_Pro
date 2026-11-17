@@ -25,8 +25,8 @@
             </div>
         </div>
 
-        <!-- شارة نوع الدفع والمبلغ (آجل / محاسب) -->
-        <div class="shrink-0 flex flex-col items-end gap-1">
+        <!-- شارة نوع الدفع والمبلغ (آجل / محاسب) + قائمة الثلاث نقاط للإجراءات -->
+        <div class="shrink-0 flex items-center gap-1.5">
             <template x-if="p.payment_type === 'postpaid'">
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
                     <span class="material-symbols-outlined text-[14px] text-amber-700">payments</span>
@@ -40,6 +40,38 @@
                     <span>محاسب</span>
                 </span>
             </template>
+
+            <!-- قائمة الثلاث نقاط (تعديل الطرد / إخراج من الكشف) -->
+            <div x-data="{ menuOpen: false }"
+                 @click.outside="menuOpen = false"
+                 class="relative print:hidden">
+                <button type="button"
+                        @click="menuOpen = !menuOpen"
+                        title="إجراءات الطرد"
+                        class="w-7 h-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+
+                <div x-show="menuOpen"
+                     x-cloak
+                     x-transition
+                     class="absolute left-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30">
+                    <button type="button"
+                            @click="menuOpen = false; openEditModal(p)"
+                            class="w-full px-3 py-2 text-right text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[15px] text-slate-500">edit</span>
+                        <span>تعديل الطرد</span>
+                    </button>
+
+                    <button type="button"
+                            x-show="manifest.status === 'open'"
+                            @click="menuOpen = false; promptRemoveParcel(p)"
+                            class="w-full px-3 py-2 text-right text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[15px]">output</span>
+                        <span>إخراج من الكشف</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -75,38 +107,6 @@
                 <span class="material-symbols-outlined text-base">call</span>
             </a>
         </div>
-    </div>
-
-    <!-- شريط الأزرار السفلي: تعديل الطرد + السجل + إخراج من الكشف -->
-    <div class="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
-        <div class="flex items-center gap-1.5 flex-wrap">
-            <!-- زر تعديل الطرد -->
-            <button type="button"
-                    @click="openEditModal(p)"
-                    class="py-1.5 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all">
-                <span class="material-symbols-outlined text-[15px] text-secondary">edit_square</span>
-                <span>تعديل الطرد</span>
-            </button>
-
-            <!-- زر عرض سجل التعديلات -->
-            <button type="button"
-                    x-show="p.edit_logs_count > 0"
-                    @click="openLogsModal(p)"
-                    class="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-all">
-                <span class="material-symbols-outlined text-[14px] text-slate-500">history</span>
-                <span>السجل (<span x-text="p.edit_logs_count"></span>)</span>
-            </button>
-        </div>
-
-        <!-- زر إخراج الطرد من الكشف (متاح عندما يكون الكشف مفتوحاً) -->
-        <button type="button"
-                x-show="manifest.status === 'open'"
-                @click="promptRemoveParcel(p)"
-                title="إخراج الطرد من الكشف وإعادته لغير المصنفة"
-                class="py-1.5 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-extrabold flex items-center gap-1 active:scale-95 transition-all">
-            <span class="material-symbols-outlined text-[14px]">output</span>
-            <span>إخراج من الكشف</span>
-        </button>
     </div>
 
 </article>
