@@ -475,7 +475,7 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
@@ -502,7 +502,7 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
@@ -635,6 +635,90 @@
                 </template>
             </div>
 
+            @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region'))
+            {{-- حقل اختيار المنطقة القادم منها الطرد (سليكت مع بحث بالكتابة) --}}
+            <div x-data="{
+                regionOpen: false,
+                regionSearch: '',
+                defaultRegions: [
+                    'صنعاء', 'عدن', 'تعز', 'حضرموت - المكلا', 'حضرموت - سيئون', 'إب', 'الحديدة',
+                    'مأرب', 'ذمار', 'شبوة', 'لحج', 'أبين', 'الضالع', 'المهرة', 'البيضاء',
+                    'حجة', 'عمران', 'صعدة', 'الجوف', 'المحويت', 'ريمة', 'سقطرى',
+                    'الرياض', 'جدة', 'مكة المكرمة', 'شرورة'
+                ],
+                normRegion(s) {
+                    return String(s || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+                },
+                get filteredRegions() {
+                    const q = this.normRegion(this.regionSearch);
+                    if (!q) return this.defaultRegions;
+                    return this.defaultRegions.filter(r => this.normRegion(r).includes(q));
+                },
+                chooseRegion(val) {
+                    quickSms.sourceRegion = val;
+                    this.regionSearch = '';
+                    this.regionOpen = false;
+                }
+            }" class="relative" @click.outside="regionOpen = false">
+                <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center justify-between">
+                    <span class="flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[15px] text-purple-600">location_on</span>
+                        <span>المنطقة القادم منها الطرد <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
+                    </span>
+                    <template x-if="quickSms.sourceRegion">
+                        <button type="button" @click="quickSms.sourceRegion = ''; regionSearch = ''"
+                                class="text-[10px] font-bold text-rose-500 hover:text-rose-700">مسح ✕</button>
+                    </template>
+                </label>
+
+                <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                    <input type="text"
+                           :value="regionOpen ? regionSearch : (quickSms.sourceRegion || '')"
+                           @focus="regionOpen = true; regionSearch = ''"
+                           @input="regionOpen = true; regionSearch = $event.target.value; quickSms.sourceRegion = $event.target.value.trim()"
+                           @keydown.enter.prevent="regionOpen = false"
+                           :disabled="isClosing"
+                           dir="rtl"
+                           autocomplete="off"
+                           placeholder="اختر المنطقة أو اكتب للبحث..."
+                           class="w-full py-2 pr-3.5 pl-9 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal disabled:opacity-50" />
+                    <button type="button"
+                            @click="regionOpen = !regionOpen; if (regionOpen) regionSearch = ''"
+                            class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center">
+                        <span class="material-symbols-outlined text-base" x-text="regionOpen ? 'expand_less' : 'expand_more'"></span>
+                    </button>
+                </div>
+
+                <div x-show="regionOpen"
+                     x-cloak
+                     x-transition
+                     class="absolute left-0 right-0 top-full mt-1 z-30 max-h-44 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
+                    <template x-for="reg in filteredRegions" :key="reg">
+                        <button type="button"
+                                @mousedown.prevent
+                                @click="chooseRegion(reg)"
+                                :class="quickSms.sourceRegion === reg ? 'bg-purple-50 text-purple-800 font-extrabold' : 'text-slate-700 hover:bg-slate-50 font-bold'"
+                                class="w-full px-3.5 py-2 text-right text-xs flex items-center justify-between transition-colors">
+                            <span x-text="reg"></span>
+                            <template x-if="quickSms.sourceRegion === reg">
+                                <span class="material-symbols-outlined text-sm text-purple-600">check</span>
+                            </template>
+                        </button>
+                    </template>
+
+                    <template x-if="regionSearch.trim() !== '' && !filteredRegions.includes(regionSearch.trim())">
+                        <button type="button"
+                                @mousedown.prevent
+                                @click="chooseRegion(regionSearch.trim())"
+                                class="w-full px-3.5 py-2 text-right text-xs font-extrabold text-secondary bg-amber-50/50 hover:bg-amber-50 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">add_location_alt</span>
+                            <span x-text="'اعتماد المنطقة: ' + regionSearch.trim()"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+            @endif
+
             @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
             {{-- 4. حقل المبلغ المطلوب عند التسليم (اختياري) --}}
             <div class="relative">
@@ -654,7 +738,7 @@
                                if (isClosing) return;
                                const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                                if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                                   addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
+                                   addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
                                    quickSms.phone = '';
                                    quickSms.description = '';
                                    quickSms.recipientName = '';
@@ -678,7 +762,7 @@
                     if (isClosing) return;
                     const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                     if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                        addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null);
+                        addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
                         quickSms.phone = '';
                         quickSms.description = '';
                         quickSms.recipientName = '';
@@ -741,6 +825,15 @@
                     {{-- نوع الطرد واسم المستلم إن وُجد --}}
                     <span class="text-[11px] font-bold text-slate-500 flex-1 truncate"
                         x-text="entry.recipientName ? (entry.description + ' • ' + entry.recipientName) : entry.description"></span>
+
+                    @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region'))
+                    <template x-if="entry.sourceRegion">
+                        <span class="px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold shrink-0 flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-[11px]">location_on</span>
+                            <span x-text="entry.sourceRegion"></span>
+                        </span>
+                    </template>
+                    @endif
 
                     @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
                     {{-- شارة المبلغ المطلوب عند التسليم في القائمة الحية --}}

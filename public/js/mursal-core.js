@@ -264,6 +264,7 @@
                 description: 'طرد',
                 recipientName: '',
                 codAmount: '',
+                sourceRegion: '',
                 channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
@@ -281,6 +282,7 @@
                 this.quickSms.description = 'طرد';
                 this.quickSms.recipientName = '';
                 this.quickSms.codAmount = '';
+                this.quickSms.sourceRegion = '';
                 this.quickSms.channel = this.quickSms.channel || 'whatsapp';
                 // autofocus على حقل الهاتف بعد فتح المودال
                 this.$nextTick(() => {
@@ -304,6 +306,7 @@
                 this.quickSms.description = 'طرد';
                 this.quickSms.recipientName = '';
                 this.quickSms.codAmount = '';
+                this.quickSms.sourceRegion = '';
             },
 
             showFeedback(message, isError = false) {
@@ -541,15 +544,17 @@
             },
 
             // ---------- الإرسال التدريجي الفردي الموحد (Streaming Dispatch) ----------
-            addToStreamingQueue(phone, description, recipientName = '', codAmount = null) {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '') {
                 const id = ++this.streamingIdCounter;
                 const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
+                const cleanRegion = String(sourceRegion || this.quickSms?.sourceRegion || '').trim();
                 const entry = {
                     id,
                     phone,
                     description,
                     recipientName: (recipientName || '').trim(),
                     codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
+                    sourceRegion: cleanRegion || null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -581,6 +586,7 @@
                             description: entry.description,
                             recipient_name: entry.recipientName || null,
                             cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
+                            source_region: entry.sourceRegion || null,
                             channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                         })
                     });

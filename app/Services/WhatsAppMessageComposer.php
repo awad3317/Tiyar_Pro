@@ -106,6 +106,8 @@ class WhatsAppMessageComposer
             '{recipient}'       => $recipient,
             '{recipient_name}'  => $recipient,
             '{cod_amount}'      => $cod,
+            '{region}'          => trim((string) ($parcel->source_region ?? '')),
+            '{source_region}'   => trim((string) ($parcel->source_region ?? '')),
         ];
     }
 

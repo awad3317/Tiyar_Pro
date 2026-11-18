@@ -42,6 +42,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'تفعيل حسابات وتطبيق المحاسبين الخاص بالمكتب',
             ],
+            [
+                'code' => 'parcel_source_region',
+                'name' => 'منطقة قدوم الطرد (المصدر)',
+                'category' => 'general',
+                'description' => 'إتاحة اختيار المنطقة القادم منها الطرد عبر قائمة قابلة للبحث في الإرسال السريع وعرضها في بطاقة الطرد ولوحة التحكم',
+            ],
         ];
 
         $features = collect();

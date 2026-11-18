@@ -24,6 +24,7 @@ class Parcel extends Model
         'payment_type',
         'source_office_id',
         'source_office_name',
+        'source_region',
         'status',
         'sms_status',
         'sms_failure_reason',

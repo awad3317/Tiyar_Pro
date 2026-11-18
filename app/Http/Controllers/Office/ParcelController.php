@@ -155,12 +155,15 @@ class ParcelController extends Controller
         $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
         $smsBody = str_replace(
-            ['{office}', '{branch}', '{package}', '{receipt}'],
+            ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
             [
                 $office->name,
                 $office->branch_name ?? '',
                 $parcel->package_type,
-                $parcel->receipt_number ?? ''
+                $parcel->receipt_number ?? '',
+                $parcel->recipient_name ?? '',
+                $parcel->source_region ?? '',
+                $parcel->source_region ?? '',
             ],
             $template
         );
@@ -322,6 +325,7 @@ class ParcelController extends Controller
 
         $waScheduler = app(WhatsAppQueueScheduler::class);
         $hasCodFeature = $office->hasFeature('parcel_cod_amount');
+        $hasRegionFeature = $office->hasFeature('parcel_source_region');
 
         foreach ($items as $item) {
             $phone = trim($item['phone'] ?? '');
@@ -337,6 +341,12 @@ class ParcelController extends Controller
                 $codAmount = $val > 0 ? $val : null;
             }
 
+            $sourceRegion = null;
+            if ($hasRegionFeature) {
+                $rawRegion = trim(strip_tags((string) ($item['source_region'] ?? '')));
+                $sourceRegion = $rawRegion !== '' ? mb_substr($rawRegion, 0, 100) : null;
+            }
+
             // 1. إنشاء الطرد في قاعدة البيانات
             try {
                 $parcel = Parcel::create([
@@ -344,6 +354,7 @@ class ParcelController extends Controller
                     'recipient_phone'    => $phone,
                     'package_type'       => $desc ?: 'طرد',
                     'cod_amount'         => $codAmount,
+                    'source_region'      => $sourceRegion,
                     'status'             => defined(ParcelStatus::class . '::InOffice') 
                                             ? ParcelStatus::InOffice 
                                             : 'in_office',
@@ -370,12 +381,15 @@ class ParcelController extends Controller
                     ]);
                 } elseif ($hasSmsGatewayConfigured) {
                     $smsBody = str_replace(
-                        ['{office}', '{branch}', '{package}', '{receipt}'],
+                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
                         [
                             $office->name,
                             $office->branch_name ?? '',
                             $parcel->package_type,
-                            $parcel->receipt_number ?? ''
+                            $parcel->receipt_number ?? '',
+                            $parcel->recipient_name ?? '',
+                            $parcel->source_region ?? '',
+                            $parcel->source_region ?? '',
                         ],
                         $smsTemplate
                     );
@@ -491,6 +505,13 @@ class ParcelController extends Controller
             }
         }
 
+        // التحقق من ميزة منطقة قدوم الطرد من الكاش
+        $sourceRegion = null;
+        if ($office->hasFeature('parcel_source_region')) {
+            $rawRegion = trim(strip_tags((string) $request->input('source_region', '')));
+            $sourceRegion = $rawRegion !== '' ? mb_substr($rawRegion, 0, 100) : null;
+        }
+
         // 1. إنشاء الطرد في قاعدة البيانات
         try {
             $parcel = Parcel::create([
@@ -499,6 +520,7 @@ class ParcelController extends Controller
                 'recipient_phone' => $phone,
                 'package_type'    => $desc ?: 'طرد',
                 'cod_amount'      => $codAmount,
+                'source_region'   => $sourceRegion,
                 'status'          => defined(ParcelStatus::class . '::InOffice')
                                         ? ParcelStatus::InOffice
                                         : 'in_office',
@@ -532,12 +554,15 @@ class ParcelController extends Controller
                 $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
                 $smsBody = str_replace(
-                    ['{office}', '{branch}', '{package}', '{receipt}'],
+                    ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
                     [
                         $office->name,
                         $office->branch_name ?? '',
                         $parcel->package_type,
-                        $parcel->receipt_number ?? ''
+                        $parcel->receipt_number ?? '',
+                        $parcel->recipient_name ?? '',
+                        $parcel->source_region ?? '',
+                        $parcel->source_region ?? '',
                     ],
                     $template
                 );
@@ -711,12 +736,15 @@ class ParcelController extends Controller
                     }
 
                     $smsBody = str_replace(
-                        ['{office}', '{branch}', '{package}', '{receipt}'],
+                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
                         [
                             $office->name,
                             $office->branch_name ?? '',
                             $p->package_type,
-                            $p->receipt_number ?? ''
+                            $p->receipt_number ?? '',
+                            $p->recipient_name ?? '',
+                            $p->source_region ?? '',
+                            $p->source_region ?? '',
                         ],
                         $template
                     );

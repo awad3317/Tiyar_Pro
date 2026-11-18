@@ -127,6 +127,7 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{recipient}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{package}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono">{region}</span>
                     </div>
                 </div>
 

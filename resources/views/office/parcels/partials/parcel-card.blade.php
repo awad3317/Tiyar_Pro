@@ -10,8 +10,15 @@
                 </span>
                 <div>
                     <h3 class="font-bold text-sm text-slate-800" x-text="p.package_type"></h3>
-                    <p class="text-[11px] text-slate-400 font-mono" x-show="p.receipt_number"
-                        x-text="'سند: #' + p.receipt_number"></p>
+                    <div class="flex items-center gap-2 flex-wrap mt-0.5">
+                        <p class="text-[11px] text-slate-400 font-mono" x-show="p.receipt_number"
+                            x-text="'سند: #' + p.receipt_number"></p>
+                        <span x-show="p.source_region"
+                            class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80">
+                            <span class="material-symbols-outlined text-[12px]">location_on</span>
+                            <span x-text="'من: ' + p.source_region"></span>
+                        </span>
+                    </div>
                 </div>
             </div>
 

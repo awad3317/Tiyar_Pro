@@ -241,6 +241,7 @@
                                 <th class="py-2.5 px-3">رقم السند</th>
                                 <th class="py-2.5 px-3">المستلم</th>
                                 <th class="py-2.5 px-3">نوع الطرد</th>
+                                <th class="py-2.5 px-3">المنطقة / المصدر</th>
                                 <th class="py-2.5 px-3 text-center">الحالة</th>
                                 <th class="py-2.5 px-3">تاريخ الوصول</th>
                             </tr>
@@ -254,6 +255,7 @@
                                         <div class="text-[11px] font-mono text-slate-400" dir="ltr">{{ $parcel->recipient_phone }}</div>
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-600">{{ $parcel->package_type }}</td>
+                                    <td class="py-2.5 px-3 text-slate-600">{{ $parcel->source_region ?: '-' }}</td>
                                     <td class="py-2.5 px-3 text-center">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ $parcel->status->value === 'delivered' ? 'bg-emerald-50 text-emerald-700' : ($parcel->status->value === 'returned' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700') }}">
                                             {{ $parcel->status->label() }}
@@ -314,6 +316,7 @@
                                 <button type="button" @click="insertTag('sms_template_input', '{branch}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch} (اسم الفرع)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package} (نوع الطرد)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt} (رقم السند)</button>
+                                <button type="button" @click="insertTag('sms_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (منطقة قدوم الطرد)</button>
                             </div>
                         </div>
                     </div>
@@ -478,6 +481,7 @@
                                 <button type="button" @click="insertTag('wa_template_input', '{branch}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt}</button>
+                                <button type="button" @click="insertTag('wa_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (المنطقة)</button>
                             </div>
                         </div>
                     </div>

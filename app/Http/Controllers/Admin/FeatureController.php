@@ -130,6 +130,8 @@ class FeatureController extends Controller
      */
     public function syncAll(): RedirectResponse
     {
+        (new \Database\Seeders\FeatureSeeder())->run();
+
         $features = Feature::all();
         $officeIds = Office::query()->pluck('id');
 

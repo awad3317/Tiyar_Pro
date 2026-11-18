@@ -287,7 +287,7 @@
                            placeholder="مثال: sms_on_delivery"
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-secondary transition-all">
                     <p class="text-[11px] text-slate-400 mt-1">
-                        أحرف إنجليزية صغيرة مع أرقام أو شرطة سفلية (مثل <code class="text-slate-600 font-mono">vip_customers_tab</code>). يُستخدم في الفحص البرمجي <code class="font-mono text-slate-600">$office->hasFeature('code')</code> ولا يمكن تغييره بعد الإنشاء.
+                        أحرف إنجليزية صغيرة مع أرقام أو شرطة سفلية (مثل <code class="text-slate-600 font-mono">vip_customers_tab</code> أو <code class="text-slate-600 font-mono">parcel_source_region</code>). يُستخدم في الفحص البرمجي <code class="font-mono text-slate-600">$office->hasFeature('code')</code> ولا يمكن تغييره بعد الإنشاء.
                     </p>
                 </div>
 

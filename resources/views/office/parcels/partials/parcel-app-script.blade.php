@@ -514,7 +514,8 @@
                 const text = (preparedTemplate || '')
                     .replace('{package}', parcel.package_type || 'طرد')
                     .replace('{receipt}', parcel.receipt_number || '')
-                    .replace('{recipient}', parcel.recipient_name || 'العميل');
+                    .replace('{recipient}', parcel.recipient_name || 'العميل')
+                    .replace(/\{region\}|\{source_region\}/g, parcel.source_region || '');
 
                 let cleanPhone = String(parcel.recipient_phone || '').replace(/\D/g, '').replace(/^0+/, '');
                 if (!cleanPhone.startsWith('967')) {
@@ -565,15 +566,17 @@
 
             // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
 
-            addToStreamingQueue(phone, description, recipientName = '', codAmount = null) {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '') {
                 const id = ++this.streamingIdCounter;
                 const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
+                const cleanRegion = String(sourceRegion || this.quickSms?.sourceRegion || '').trim();
                 const entry = {
                     id,
                     phone,
                     description,
                     recipientName: (recipientName || '').trim(),
                     codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
+                    sourceRegion: cleanRegion || null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -598,6 +601,7 @@
                     description: entry.description,
                     recipient_name: entry.recipientName || null,
                     cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
+                    source_region: entry.sourceRegion || null,
                     channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                 };
 
@@ -684,6 +688,7 @@
                     recipient_name: entry.recipientName || null,
                     package_type: entry.description || 'طرد',
                     cod_amount: payload.cod_amount,
+                    source_region: payload.source_region || null,
                     status: 'in_office',
                     created_at: new Date().toISOString(),
                     is_local_temp: true,
@@ -969,7 +974,7 @@
                     : this.normalizeText(this.search).trim().toLowerCase();
                 if (!term) return true;
 
-                return [parcel.recipient_phone, parcel.package_type, parcel.receipt_number, parcel.recipient_name]
+                return [parcel.recipient_phone, parcel.package_type, parcel.receipt_number, parcel.recipient_name, parcel.source_region]
                     .some((value) => String(value ?? '').toLowerCase().includes(term));
             },
 

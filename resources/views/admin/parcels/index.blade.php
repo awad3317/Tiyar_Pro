@@ -138,6 +138,7 @@
                         <th class="py-4 px-4">المكتب الحالي</th>
                         <th class="py-4 px-4">المستلم ورقم الهاتف</th>
                         <th class="py-4 px-4">نوع الطرد والشحنة</th>
+                        <th class="py-4 px-4">منطقة قدوم الطرد</th>
                         <th class="py-4 px-4">المكتب المصدر</th>
                         <th class="py-4 px-4 text-center">الحالة الحالية</th>
                         <th class="py-4 px-4">تاريخ الوصول والتسليم</th>
@@ -175,6 +176,18 @@
                             <!-- نوع الطرد -->
                             <td class="py-4 px-4 text-slate-800">
                                 {{ $parcel->package_type }}
+                            </td>
+
+                            <!-- منطقة قدوم الطرد -->
+                            <td class="py-4 px-4">
+                                @if($parcel->source_region)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold">
+                                        <span class="material-symbols-outlined text-[14px]">location_on</span>
+                                        <span>{{ $parcel->source_region }}</span>
+                                    </span>
+                                @else
+                                    <span class="text-slate-400">-</span>
+                                @endif
                             </td>
 
                             <!-- المكتب المصدر -->
