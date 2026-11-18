@@ -300,22 +300,19 @@ class HttpSmsWebhookController extends Controller
                     $streak = (int) Cache::get($streakKey, 0) + 1;
                     Cache::put($streakKey, $streak, now()->addHours(6));
 
-                    $isRetryingAfterRecharge = Cache::has("sms_retrying_after_recharge_office_{$targetOfficeId}");
-                    Log::info("📊 [STREAK 108] Office ID [{$targetOfficeId}] streak=[{$streak}], isRetryingAfterRecharge=" . ($isRetryingAfterRecharge ? 'YES' : 'NO'));
+                    Cache::put("sms_out_of_balance_office_{$targetOfficeId}", [
+                        'out_of_balance' => true,
+                        'error_code'     => $errorMessage,
+                        'sim'            => $simSlot,
+                        'streak'         => $streak,
+                        'triggered_at'   => now()->toIso8601String(),
+                        'message'        => "توقف إرسال الرسائل النصية (SMS) بسبب انتهاء الباقة أو نفاد الرصيد في الشريحة ({$simSlot} - خطأ 108).",
+                    ], now()->addHours(12));
 
-                    if ($streak >= 3 || $isRetryingAfterRecharge) {
-                        Cache::put("sms_out_of_balance_office_{$targetOfficeId}", [
-                            'out_of_balance' => true,
-                            'error_code'     => $errorMessage,
-                            'sim'            => $simSlot,
-                            'streak'         => $streak,
-                            'triggered_at'   => now()->toIso8601String(),
-                            'message'        => "توقف إرسال الرسائل النصية (SMS) بسبب انتهاء الباقة أو نفاد الرصيد في الشريحة ({$simSlot} - خطأ 108).",
-                        ], now()->addHours(12));
+                    Log::error("🚨 [OUT OF BALANCE ACTIVE] Office ID [{$targetOfficeId}] locked in out_of_balance state for 12 hours (streak={$streak}).");
 
-                        Log::error("🚨 [OUT OF BALANCE ACTIVE] Office ID [{$targetOfficeId}] locked in out_of_balance state for 12 hours.");
-
-                        // إرسال إشعار واتساب للمسؤول والمكتب (مع قفل منع التكرار كل ساعتين)
+                    // إرسال إشعار واتساب للمسؤول والمكتب (مع قفل منع التكرار كل ساعتين)
+                    if ($streak >= 3) {
                         $waAlertKey = "sms_108_wa_alert_office_{$targetOfficeId}";
                         if (!Cache::has($waAlertKey)) {
                             Cache::put($waAlertKey, true, now()->addHours(2));
@@ -327,63 +324,14 @@ class HttpSmsWebhookController extends Controller
                     }
                 }
 
-                // لا نقوم بأي Retry فوري لخطأ 108 لأن الشريحة بلا رصيد
+                // لا نقوم بأي Retry تلقائي
                 return;
             }
 
             // ========================================================
-            // 3. حالة تعطل الإرسال من داخل تطبيق httpSMS في الهاتف
+            // 3. بقية حالات الفشل: تسجيل الفشل فقط بدون إعادة إرسال تلقائي (يُعاد يدوياً من التطبيق)
             // ========================================================
-            $isAppDisabled = str_contains($errorMessage, 'DISABLED ON THE MOBILE APP');
-            if ($isAppDisabled) {
-                Log::warning("🚫 [APP DISABLED] Outgoing messages disabled on mobile app for sender [{$cleanOwner}]. Skipping retry.");
-                return;
-            }
-
-            // ========================================================
-            // 4. حالات الفشل الأخرى: منطق إعادة المحاولة التقليدي (بدون حجب cooldownKey)
-            // ========================================================
-            if (empty($content)) {
-                Log::warning("⚠ [STEP 7] Cannot retry: message content is empty.");
-                return;
-            }
-
-            $attemptCount = (int) Cache::get($retryKey, 0);
-            Log::info("📊 [STEP 7] Current retry count for +{$cleanRecipient} is [{$attemptCount}] out of max 2.");
-
-            if ($attemptCount < 2) {
-                $newAttempt = $attemptCount + 1;
-                Cache::put($retryKey, $newAttempt, now()->addHours(2));
-                Log::info("📈 [STEP 8] Counter incremented to [{$newAttempt}].");
-
-                Log::warning("🔄 [STEP 9] Triggering SMS Retry to +{$cleanRecipient} via office {$cleanOwner} (Attempt #{$newAttempt})");
-
-                if ($office && !empty($office->httpsms_api_key)) {
-                    Log::info("🚀 [STEP 11] Invoking HttpSmsService->send() to {$cleanRecipient}...");
-
-                    $result = $this->smsService->send(
-                        $cleanRecipient,
-                        $content,
-                        $office->httpsms_api_key,
-                        $owner
-                    );
-
-                    if ($result['success'] ?? false) {
-                        Log::info("🎉 [STEP 12] HttpSmsService returned SUCCESS for attempt #{$newAttempt}.");
-                    } else {
-                        Log::error("❌ [STEP 12] HttpSmsService returned FAILURE: " . ($result['error'] ?? 'Unknown error'));
-                    }
-                } else {
-                    Log::error("🚫 [STEP 11] Aborted dispatch: Office missing or httpsms_api_key is empty.");
-                }
-            } else {
-                Log::error("🛑 [DROP] SMS to +{$cleanRecipient} reached maximum attempts ({$attemptCount}). Permanently dropping.");
-                
-                Cache::put($retryKey, 99, now()->addDay());
-                Log::info("🔒 [DROP] Retry counter key [{$retryKey}] locked for 24 hours.");
-
-                $this->notifyAdminFailedSms($office, $cleanRecipient, $cleanOwner, $content, $event);
-            }
+            Log::warning("🚫 [SMS FAILED - NO AUTO RETRY] SMS to +{$cleanRecipient} via {$cleanOwner} marked as failed ({$errorMessage}).");
         } finally {
             Cache::forget($lockKey);
             Log::info("🔓 [FINALLY] Atomic lock [{$lockKey}] released.");

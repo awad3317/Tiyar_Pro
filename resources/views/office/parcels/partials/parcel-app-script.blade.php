@@ -474,13 +474,21 @@
                 this.sendingSmsId = parcel.id;
                 try {
                     const response = await ParcelApi.resendSms(parcel.id);
-                    parcel.sms_status = 'pending';
+                    // اعتبار الرسالة مرسلة تلقائياً وتصفير سبب الفشل (وإذا فشلت بالويب هوك ستعود كفاشلة)
+                    parcel.sms_status = 'sent';
+                    parcel.sms_failure_reason = null;
                     if (window.MursalDB) {
                         await window.MursalDB.put(window.MURSAL_STORES.parcels, parcel);
                     }
-                    this.parcels = [...this.parcels];
-                    this.showFeedback(response.message || 'تم إرسال رسالة SMS بنجاح!', false);
-                    this.scheduleSmsStatusCheck(7000);
+                    this.parcels = this.sortParcels(this.parcels);
+                    this.showFeedback(response.message || 'تم إعادة إرسال رسالة الـ SMS بنجاح!', false);
+
+                    setTimeout(async () => {
+                        await this.checkSmsGatewayStatus();
+                        if (typeof this.refreshFromServer === 'function') {
+                            await this.refreshFromServer();
+                        }
+                    }, 7000);
                 } catch (err) {
                     if (err.data && err.data.sms_out_of_balance) {
                         this.handleSmsOutOfBalance(err.data.sms_status_data);
@@ -741,8 +749,31 @@
 
             // ---------- تحميل ومزامنة البيانات ----------
 
+            isTodayParcel(p) {
+                if (!p || !p.created_at) return false;
+                const d = new Date(p.created_at);
+                if (isNaN(d.getTime())) return false;
+                const now = new Date();
+                return d.getFullYear() === now.getFullYear()
+                    && d.getMonth() === now.getMonth()
+                    && d.getDate() === now.getDate();
+            },
+
+            isTodayFailedSms(p) {
+                if (!p || p.status !== 'in_office') return false;
+                if (p.sms_status !== 'failed_balance' && p.sms_status !== 'failed') return false;
+                return this.isTodayParcel(p);
+            },
+
             sortParcels(list) {
-                return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+                return [...list].sort((a, b) => {
+                    const aFailed = this.isTodayFailedSms(a) ? 0 : 1;
+                    const bFailed = this.isTodayFailedSms(b) ? 0 : 1;
+                    if (aFailed !== bFailed) {
+                        return aFailed - bFailed;
+                    }
+                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                });
             },
 
             async loadLocal() {
@@ -1056,7 +1087,7 @@
             async confirmRecharge() {
                 if (this.smsGateway.isRecharging) return;
                 if (!this.isOnline) {
-                    this.showFeedback('يتطلب تأكيد الشحن وجود اتصال نشط بالإنترنت.', true);
+                    this.showFeedback('يتطلب إعادة الإرسال وجود اتصال نشط بالإنترنت.', true);
                     return;
                 }
 
@@ -1064,32 +1095,30 @@
 
                 try {
                     const res = await ParcelApi.confirmSmsRecharge();
+                    // إخفاء الشريط الأحمر فوراً واعتبار طرود اليوم الفاشلة مرسلة (وإن فشلت بسبب الرصيد سيعيدها الويب هوك ويظهر الشريط مجدداً)
+                    this.smsGateway.outOfBalance = false;
                     this.smsGateway.showDialog = false;
-                    this.showFeedback(res.message || 'تم تأكيد الشحن، وجاري إعادة إرسال رسائل اليوم...', false);
+                    this.showFeedback(res.message || 'تم بدء إعادة إرسال رسائل اليوم...', false);
 
-                    // تحديث حالة الطرود الفاشلة لليوم محلياً إلى pending
-                    const todayStr = new Date().toISOString().slice(0, 10);
                     for (let i = 0; i < this.parcels.length; i++) {
                         const p = this.parcels[i];
-                        if (p.status === 'in_office' && p.sms_status === 'failed_balance') {
-                            const pDate = (p.created_at || '').slice(0, 10);
-                            if (pDate === todayStr) {
-                                p.sms_status = 'pending';
-                                if (window.MursalDB) {
-                                    await window.MursalDB.put(window.MURSAL_STORES.parcels, p);
-                                }
+                        if (this.isTodayFailedSms(p)) {
+                            p.sms_status = 'sent';
+                            p.sms_failure_reason = null;
+                            if (window.MursalDB) {
+                                await window.MursalDB.put(window.MURSAL_STORES.parcels, p);
                             }
                         }
                     }
-                    this.parcels = [...this.parcels];
+                    this.parcels = this.sortParcels(this.parcels);
 
-                    // عمل فحص تلقائي (Poll) بعد 8 ثوانٍ وبعد 16 ثانية
+                    // عمل فحص تلقائي بعد 7 ثوانٍ وبعد 15 ثانية للتأكد من عدم تجدد خطأ نفاد الرصيد
                     setTimeout(async () => {
                         await this.checkSmsGatewayStatus();
                         if (typeof this.refreshFromServer === 'function') {
                             await this.refreshFromServer();
                         }
-                    }, 8000);
+                    }, 7000);
 
                     setTimeout(async () => {
                         await this.checkSmsGatewayStatus();
@@ -1097,11 +1126,11 @@
                             await this.refreshFromServer();
                         }
                         this.smsGateway.isRecharging = false;
-                    }, 16000);
+                    }, 15000);
 
                 } catch (err) {
                     this.smsGateway.isRecharging = false;
-                    this.showFeedback(err.message || 'تعذر تأكيد تجديد الباقة.', true);
+                    this.showFeedback(err.message || 'تعذر إعادة إرسال الرسائل.', true);
                 }
             },
         });

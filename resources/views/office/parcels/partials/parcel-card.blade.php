@@ -59,13 +59,13 @@
                 <!-- زر إعادة إرسال SMS (يظهر فقط إذا كان الطرد بالمكتب) -->
                 <button type="button" x-show="p.status === 'in_office'" @click="resendSms(p)"
                     :disabled="sendingSmsId === p.id"
-                    :title="p.sms_status === 'failed_balance' ? 'فشل إرسال SMS بسبب نفاد الرصيد - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
-                    :class="p.sms_status === 'failed_balance' ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80'"
+                    :title="isTodayFailedSms(p) ? 'فشل إرسال الـ SMS - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
+                    :class="isTodayFailedSms(p) ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-200' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80'"
                     class="h-8 px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
                     <span class="material-symbols-outlined text-[15px]"
                         :class="sendingSmsId === p.id ? 'animate-spin' : ''"
-                        x-text="sendingSmsId === p.id ? 'sync' : (p.sms_status === 'failed_balance' ? 'priority_high' : 'sms')"></span>
-                    <span x-text="sendingSmsId === p.id ? 'جاري...' : 'SMS'"></span>
+                        x-text="sendingSmsId === p.id ? 'sync' : (isTodayFailedSms(p) ? 'priority_high' : 'sms')"></span>
+                    <span x-text="sendingSmsId === p.id ? 'جاري...' : (isTodayFailedSms(p) ? 'إعادة SMS' : 'SMS')"></span>
                 </button>
 
                 @php
@@ -112,6 +112,19 @@
             </div>
         </div>
 
+
+        <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) -->
+        <div x-show="isTodayFailedSms(p)"
+             x-cloak
+             class="flex items-center justify-between gap-2 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-1.5">
+            <div class="flex items-center gap-1.5 min-w-0">
+                <span class="material-symbols-outlined text-sm text-rose-600 shrink-0">sms_failed</span>
+                <span class="truncate"
+                      x-text="p.sms_status === 'failed_balance'
+                          ? 'لم تُرسل رسالة SMS: انتهت الباقة أو نفد الرصيد'
+                          : (p.sms_failure_reason || 'فشل إرسال رسالة الـ SMS — اضغط لإعادة الإرسال')"></span>
+            </div>
+        </div>
 
         <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->
         <p x-show="p.status === 'delivered' && p.delivered_at"

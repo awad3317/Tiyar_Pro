@@ -26,8 +26,13 @@ class ParcelController extends Controller
     public function getParcelsData()
     {
         $officeId = Auth::guard('office')->id();
-        
+        $todayDate = today()->toDateString();
+
         $parcels = Parcel::where('office_id', $officeId)
+            ->orderByRaw(
+                "CASE WHEN status = 'in_office' AND DATE(created_at) = ? AND sms_status IN ('failed_balance', 'failed') THEN 0 ELSE 1 END ASC",
+                [$todayDate]
+            )
             ->latest('created_at')
             ->take(500)
             ->get();
@@ -126,21 +131,9 @@ class ParcelController extends Controller
             ], 422);
         }
 
-        // التحقق من حالة رصيد/باقة الـ SMS في الكاش
-        $outOfBalanceKey = "sms_out_of_balance_office_{$office->id}";
-        if (Cache::has($outOfBalanceKey)) {
-            $parcel->update([
-                'sms_status'         => 'failed_balance',
-                'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
-            ]);
-
-            return response()->json([
-                'success'            => false,
-                'sms_out_of_balance' => true,
-                'sms_status_data'    => Cache::get($outOfBalanceKey),
-                'message'            => 'باقة الرسائل (SMS) منتهية في هاتف المكتب (خطأ 108). يرجى شحن الرصيد أولاً.',
-            ], 422);
-        }
+        // عند طلب إعادة إرسال يدوية، نمسح قفل نفاد الرصيد المؤقت للسماح بالمحاولة (وإن كانت الباقة لا تزال منتهية سيعيدها الويب هوك فوراً)
+        Cache::forget("sms_out_of_balance_office_{$office->id}");
+        Cache::forget("sms_108_streak_office_{$office->id}");
 
         // التحقق من وجود إعدادات httpSMS للمكتب
         if (empty($office->httpsms_api_key) || empty($office->httpsms_from_phone)) {
@@ -180,13 +173,13 @@ class ParcelController extends Controller
 
         if (!empty($result['success']) || (is_bool($result) && $result)) {
             $parcel->update([
-                'sms_status'         => 'pending',
+                'sms_status'         => 'sent',
                 'sms_failure_reason' => null,
             ]);
 
             return response()->json([
                 'success'    => true,
-                'sms_status' => 'pending',
+                'sms_status' => 'sent',
                 'message'    => 'تم إعادة إرسال رسالة الـ SMS للمستلم بنجاح.'
             ]);
         }
@@ -675,14 +668,14 @@ class ParcelController extends Controller
 
         return response()->json([
             'success'            => true,
-            'out_of_balance'     => $isOutOfBalance,
+            'out_of_balance'     => ($isOutOfBalance || $failedTodayCount > 0),
             'failed_today_count' => $failedTodayCount,
             'data'               => $cacheData,
         ]);
     }
 
     /**
-     * تأكيد تجديد باقة/رصيد SMS وإعادة إرسال رسائل اليوم الفاشلة في الخلفية.
+     * تأكيد تجديد باقة/رصيد SMS وإعادة إرسال رسائل اليوم الفاشلة فقط في الخلفية.
      */
     public function confirmRechargeAndRetryToday(HttpSmsService $smsService)
     {
@@ -698,12 +691,12 @@ class ParcelController extends Controller
         // 2. وضع علامة المراقبة الفورية لمدة 10 دقائق
         Cache::put("sms_retrying_after_recharge_office_{$office->id}", true, now()->addMinutes(10));
 
-        // 3. جلب فقط طرود نفس اليوم التي فشلت بسبب الرصيد ولا تزال في المكتب (لم تُسلّم بعد)
+        // 3. جلب فقط طرود نفس اليوم التي فشلت ولا تزال في المكتب (تجاهل طرود الأمس والأيام السابقة نهائياً)
         $inOfficeStatus = defined(ParcelStatus::class . '::InOffice') ? ParcelStatus::InOffice : 'in_office';
 
         $parcelsToRetry = Parcel::where('office_id', $office->id)
             ->where('status', $inOfficeStatus)
-            ->where('sms_status', 'failed_balance')
+            ->whereIn('sms_status', ['failed_balance', 'failed'])
             ->whereDate('created_at', today())
             ->orderBy('created_at', 'asc')
             ->get();
@@ -711,10 +704,10 @@ class ParcelController extends Controller
         $count = $parcelsToRetry->count();
 
         if ($count > 0) {
-            // 4. تحديث حالة الطرود إلى pending وتصفير سبب الفشل
+            // 4. اعتبار الرسائل مرسلة تلقائياً (sent) وتصفير سبب الفشل (وإن فشل أي منها سيعيده الويب هوك إلى الفشل)
             $ids = $parcelsToRetry->pluck('id')->all();
             Parcel::whereIn('id', $ids)->update([
-                'sms_status'         => 'pending',
+                'sms_status'         => 'sent',
                 'sms_failure_reason' => null,
             ]);
 
@@ -728,9 +721,16 @@ class ParcelController extends Controller
                 $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
                 $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
-                foreach ($parcelsToRetry as $p) {
-                    // إذا وصل حدث 108 وتفعّل قفل الرصيد أثناء الإرسال نوقف فوراً
+                foreach ($parcelsToRetry as $index => $p) {
+                    // إذا وصل حدث 108 وتفعّل قفل الرصيد أثناء الإرسال نعيد الطرود المتبقية لحالة failed_balance ونوقف الإرسال
                     if (Cache::has("sms_out_of_balance_office_{$office->id}")) {
+                        $remainingIds = $parcelsToRetry->slice($index)->pluck('id')->all();
+                        if (!empty($remainingIds)) {
+                            Parcel::whereIn('id', $remainingIds)->update([
+                                'sms_status'         => 'failed_balance',
+                                'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                            ]);
+                        }
                         Log::warning("confirmRechargeAndRetryToday - توقف إعادة الإرسال للمكتب {$office->id} بسبب تجدد نفاد الرصيد (خطأ 108).");
                         break;
                     }
