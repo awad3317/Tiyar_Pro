@@ -306,7 +306,7 @@ class HttpSmsWebhookController extends Controller
                         'sim'            => $simSlot,
                         'streak'         => $streak,
                         'triggered_at'   => now()->toIso8601String(),
-                        'message'        => "توقف إرسال الرسائل النصية (SMS) بسبب انتهاء الباقة أو نفاد الرصيد في الشريحة ({$simSlot} - خطأ 108).",
+                        'message'        => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).',
                     ], now()->addHours(12));
 
                     Log::error("🚨 [OUT OF BALANCE ACTIVE] Office ID [{$targetOfficeId}] locked in out_of_balance state for 12 hours (streak={$streak}).");
@@ -452,35 +452,33 @@ class HttpSmsWebhookController extends Controller
     }
 
     /**
-     * تحديد نص وصفي لسبب فشل إرسال الرسالة النصية
+     * تحديد نص وصفي مبسط وواضح لصاحب المكتب عند فشل إرسال الرسالة النصية
      */
     public function formatSmsFailureReason(string $errorCode, string $event = ''): string
     {
         $codeUpper = strtoupper(trim($errorCode));
         $eventUpper = strtoupper(trim($event));
 
-        if (str_contains($codeUpper, 'DISABLED ON THE MOBILE APP')) {
-            return "APP_DISABLED - إرسال الرسائل معطل من داخل تطبيق httpSMS في الهاتف";
+        if (str_contains($codeUpper, '108')) {
+            return 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).';
         }
 
-        if (str_contains($codeUpper, '108')) {
-            return "UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة";
+        if (str_contains($codeUpper, 'DISABLED ON THE MOBILE APP')) {
+            return 'إرسال الرسائل معطّل حالياً من داخل تطبيق الرسائل (httpSMS) في هاتف المكتب. يرجى فتح التطبيق وتفعيل الإرسال ثم إعادة المحاولة.';
         }
 
         if ($eventUpper === 'MESSAGE.SEND.EXPIRED' || str_contains($codeUpper, 'EXPIRED_ON_PHONE') || str_contains($codeUpper, 'EXPIRED')) {
-            return "EXPIRED - انتهت المهلة (هاتف المكتب غير متصل أو تطبيق httpSMS متوقف)";
-        }
-
-        if (str_contains($codeUpper, 'GENERIC_FAILURE')) {
-            return "GENERIC_FAILURE - فشل عام من الشبكة أو رقم المستلم غير صالح";
+            return 'تعذر الإرسال: هاتف المكتب غير متصل بالإنترنت أو التطبيق متوقف. يرجى التأكد من اتصال الهاتف بالإنترنت وفتح التطبيق.';
         }
 
         if (str_contains($codeUpper, 'NO_SERVICE') || str_contains($codeUpper, 'RADIO_OFF')) {
-            $matched = str_contains($codeUpper, 'NO_SERVICE') ? 'NO_SERVICE' : 'RADIO_OFF';
-            return "{$matched} - لا توجد تغطية شبكة في شريحة المكتب";
+            return 'لا توجد تغطية شبكة في شريحة المكتب (أو وضع الطيران مفعّل). يرجى التأكد من توفر الشبكة في الهاتف ثم إعادة الإرسال.';
         }
 
-        $codeDisplay = $errorCode !== '' ? $errorCode : ($event !== '' ? $event : 'UNKNOWN_ERROR');
-        return "{$codeDisplay} - فشل إرسال الرسالة النصية";
+        if (str_contains($codeUpper, 'GENERIC_FAILURE')) {
+            return 'تعذر الإرسال: يرجى التأكد من صحة رقم هاتف المستلم.';
+        }
+
+        return 'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.';
     }
 }

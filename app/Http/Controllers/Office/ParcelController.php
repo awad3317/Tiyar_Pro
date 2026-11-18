@@ -184,7 +184,7 @@ class ParcelController extends Controller
             ]);
         }
 
-        $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
+        $failureReason = 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.';
         $parcel->update([
             'sms_status'         => 'failed',
             'sms_failure_reason' => $failureReason,
@@ -192,7 +192,7 @@ class ParcelController extends Controller
 
         return response()->json([
             'success' => false,
-            'message' => 'تعذر إرسال رسالة SMS: ' . $failureReason
+            'message' => $failureReason
         ], 500);
     }
 
@@ -352,7 +352,7 @@ class ParcelController extends Controller
                                             ? ParcelStatus::InOffice 
                                             : 'in_office',
                     'sms_status'         => (in_array($channel, ['sms', 'both']) && $isSmsOutOfBalance) ? 'failed_balance' : null,
-                    'sms_failure_reason' => (in_array($channel, ['sms', 'both']) && $isSmsOutOfBalance) ? 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة' : null,
+                    'sms_failure_reason' => (in_array($channel, ['sms', 'both']) && $isSmsOutOfBalance) ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).' : null,
                 ]);
 
                 $createdParcels[] = $parcel;
@@ -370,7 +370,7 @@ class ParcelController extends Controller
                     $smsFailedCount++;
                     $parcel->update([
                         'sms_status'         => 'failed_balance',
-                        'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                        'sms_failure_reason' => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).',
                     ]);
                 } elseif ($hasSmsGatewayConfigured) {
                     $smsBody = str_replace(
@@ -405,10 +405,9 @@ class ParcelController extends Controller
                             $smsSuccessCount++;
                         } else {
                             $smsFailedCount++;
-                            $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
                             $parcel->update([
                                 'sms_status'         => 'failed',
-                                'sms_failure_reason' => $failureReason,
+                                'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
                             ]);
                             Log::warning("Quick Send - SMS لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
                         }
@@ -416,7 +415,7 @@ class ParcelController extends Controller
                         $smsFailedCount++;
                         $parcel->update([
                             'sms_status'         => 'failed',
-                            'sms_failure_reason' => $e->getMessage() ?: 'تعذر الاتصال ببوابة الرسائل httpSMS',
+                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
                         ]);
                         Log::error("Quick Send - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                     }
@@ -539,7 +538,7 @@ class ParcelController extends Controller
             if ($isSmsOutOfBalance) {
                 $parcel->update([
                     'sms_status'         => 'failed_balance',
-                    'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                    'sms_failure_reason' => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).',
                 ]);
                 $smsSent = false;
             } elseif ($hasSmsGateway) {
@@ -577,17 +576,16 @@ class ParcelController extends Controller
                             'sms_failure_reason' => null,
                         ]);
                     } else {
-                        $failureReason = !empty($result['error']) ? $result['error'] : 'تعذر الاتصال ببوابة الرسائل httpSMS';
                         $parcel->update([
                             'sms_status'         => 'failed',
-                            'sms_failure_reason' => $failureReason,
+                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
                         ]);
                         Log::warning("QuickSendSingle - البوابة لم تؤكد النجاح للرقم: {$parcel->recipient_phone}");
                     }
                 } catch (\Throwable $e) {
                     $parcel->update([
                         'sms_status'         => 'failed',
-                        'sms_failure_reason' => $e->getMessage() ?: 'تعذر الاتصال ببوابة الرسائل httpSMS',
+                        'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
                     ]);
                     Log::error("QuickSendSingle - خطأ SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                 }
@@ -728,7 +726,7 @@ class ParcelController extends Controller
                         if (!empty($remainingIds)) {
                             Parcel::whereIn('id', $remainingIds)->update([
                                 'sms_status'         => 'failed_balance',
-                                'sms_failure_reason' => 'UNKNOWN:108 - غير معروف بسبب نفاد الرصيد أو انتهاء الباقة',
+                                'sms_failure_reason' => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).',
                             ]);
                         }
                         Log::warning("confirmRechargeAndRetryToday - توقف إعادة الإرسال للمكتب {$office->id} بسبب تجدد نفاد الرصيد (خطأ 108).");

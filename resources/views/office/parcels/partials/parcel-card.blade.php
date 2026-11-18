@@ -116,14 +116,11 @@
         <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) -->
         <div x-show="isTodayFailedSms(p)"
              x-cloak
-             class="flex items-center justify-between gap-2 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-1.5">
-            <div class="flex items-center gap-1.5 min-w-0">
-                <span class="material-symbols-outlined text-sm text-rose-600 shrink-0">sms_failed</span>
-                <span class="truncate"
-                      x-text="p.sms_status === 'failed_balance'
-                          ? 'لم تُرسل رسالة SMS: انتهت الباقة أو نفد الرصيد'
-                          : (p.sms_failure_reason || 'فشل إرسال رسالة الـ SMS — اضغط لإعادة الإرسال')"></span>
-            </div>
+             class="flex items-start gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-2 leading-relaxed">
+            <span class="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">sms_failed</span>
+            <span x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
+                ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).'
+                : 'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.')"></span>
         </div>
 
         <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->
