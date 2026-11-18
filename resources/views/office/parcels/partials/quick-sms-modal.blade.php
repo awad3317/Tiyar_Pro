@@ -635,125 +635,135 @@
                 </template>
             </div>
 
-            @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region'))
-            {{-- حقل اختيار المنطقة القادم منها الطرد (سليكت مع بحث بالكتابة) --}}
-            <div x-data="{
-                regionOpen: false,
-                regionSearch: '',
-                defaultRegions: [
-                    'صنعاء', 'عدن', 'تعز', 'حضرموت - المكلا', 'حضرموت - سيئون', 'إب', 'الحديدة',
-                    'مأرب', 'ذمار', 'شبوة', 'لحج', 'أبين', 'الضالع', 'المهرة', 'البيضاء',
-                    'حجة', 'عمران', 'صعدة', 'الجوف', 'المحويت', 'ريمة', 'سقطرى',
-                    'الرياض', 'جدة', 'مكة المكرمة', 'شرورة'
-                ],
-                normRegion(s) {
-                    return String(s || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
-                },
-                get filteredRegions() {
-                    const q = this.normRegion(this.regionSearch);
-                    if (!q) return this.defaultRegions;
-                    return this.defaultRegions.filter(r => this.normRegion(r).includes(q));
-                },
-                chooseRegion(val) {
-                    quickSms.sourceRegion = val;
-                    this.regionSearch = '';
-                    this.regionOpen = false;
-                }
-            }" class="relative" @click.outside="regionOpen = false">
-                <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center justify-between">
-                    <span class="flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[15px] text-purple-600">location_on</span>
-                        <span>المنطقة القادم منها الطرد <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
-                    </span>
-                    <template x-if="quickSms.sourceRegion">
-                        <button type="button" @click="quickSms.sourceRegion = ''; regionSearch = ''"
-                                class="text-[10px] font-bold text-rose-500 hover:text-rose-700">مسح ✕</button>
-                    </template>
-                </label>
+            @php
+                $hasSourceRegionFeature = auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region');
+                $hasCodAmountFeature    = auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount');
+            @endphp
 
-                <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
-                    <input type="text"
-                           :value="regionOpen ? regionSearch : (quickSms.sourceRegion || '')"
-                           @focus="regionOpen = true; regionSearch = ''"
-                           @input="regionOpen = true; regionSearch = $event.target.value; quickSms.sourceRegion = $event.target.value.trim()"
-                           @keydown.enter.prevent="regionOpen = false"
-                           :disabled="isClosing"
-                           dir="rtl"
-                           autocomplete="off"
-                           placeholder="اختر المنطقة أو اكتب للبحث..."
-                           class="w-full py-2 pr-3.5 pl-9 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal disabled:opacity-50" />
-                    <button type="button"
-                            @click="regionOpen = !regionOpen; if (regionOpen) regionSearch = ''"
-                            class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center">
-                        <span class="material-symbols-outlined text-base" x-text="regionOpen ? 'expand_less' : 'expand_more'"></span>
-                    </button>
-                </div>
+            @if($hasSourceRegionFeature || $hasCodAmountFeature)
+            {{-- 4. صف منطقة قدوم الطرد + المبلغ المطلوب عند التسليم (عمودين عند تفعيلهما معاً) --}}
+            <div class="relative grid {{ ($hasSourceRegionFeature && $hasCodAmountFeature) ? 'grid-cols-2' : 'grid-cols-1' }} gap-2">
+                @if($hasSourceRegionFeature)
+                {{-- حقل اختيار المنطقة القادم منها الطرد (سليكت مع بحث بالكتابة) --}}
+                <div x-data="{
+                    regionOpen: false,
+                    regionSearch: '',
+                    defaultRegions: [
+                        'صنعاء', 'عدن', 'تعز', 'حضرموت - المكلا', 'حضرموت - سيئون', 'إب', 'الحديدة',
+                        'مأرب', 'ذمار', 'شبوة', 'لحج', 'أبين', 'الضالع', 'المهرة', 'البيضاء',
+                        'حجة', 'عمران', 'صعدة', 'الجوف', 'المحويت', 'ريمة', 'سقطرى',
+                        'الرياض', 'جدة', 'مكة المكرمة', 'شرورة'
+                    ],
+                    normRegion(s) {
+                        return String(s || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+                    },
+                    get filteredRegions() {
+                        const q = this.normRegion(this.regionSearch);
+                        if (!q) return this.defaultRegions;
+                        return this.defaultRegions.filter(r => this.normRegion(r).includes(q));
+                    },
+                    chooseRegion(val) {
+                        quickSms.sourceRegion = val;
+                        this.regionSearch = '';
+                        this.regionOpen = false;
+                    }
+                }" class="relative min-w-0" @click.outside="regionOpen = false">
+                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center justify-between gap-1">
+                        <span class="flex items-center gap-0.5 truncate">
+                            <span class="material-symbols-outlined text-[14px] text-purple-600 shrink-0">location_on</span>
+                            <span class="truncate">منطقة القدوم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
+                        </span>
+                        <template x-if="quickSms.sourceRegion">
+                            <button type="button" @click="quickSms.sourceRegion = ''; regionSearch = ''"
+                                    class="text-[10px] font-bold text-rose-500 hover:text-rose-700 shrink-0">✕</button>
+                        </template>
+                    </label>
 
-                <div x-show="regionOpen"
-                     x-cloak
-                     x-transition
-                     class="absolute left-0 right-0 top-full mt-1 z-30 max-h-44 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
-                    <template x-for="reg in filteredRegions" :key="reg">
+                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                        <input type="text"
+                               :value="regionOpen ? regionSearch : (quickSms.sourceRegion || '')"
+                               @focus="regionOpen = true; regionSearch = ''"
+                               @input="regionOpen = true; regionSearch = $event.target.value; quickSms.sourceRegion = $event.target.value.trim()"
+                               @keydown.enter.prevent="regionOpen = false"
+                               :disabled="isClosing"
+                               dir="rtl"
+                               autocomplete="off"
+                               placeholder="اختر المنطقة..."
+                               class="w-full py-2 pr-3 pl-8 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal disabled:opacity-50" />
                         <button type="button"
-                                @mousedown.prevent
-                                @click="chooseRegion(reg)"
-                                :class="quickSms.sourceRegion === reg ? 'bg-purple-50 text-purple-800 font-extrabold' : 'text-slate-700 hover:bg-slate-50 font-bold'"
-                                class="w-full px-3.5 py-2 text-right text-xs flex items-center justify-between transition-colors">
-                            <span x-text="reg"></span>
-                            <template x-if="quickSms.sourceRegion === reg">
-                                <span class="material-symbols-outlined text-sm text-purple-600">check</span>
-                            </template>
+                                @click="regionOpen = !regionOpen; if (regionOpen) regionSearch = ''"
+                                class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center">
+                            <span class="material-symbols-outlined text-base" x-text="regionOpen ? 'expand_less' : 'expand_more'"></span>
                         </button>
-                    </template>
+                    </div>
 
-                    <template x-if="regionSearch.trim() !== '' && !filteredRegions.includes(regionSearch.trim())">
-                        <button type="button"
-                                @mousedown.prevent
-                                @click="chooseRegion(regionSearch.trim())"
-                                class="w-full px-3.5 py-2 text-right text-xs font-extrabold text-secondary bg-amber-50/50 hover:bg-amber-50 flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">add_location_alt</span>
-                            <span x-text="'اعتماد المنطقة: ' + regionSearch.trim()"></span>
-                        </button>
-                    </template>
-                </div>
-            </div>
-            @endif
+                    <div x-show="regionOpen"
+                         x-cloak
+                         x-transition
+                         class="absolute left-0 right-0 top-full mt-1 z-30 max-h-44 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
+                        <template x-for="reg in filteredRegions" :key="reg">
+                            <button type="button"
+                                    @mousedown.prevent
+                                    @click="chooseRegion(reg)"
+                                    :class="quickSms.sourceRegion === reg ? 'bg-purple-50 text-purple-800 font-extrabold' : 'text-slate-700 hover:bg-slate-50 font-bold'"
+                                    class="w-full px-3 py-2 text-right text-xs flex items-center justify-between transition-colors">
+                                <span x-text="reg" class="truncate"></span>
+                                <template x-if="quickSms.sourceRegion === reg">
+                                    <span class="material-symbols-outlined text-sm text-purple-600 shrink-0">check</span>
+                                </template>
+                            </button>
+                        </template>
 
-            @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
-            {{-- 4. حقل المبلغ المطلوب عند التسليم (اختياري) --}}
-            <div class="relative">
-                <label class="block text-[11px] font-bold text-amber-700 mb-0.5 flex items-center justify-between">
-                    <span class="flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[15px] text-amber-600">payments</span>
-                        <span>المبلغ المطلوب عند التسليم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
-                    </span>
-                    <span class="text-[10px] font-mono text-amber-700 font-bold" x-show="quickSms.codAmount && Number(quickSms.codAmount) > 0" x-text="Number(quickSms.codAmount).toLocaleString('en-US') + ' ر.ي'"></span>
-                </label>
-                <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
-                    <input type="number" step="any" min="0" inputmode="numeric"
-                           x-ref="streamingCodInput"
-                           x-model="quickSms.codAmount"
-                           :disabled="isClosing"
-                           @keydown.enter.prevent="
-                               if (isClosing) return;
-                               const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
-                               if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                                   addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
-                                   quickSms.phone = '';
-                                   quickSms.description = '';
-                                   quickSms.recipientName = '';
-                                   quickSms.codAmount = '';
-                                   $nextTick(() => document.getElementById('streaming-phone-input').focus());
-                               } else {
-                                   showFeedback('أدخل رقم هاتف صالح', true);
-                                   document.getElementById('streaming-phone-input').focus();
-                               }
-                           "
-                           dir="ltr"
-                           class="w-full py-2 px-3.5 pl-10 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
-                           placeholder="مثال: 5000 (اتركه فارغاً إن لم يوجد)" />
-                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 select-none pointer-events-none">ر.ي</span>
+                        <template x-if="regionSearch.trim() !== '' && !filteredRegions.includes(regionSearch.trim())">
+                            <button type="button"
+                                    @mousedown.prevent
+                                    @click="chooseRegion(regionSearch.trim())"
+                                    class="w-full px-3 py-2 text-right text-xs font-extrabold text-secondary bg-amber-50/50 hover:bg-amber-50 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm shrink-0">add_location_alt</span>
+                                <span class="truncate" x-text="'اعتماد: ' + regionSearch.trim()"></span>
+                            </button>
+                        </template>
+                    </div>
                 </div>
+                @endif
+
+                @if($hasCodAmountFeature)
+                {{-- حقل المبلغ المطلوب عند التسليم (اختياري) --}}
+                <div class="relative min-w-0">
+                    <label class="block text-[11px] font-bold text-amber-700 mb-0.5 flex items-center justify-between gap-1">
+                        <span class="flex items-center gap-0.5 truncate">
+                            <span class="material-symbols-outlined text-[14px] text-amber-600 shrink-0">payments</span>
+                            <span class="truncate">مبلغ التسليم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
+                        </span>
+                        <span class="text-[10px] font-mono text-amber-700 font-bold shrink-0" x-show="quickSms.codAmount && Number(quickSms.codAmount) > 0" x-text="Number(quickSms.codAmount).toLocaleString('en-US')"></span>
+                    </label>
+                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                        <input type="number" step="any" min="0" inputmode="numeric"
+                               x-ref="streamingCodInput"
+                               x-model="quickSms.codAmount"
+                               :disabled="isClosing"
+                               @keydown.enter.prevent="
+                                   if (isClosing) return;
+                                   const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
+                                   if (phone.length === 9 && /^7[01378]/.test(phone)) {
+                                       addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
+                                       quickSms.phone = '';
+                                       quickSms.description = '';
+                                       quickSms.recipientName = '';
+                                       quickSms.codAmount = '';
+                                       $nextTick(() => document.getElementById('streaming-phone-input').focus());
+                                   } else {
+                                       showFeedback('أدخل رقم هاتف صالح', true);
+                                       document.getElementById('streaming-phone-input').focus();
+                                   }
+                               "
+                               dir="ltr"
+                               class="w-full py-2 px-3 pl-9 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                               placeholder="مثال: 5000" />
+                        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 select-none pointer-events-none">ر.ي</span>
+                    </div>
+                </div>
+                @endif
             </div>
             @endif
 
