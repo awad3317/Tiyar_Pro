@@ -184,7 +184,7 @@ class ParcelController extends Controller
             ]);
         }
 
-        $failureReason = 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.';
+        $failureReason = 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.';
         $parcel->update([
             'sms_status'         => 'failed',
             'sms_failure_reason' => $failureReason,
@@ -210,16 +210,18 @@ class ParcelController extends Controller
             ], 403);
         }
 
-        $parcel->update([
-            'sms_status'         => 'sent',
-            'sms_failure_reason' => null,
-        ]);
+        if ($parcel->sms_status !== 'delivered') {
+            $parcel->update([
+                'sms_status'         => 'sent',
+                'sms_failure_reason' => null,
+            ]);
+        }
 
         Log::info("📲 [MANUAL SMS] Parcel ID [{$parcel->id}] marked as sent manually via office mobile (Office ID: {$office->id}, Recipient: {$parcel->recipient_phone}).");
 
         return response()->json([
             'success'    => true,
-            'sms_status' => 'sent',
+            'sms_status' => $parcel->sms_status,
             'message'    => 'تم تحديث حالة الرسالة إلى مرسلة عبر جوال المكتب.'
         ]);
     }
@@ -435,7 +437,7 @@ class ParcelController extends Controller
                             $smsFailedCount++;
                             $parcel->update([
                                 'sms_status'         => 'failed',
-                                'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                                'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
                             ]);
                             Log::warning("Quick Send - SMS لم تؤكد نجاح الإرسال للرقم: {$parcel->recipient_phone}");
                         }
@@ -443,7 +445,7 @@ class ParcelController extends Controller
                         $smsFailedCount++;
                         $parcel->update([
                             'sms_status'         => 'failed',
-                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
                         ]);
                         Log::error("Quick Send - خطأ أثناء إرسال SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                     }
@@ -606,14 +608,14 @@ class ParcelController extends Controller
                     } else {
                         $parcel->update([
                             'sms_status'         => 'failed',
-                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
                         ]);
                         Log::warning("QuickSendSingle - البوابة لم تؤكد النجاح للرقم: {$parcel->recipient_phone}");
                     }
                 } catch (\Throwable $e) {
                     $parcel->update([
                         'sms_status'         => 'failed',
-                        'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                        'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
                     ]);
                     Log::error("QuickSendSingle - خطأ SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
                 }

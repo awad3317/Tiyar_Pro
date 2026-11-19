@@ -767,13 +767,8 @@
             },
 
             isManualSmsFallbackNeeded(p) {
-                if (!p || p.status !== 'in_office' || p.sms_status !== 'failed') return false;
-                const technicalReasons = [
-                    'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
-                    'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.',
-                ];
-                const reason = String(p.sms_failure_reason || '').trim();
-                return reason === '' || technicalReasons.includes(reason);
+                if (!p || p.status !== 'in_office') return false;
+                return ['failed', 'failed_balance'].includes(p.sms_status);
             },
 
             sendManualDeviceSms(parcel, preparedSmsTemplate) {
