@@ -197,6 +197,34 @@ class ParcelController extends Controller
     }
 
     /**
+     * تحديث حالة رسالة الـ SMS إلى مرسلة (sent) عند الإرسال اليدوي من جوال المكتب في حالات الطوارئ التقنية.
+     */
+    public function markManualSms(Parcel $parcel)
+    {
+        $office = Auth::guard('office')->user();
+
+        if (!$office || $parcel->office_id !== $office->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'غير مصرح لك بإدارة هذا الطرد.'
+            ], 403);
+        }
+
+        $parcel->update([
+            'sms_status'         => 'sent',
+            'sms_failure_reason' => null,
+        ]);
+
+        Log::info("📲 [MANUAL SMS] Parcel ID [{$parcel->id}] marked as sent manually via office mobile (Office ID: {$office->id}, Recipient: {$parcel->recipient_phone}).");
+
+        return response()->json([
+            'success'    => true,
+            'sms_status' => 'sent',
+            'message'    => 'تم تحديث حالة الرسالة إلى مرسلة عبر جوال المكتب.'
+        ]);
+    }
+
+    /**
      * إعادة / إرسال إشعار WhatsApp للمستلم (مخصص للطرود المتواجدة في المكتب فقط عبر WhatsAppService).
      */
     public function resendWhatsapp(Parcel $parcel, WhatsAppService $whatsAppService)

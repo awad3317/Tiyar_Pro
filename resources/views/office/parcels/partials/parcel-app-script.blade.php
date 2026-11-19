@@ -8,6 +8,7 @@
             sync: @json(route('office.api.parcels.sync')),
             login: @json(route('office.login')),
             resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
+            markManualSms: (id) => `{{ url('/office/api/parcels') }}/${id}/mark-manual-sms`,
             resendWhatsapp: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-whatsapp`,
             quickSendSms: @json(route('office.parcels.quick_send_sms')),
             quickSendSingle: @json(route('office.parcels.quick_send_single')),
@@ -763,6 +764,59 @@
                 if (!p || p.status !== 'in_office') return false;
                 if (p.sms_status !== 'failed_balance' && p.sms_status !== 'failed') return false;
                 return this.isTodayParcel(p);
+            },
+
+            isManualSmsFallbackNeeded(p) {
+                if (!p || p.status !== 'in_office' || p.sms_status !== 'failed') return false;
+                const technicalReasons = [
+                    'تعذر الاتصال بخدمة الرسائل. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                    'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.',
+                ];
+                const reason = String(p.sms_failure_reason || '').trim();
+                return reason === '' || technicalReasons.includes(reason);
+            },
+
+            sendManualDeviceSms(parcel, preparedSmsTemplate) {
+                if (!parcel) return;
+
+                // 1. إرسال طلب خلفية مضمون (keepalive: true) لتحديث حالة الطرد في السيرفر حتى مع مغادرة المتصفح لتطبيق الرسائل
+                const markUrl = ROUTES.markManualSms(parcel.id);
+                if (this.isOnline) {
+                    fetch(markUrl, {
+                        method: 'POST',
+                        keepalive: true,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': ParcelApi.csrfToken || '',
+                        },
+                        body: JSON.stringify({ manual: true }),
+                    }).catch(() => {});
+                } else if (window.MursalSync) {
+                    window.MursalSync.enqueue(markUrl, { manual: true });
+                }
+
+                // 2. تحديث واجهة الطرد محلياً بشكل فوري (Optimistic UI Update)
+                parcel.sms_status = 'sent';
+                parcel.sms_failure_reason = null;
+                if (window.MursalDB) {
+                    window.MursalDB.put(window.MURSAL_STORES.parcels, parcel).catch(() => {});
+                }
+                this.parcels = this.sortParcels(this.parcels);
+
+                // 3. تجهيز نص الرسالة المختصر والخالي من الإيموجي وفتح تطبيق الرسائل الافتراضي في أندرويد
+                const message = String(preparedSmsTemplate || '')
+                    .replace(/\{package\}|\{package_type\}/g, parcel.package_type || 'طرد')
+                    .replace(/\{receipt\}|\{receipt_number\}/g, parcel.receipt_number || '')
+                    .replace(/\{recipient\}|\{recipient_name\}/g, parcel.recipient_name || 'العميل')
+                    .replace(/\{region\}|\{source_region\}/g, parcel.source_region || '')
+                    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+                    .trim();
+
+                const cleanPhone = String(parcel.recipient_phone || '').replace(/[^\d+]/g, '');
+                const encodedMessage = encodeURIComponent(message);
+
+                window.location.href = `sms:${cleanPhone}?body=${encodedMessage}`;
             },
 
             sortParcels(list) {

@@ -83,6 +83,15 @@
                     );
                     $preparedTemplate = str_replace(' ()', '', $preparedTemplate);
                     $hasOfficeWhatsApp = !empty($currentOffice?->whatsapp_api_key) || !empty(config('whatsapp.global_api_key'));
+
+                    // قالب الـ SMS المختصر والمعتمد للإرسال اليدوي عبر شريحة جوال المكتب عند الطوارئ
+                    $rawSmsTemplate = !empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl;
+                    $preparedSmsTemplate = str_replace(
+                        ['{office}', '{branch}'],
+                        [$currentOffice?->name ?? '', $currentOffice?->branch_name ?? ''],
+                        $rawSmsTemplate
+                    );
+                    $preparedSmsTemplate = str_replace(' ()', '', $preparedSmsTemplate);
                 @endphp
 
                 <!-- زر الواتساب الذكي (أيقونة الواتساب الرسمية: إرسال تلقائي عبر السيرفر إن وُجد اتصال، أو التحويل للواتساب المباشر) -->
@@ -113,14 +122,26 @@
         </div>
 
 
-        <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) -->
+        <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) مع زر الطوارئ في الحالات التقنية -->
         <div x-show="isTodayFailedSms(p)"
              x-cloak
-             class="flex items-start gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-2 leading-relaxed">
-            <span class="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">sms_failed</span>
-            <span x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
-                ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).'
-                : 'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.')"></span>
+             class="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-2 space-y-2 leading-relaxed">
+            <div class="flex items-start gap-1.5">
+                <span class="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">sms_failed</span>
+                <span x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
+                    ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).'
+                    : 'حدث خطأ تقني أثناء إرسال الرسالة. يرجى التواصل مع الدعم الفني لحل المشكلة.')"></span>
+            </div>
+
+            <!-- زر الطوارئ (إرسال يدوي عبر جوال المكتب) يظهر فقط في حالات الفشل التقني للبوابة -->
+            <template x-if="isManualSmsFallbackNeeded(p)">
+                <button type="button"
+                        @click="sendManualDeviceSms(p, {{ Js::from($preparedSmsTemplate) }})"
+                        class="w-full py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all">
+                    <span class="material-symbols-outlined text-[15px]">sms</span>
+                    <span>إرسال عبر جوال المكتب</span>
+                </button>
+            </template>
         </div>
 
         <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->

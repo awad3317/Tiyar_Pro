@@ -148,6 +148,7 @@ Route::prefix('office')->name('office.')->group(function () {
             Route::get('/parcels', [ParcelController::class, 'getParcelsData'])->name('parcels');
             Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');
             Route::post('/parcels/{parcel}/resend-sms', [ParcelController::class, 'resendSms'])->name('parcels.resend_sms');
+            Route::post('/parcels/{parcel}/mark-manual-sms', [ParcelController::class, 'markManualSms'])->name('parcels.mark_manual_sms');
             Route::post('/parcels/{parcel}/resend-whatsapp', [ParcelController::class, 'resendWhatsapp'])->name('parcels.resend_whatsapp');
 
             // العملاء المميزون (لكل مكتب قائمته الخاصة)
