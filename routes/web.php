@@ -65,6 +65,23 @@ Route::get('/messages', function () {
     return view('messages', compact('messages'));
 })->name('messages.index');
 
+// مسار معاينة وطباعة الفاتورة / سند الإرسال
+Route::get('/invoice/{parcel?}', function ($parcel = null) {
+    $parcelModel = null;
+    if ($parcel) {
+        $parcelModel = \App\Models\Parcel::with('office')->where('id', $parcel)->orWhere('receipt_number', $parcel)->first();
+    }
+
+    $office = $parcelModel?->office 
+        ?? \Illuminate\Support\Facades\Auth::guard('office')->user() 
+        ?? rescue(fn () => \App\Models\Office::first(), null, false);
+
+    return view('invoice', [
+        'parcel' => $parcelModel,
+        'office' => $office,
+    ]);
+})->name('invoice.show');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -105,6 +122,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // مراقبة الطرود الشاملة
         Route::get('/parcels', [AdminParcelController::class, 'index'])->name('parcels.index');
+        Route::get('/parcels/{parcel}/invoice', [AdminParcelController::class, 'invoice'])->name('parcels.invoice');
         Route::patch('/parcels/{parcel}/status', [AdminParcelController::class, 'updateStatus'])->name('parcels.update_status');
         Route::delete('/parcels/{parcel}', [AdminParcelController::class, 'destroy'])->name('parcels.destroy');
 
@@ -130,6 +148,7 @@ Route::prefix('office')->name('office.')->group(function () {
         
         // لوحة التحكم وتطبيق الطرود الرئيسي
         Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
+        Route::get('/parcels/{parcel}/invoice', [ParcelController::class, 'invoice'])->name('parcels.invoice');
         Route::post('/parcels/quick-send-sms', [ParcelController::class, 'quickSendSms'])->name('parcels.quick_send_sms');
         Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

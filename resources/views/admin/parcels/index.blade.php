@@ -209,6 +209,13 @@
                             <td class="py-4 px-5 text-center">
                                 <div class="flex items-center justify-center gap-1.5">
                                     
+                                    <!-- طباعة الفاتورة / سند الإرسال -->
+                                    <a href="{{ route('invoice.show', $parcel->id) }}" target="_blank"
+                                       title="طباعة سند الإرسال"
+                                       class="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                                        <span class="material-symbols-outlined text-lg">print</span>
+                                    </a>
+
                                     <!-- تغيير الحالة عبر Modal -->
                                     <button type="button"
                                             @click="openStatusModal('{{ $parcel->id }}', '{{ $parcel->receipt_number }}', '{{ $parcel->status->value }}')"

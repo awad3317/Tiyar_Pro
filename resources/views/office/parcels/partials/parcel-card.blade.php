@@ -98,6 +98,12 @@
                     class="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-sm transition-colors">
                     <span class="material-symbols-outlined text-sm">call</span>
                 </a>
+
+                <!-- زر طباعة سند الإرسال / الفاتورة -->
+                <a :href="'/office/parcels/' + p.id + '/invoice'" target="_blank" title="طباعة سند الإرسال"
+                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-sm transition-all active:scale-95">
+                    <span class="material-symbols-outlined text-sm">print</span>
+                </a>
             </div>
         </div>
 

@@ -502,6 +502,15 @@ class ParcelController extends Controller
     }
 
     /**
+     * عرض وطباعة الفاتورة / سند الإرسال لطرد معين.
+     */
+    public function invoice(Parcel $parcel)
+    {
+        $office = Auth::guard('office')->user() ?? $parcel->office;
+        return view('invoice', compact('parcel', 'office'));
+    }
+
+    /**
      * تحويل الأرقام المشرقية/الفارسية إلى أرقام إنجليزية.
      */
     private function normalizeEasternDigits(string $str): string

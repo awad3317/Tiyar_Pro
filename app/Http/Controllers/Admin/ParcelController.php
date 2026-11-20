@@ -120,6 +120,15 @@ class ParcelController extends Controller
     }
 
     /**
+     * عرض وطباعة الفاتورة / سند الإرسال لطرد معين.
+     */
+    public function invoice(Parcel $parcel): View
+    {
+        $office = $parcel->office;
+        return view('invoice', compact('parcel', 'office'));
+    }
+
+    /**
      * حذف طرد نهائياً
      */
     public function destroy(Request $request, Parcel $parcel): JsonResponse|RedirectResponse
