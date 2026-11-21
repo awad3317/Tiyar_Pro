@@ -14,6 +14,7 @@ class OutgoingParcel extends Model
 
     protected $fillable = [
         'office_id',
+        'shipment_id',
         'destination_office_id',
         'external_office_name',
         'sender_name',
@@ -30,6 +31,7 @@ class OutgoingParcel extends Model
         'dispatched_at',
         'received_at',
         'cancelled_at',
+
     ];
 
     protected function casts(): array
@@ -75,5 +77,10 @@ class OutgoingParcel extends Model
         }
 
         return trim((string) ($this->external_office_name ?? ''));
+    }
+
+    public function shipment(): BelongsTo
+    {
+        return $this->belongsTo(Shipment::class, 'shipment_id');
     }
 }

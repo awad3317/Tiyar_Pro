@@ -9,6 +9,7 @@ use App\Http\Controllers\Office\IncomingTransitParcelController;
 use App\Http\Controllers\Office\WhatsAppSettingsController;
 use App\Http\Controllers\Office\FavoriteCustomerController;
 use App\Http\Controllers\Office\Auth\LoginController;
+use App\Http\Controllers\Office\ShipmentController;
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -25,13 +26,15 @@ use App\Http\Controllers\Accountant\DashboardController as AccountantDashboardCo
 use App\Http\Controllers\Accountant\ParcelController as AccountantParcelController;
 use App\Http\Controllers\Accountant\ManifestController as AccountantManifestController;
 
+
+
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/portfolio', [PageController::class, 'portfolio'])->name('portfolio');
 Route::get('/services', [PageController::class, 'services'])->name('services');
 Route::get('/stats', [PageController::class, 'stats'])->name('stats');
 
-Route::get('/login', fn () => redirect()->route('office.login'))->name('login');
+Route::get('/login', fn() => redirect()->route('office.login'))->name('login');
 
 /*
 |--------------------------------------------------------------------------
@@ -109,7 +112,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 
 Route::prefix('office')->name('office.')->group(function () {
-    
+
     // مسارات الزوار (غير المسجلين)
     Route::middleware('guest:office')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -119,7 +122,7 @@ Route::prefix('office')->name('office.')->group(function () {
     // مسارات المسجلين (داخل جلسة المكتب)
     Route::middleware('auth:office')->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-        
+
         // لوحة التحكم وتطبيق الطرود الرئيسي
         Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
         Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
@@ -144,6 +147,7 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::post('/{outgoingParcel}/dispatch', [OutgoingParcelController::class, 'dispatch'])->name('dispatch');
                 Route::post('/{outgoingParcel}/deliver-external', [OutgoingParcelController::class, 'deliverExternal'])->name('deliver-external');
                 Route::post('/{outgoingParcel}/cancel', [OutgoingParcelController::class, 'cancel'])->name('cancel');
+                Route::get('/{outgoingParcel}/receipt', [ShipmentController::class, 'printParcelReceipt'])->name('receipt');
             });
 
         // الطرود القادمة في الطريق إلى هذا المكتب (متاحة لجميع المكاتب المسجلة)
@@ -152,6 +156,28 @@ Route::prefix('office')->name('office.')->group(function () {
             ->group(function () {
                 Route::get('/', [IncomingTransitParcelController::class, 'index'])->name('index');
                 Route::post('/{outgoingParcel}/receive', [IncomingTransitParcelController::class, 'receive'])->name('receive');
+            });
+
+        // الشحنات المرسلة (محمية بميزة outgoing_parcels)
+        Route::middleware('office.feature:outgoing_parcels')
+            ->prefix('shipments/sent')
+            ->name('shipments.sent.')
+            ->group(function () {
+                Route::get('/', [ShipmentController::class, 'sentIndex'])->name('index');
+                Route::post('/', [ShipmentController::class, 'store'])->name('store');
+                Route::post('/lookup-parcel', [ShipmentController::class, 'lookupParcel'])->name('lookup');
+                Route::get('/{shipment}', [ShipmentController::class, 'showSent'])->name('show');
+                Route::post('/{shipment}/dispatch', [ShipmentController::class, 'dispatch'])->name('dispatch');
+                Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel'])->name('cancel');
+            });
+
+        // الشحنات المستلمة (متاحة لجميع المكاتب المسجلة)
+        Route::prefix('shipments/received')
+            ->name('shipments.received.')
+            ->group(function () {
+                Route::get('/', [ShipmentController::class, 'receivedIndex'])->name('index');
+                Route::get('/{shipment}', [ShipmentController::class, 'showReceived'])->name('show');
+                Route::post('/{shipment}/receive-parcel', [ShipmentController::class, 'receiveParcel'])->name('receive-parcel');
             });
 
         // إعدادات الواتساب (Evolution API)
@@ -266,7 +292,3 @@ Route::prefix('accountant')->name('accountant.')->group(function () {
         });
     });
 });
-
-
-
-

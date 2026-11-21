@@ -20,6 +20,19 @@
          class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
     {{-- رأس البطاقة: نوع الطرد، السند، وحالة الطرد --}}
     <div class="flex items-start justify-between gap-2">
+        {{-- شارة الحالة + زر طباعة السند بالباركود --}}
+        <div class="flex items-center gap-1.5 shrink-0">
+            <a href="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
+               target="_blank"
+               title="طباعة السند والباركود"
+               class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-primary hover:text-secondary text-slate-600 border border-slate-200 flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined text-base">qr_code_2</span>
+            </a>
+
+            <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold {{ $parcel->status->badgeClass() }}">
+                {{ $parcel->status->label() }}
+            </span>
+        </div>
         <div class="flex items-center gap-2 min-w-0">
             <span class="w-8 h-8 rounded-lg bg-slate-100 text-primary flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-lg">outbox</span>

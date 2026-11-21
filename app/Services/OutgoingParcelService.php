@@ -11,6 +11,7 @@ use App\Models\Parcel;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\Shipment;
 
 class OutgoingParcelService
 {
@@ -164,6 +165,7 @@ class OutgoingParcelService
             $locked->update([
                 'status' => OutgoingParcelStatus::DELIVERED,
             ]);
+            Shipment::syncStatusById($locked->shipment_id);
 
             $parcel->refresh();
 
@@ -209,11 +211,102 @@ class OutgoingParcelService
      * استلام الطرد الصادر في الفرع المستلم وتحويله تلقائياً إلى طرد وارد (Parcel)
      * مع حماية كاملة ضد الاستلام المزدوج وإطلاق إشعار الوصول بعد اعتماد المعاملة.
      */
+    // public function receiveAtDestination(
+    //     OutgoingParcel $outgoingParcel,
+    //     Office $receivingOffice,
+    //     bool $afterResponse = false,
+    //     string $channel = 'both'
+    // ): Parcel {
+    //     $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice): Parcel {
+    //         $locked = OutgoingParcel::with('office:id,name,branch_name')
+    //             ->whereKey($outgoingParcel->id)
+    //             ->lockForUpdate()
+    //             ->firstOrFail();
+
+    //         if ($locked->destination_office_id === null || (int) $locked->destination_office_id !== (int) $receivingOffice->id) {
+    //             throw new DomainException('هذا الطرد غير موجّه إلى مكتبكم.');
+    //         }
+
+    //         if ($locked->linked_incoming_parcel_id !== null) {
+    //             throw new DomainException('تم استلام هذا الطرد مسبقاً ولا يمكن استلامه مرة أخرى.');
+    //         }
+
+    //         if ($locked->status !== OutgoingParcelStatus::IN_TRANSIT) {
+    //             throw new DomainException('لا يمكن استلام الطرد إلا عندما تكون حالته (في الطريق).');
+    //         }
+
+    //         $sourceOffice = $locked->office;
+    //         $sourceBranch = trim((string) ($sourceOffice?->branch_name ?? ''));
+    //         $sourceOfficeName = null;
+    //         if ($sourceOffice) {
+    //             $formatted = $sourceBranch !== ''
+    //                 ? "{$sourceOffice->name} - {$sourceBranch}"
+    //                 : $sourceOffice->name;
+    //             $sourceOfficeName = mb_substr($formatted, 0, 100);
+    //         }
+
+    //         $sourceRegion = $sourceBranch !== '' ? mb_substr($sourceBranch, 0, 100) : null;
+
+    //         // إذا كان الطرد (آجل - deferred) ينتقل المبلغ لتحصيله عند التسليم، أما إذا كان (محاسب - paid) فيكون null لعدم التحصيل مرتين
+    //         $codAmount = ($locked->payment_type === OutgoingPaymentType::DEFERRED && $locked->cod_amount !== null)
+    //             ? (float) $locked->cod_amount
+    //             : null;
+
+    //         $parcel = Parcel::create([
+    //             'office_id'          => $receivingOffice->id,
+    //             'recipient_name'     => $locked->recipient_name,
+    //             'recipient_phone'    => $locked->recipient_phone,
+    //             'package_type'       => $locked->package_type,
+    //             'receipt_number'     => $locked->receipt_number,
+    //             'cod_amount'         => $codAmount,
+    //             'source_office_id'   => $locked->office_id,
+    //             'source_office_name' => $sourceOfficeName,
+    //             'source_region'      => $sourceRegion,
+    //             'status'             => ParcelStatus::InOffice,
+    //         ]);
+
+    //         $locked->update([
+    //             'status'                    => OutgoingParcelStatus::RECEIVED,
+    //             'received_at'               => now(),
+    //             'linked_incoming_parcel_id' => $parcel->id,
+    //         ]);
+
+    //         return $parcel;
+    //     });
+
+    //     $outgoingParcel->refresh();
+
+    //     $triggerNotification = function () use ($newParcel, $receivingOffice, $outgoingParcel): void {
+    //         try {
+    //             $this->arrivalNotificationService->notifyArrival($newParcel, $receivingOffice, 'both');
+    //         } catch (\Throwable $e) {
+    //             Log::error("OutgoingParcelService::receiveAtDestination arrival notification failed for parcel #{$newParcel->id}: " . $e->getMessage(), [
+    //                 'outgoing_parcel_id'  => $outgoingParcel->id,
+    //                 'incoming_parcel_id'  => $newParcel->id,
+    //                 'receiving_office_id' => $receivingOffice->id,
+    //             ]);
+    //         }
+    //     };
+
+    //     // في بيئة الإنتاج عند طلب afterResponse نرسل الرد فوراً للمتصفح وننفذ طلب httpSMS الخارجي بعد انتهاء الاستجابة
+    //     if ($afterResponse && ! app()->runningUnitTests()) {
+    //         dispatch($triggerNotification)->afterResponse();
+
+    //         return $newParcel;
+    //     }
+
+    //     $triggerNotification();
+
+    //     return $newParcel->fresh() ?? $newParcel;
+    // }
     public function receiveAtDestination(
         OutgoingParcel $outgoingParcel,
         Office $receivingOffice,
-        bool $afterResponse = false
+        bool $afterResponse = false,
+        string $channel = 'both'
     ): Parcel {
+        $channel = in_array($channel, ['sms', 'whatsapp', 'both'], true) ? $channel : 'both';
+
         $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice): Parcel {
             $locked = OutgoingParcel::with('office:id,name,branch_name')
                 ->whereKey($outgoingParcel->id)
@@ -244,7 +337,6 @@ class OutgoingParcelService
 
             $sourceRegion = $sourceBranch !== '' ? mb_substr($sourceBranch, 0, 100) : null;
 
-            // إذا كان الطرد (آجل - deferred) ينتقل المبلغ لتحصيله عند التسليم، أما إذا كان (محاسب - paid) فيكون null لعدم التحصيل مرتين
             $codAmount = ($locked->payment_type === OutgoingPaymentType::DEFERRED && $locked->cod_amount !== null)
                 ? (float) $locked->cod_amount
                 : null;
@@ -268,24 +360,28 @@ class OutgoingParcelService
                 'linked_incoming_parcel_id' => $parcel->id,
             ]);
 
+            if ($locked->shipment_id) {
+                Shipment::syncStatusById($locked->shipment_id);
+            }
+
             return $parcel;
         });
 
         $outgoingParcel->refresh();
 
-        $triggerNotification = function () use ($newParcel, $receivingOffice, $outgoingParcel): void {
+        $triggerNotification = function () use ($newParcel, $receivingOffice, $outgoingParcel, $channel): void {
             try {
-                $this->arrivalNotificationService->notifyArrival($newParcel, $receivingOffice, 'both');
+                $this->arrivalNotificationService->notifyArrival($newParcel, $receivingOffice, $channel);
             } catch (\Throwable $e) {
                 Log::error("OutgoingParcelService::receiveAtDestination arrival notification failed for parcel #{$newParcel->id}: " . $e->getMessage(), [
                     'outgoing_parcel_id'  => $outgoingParcel->id,
                     'incoming_parcel_id'  => $newParcel->id,
                     'receiving_office_id' => $receivingOffice->id,
+                    'channel'             => $channel,
                 ]);
             }
         };
 
-        // في بيئة الإنتاج عند طلب afterResponse نرسل الرد فوراً للمتصفح وننفذ طلب httpSMS الخارجي بعد انتهاء الاستجابة
         if ($afterResponse && ! app()->runningUnitTests()) {
             dispatch($triggerNotification)->afterResponse();
 
