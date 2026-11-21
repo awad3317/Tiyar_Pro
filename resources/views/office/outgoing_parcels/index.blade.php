@@ -19,6 +19,7 @@
               hasErrors: {{ $errors->any() ? 'true' : 'false' }},
               initialDestType: @js(old('destination_type', 'office')),
               initialOfficeId: @js(old('destination_office_id', '')),
+              initialExternalName: @js(old('external_office_name', '')),
               initialPackageType: @js(old('package_type', '')),
               initialPaymentType: @js(old('payment_type', 'paid')),
               offices: @js($officesForJs)
@@ -341,55 +342,105 @@
                       @submit="if (submitting) { $event.preventDefault(); return; } submitting = true">
                     @csrf
 
-                    {{-- أ. اختيار نوع الوجهة --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">الوجهة المستلمة</label>
-                        <input type="hidden" name="destination_type" :value="destType">
-                        <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-                            <button type="button"
-                                    @click="destType = 'office'"
-                                    :class="destType === 'office' ? 'bg-white text-primary shadow-xs font-extrabold' : 'text-slate-500 font-bold'"
-                                    class="py-2 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
-                                <span class="material-symbols-outlined text-sm">domain</span>
-                                <span>فرع في النظام</span>
-                            </button>
-                            <button type="button"
-                                    @click="destType = 'external'"
-                                    :class="destType === 'external' ? 'bg-white text-primary shadow-xs font-extrabold' : 'text-slate-500 font-bold'"
-                                    class="py-2 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
-                                <span class="material-symbols-outlined text-sm">storefront</span>
-                                <span>مكتب خارجي</span>
-                            </button>
-                        </div>
-                    </div>
+                    {{-- أ. حقل الوجهة الموحد الذكي (Searchable Combobox: فرع في النظام أو مكتب خارجي) --}}
+                    <div class="relative" @click.outside="destDropdownOpen = false">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <label class="block text-[11px] font-bold text-slate-600">
+                                الوجهة المستلمة <span class="text-rose-500">*</span>
+                            </label>
 
-                    {{-- اختيار الفرع في النظام (مع بحث سريع) --}}
-                    <div x-show="destType === 'office'" class="space-y-1.5">
-                        <label class="block text-[11px] font-bold text-slate-600">اختر الفرع المستلم <span class="text-rose-500">*</span></label>
-                        <input type="text"
-                               x-model="officeSearch"
-                               placeholder="ابحث عن اسم الفرع أو المدينة..."
-                               class="w-full py-2 px-3 text-xs font-bold text-slate-700 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
-                        <select name="destination_office_id"
-                                x-model="selectedOfficeId"
-                                :required="destType === 'office'"
-                                class="w-full py-2.5 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-white outline-none focus:border-secondary">
-                            <option value="">-- اختر الفرع من القائمة --</option>
-                            <template x-for="off in filteredOffices" :key="off.id">
-                                <option :value="String(off.id)" x-text="off.label"></option>
+                            {{-- شارة توضيحية لنوع الوجهة الحالية --}}
+                            <template x-if="selectedOfficeId !== ''">
+                                <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
+                                    <span class="material-symbols-outlined text-[12px]">domain</span>
+                                    <span>فرع في النظام</span>
+                                </span>
                             </template>
-                        </select>
-                    </div>
+                            <template x-if="selectedOfficeId === '' && destinationQuery.trim() !== ''">
+                                <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold">
+                                    <span class="material-symbols-outlined text-[12px]">storefront</span>
+                                    <span>مكتب خارجي</span>
+                                </span>
+                            </template>
+                        </div>
 
-                    {{-- اسم المكتب الخارجي --}}
-                    <div x-show="destType === 'external'" x-cloak>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المكتب الخارجي <span class="text-rose-500">*</span></label>
-                        <input type="text"
-                               name="external_office_name"
-                               value="{{ old('external_office_name') }}"
-                               :required="destType === 'external'"
-                               placeholder="مثال: مكتب الصقر - مأرب"
-                               class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                        {{-- الحقول المخفية المتوافقة مع الباك إند --}}
+                        <input type="hidden" name="destination_type" :value="destType">
+                        <input type="hidden" name="destination_office_id" :value="selectedOfficeId">
+                        <input type="hidden" name="external_office_name" :value="externalOfficeName">
+
+                        <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary transition-all"
+                             :class="selectedOfficeId !== '' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'">
+                            <input type="text"
+                                   x-ref="destinationComboInput"
+                                   x-model="destinationQuery"
+                                   @focus="destDropdownOpen = true"
+                                   @input="onDestinationInput()"
+                                   @keydown.escape="destDropdownOpen = false"
+                                   @keydown.enter.prevent="destDropdownOpen = false"
+                                   required
+                                   dir="rtl"
+                                   autocomplete="off"
+                                   placeholder="اختر الفرع أو اكتب اسم مكتب خارجي..."
+                                   class="w-full py-2.5 pr-3 pl-14 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal" />
+
+                            <div class="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <template x-if="destinationQuery !== ''">
+                                    <button type="button"
+                                            @click="clearDestination(); $nextTick(() => $refs.destinationComboInput.focus())"
+                                            class="w-5 h-5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center text-xs font-bold transition-colors"
+                                            title="مسح الوجهة">
+                                        ✕
+                                    </button>
+                                </template>
+                                <button type="button"
+                                        @click="destDropdownOpen = !destDropdownOpen"
+                                        class="text-slate-400 hover:text-slate-600 flex items-center p-0.5">
+                                    <span class="material-symbols-outlined text-base" x-text="destDropdownOpen ? 'expand_less' : 'expand_more'"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- القائمة المنسدلة للفروع مع خيار اعتماد كمكتب خارجي --}}
+                        <div x-show="destDropdownOpen"
+                             x-cloak
+                             x-transition
+                             class="absolute left-0 right-0 top-full mt-1 z-30 max-h-48 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
+                            <template x-for="off in filteredOffices" :key="off.id">
+                                <button type="button"
+                                        @mousedown.prevent
+                                        @click="selectInternalOffice(off)"
+                                        :class="String(selectedOfficeId) === String(off.id)
+                                            ? 'bg-emerald-50 text-emerald-800 font-extrabold'
+                                            : 'text-slate-700 hover:bg-slate-50 font-bold'"
+                                        class="w-full px-3 py-2.5 text-right text-xs flex items-center justify-between gap-2 transition-colors">
+                                    <span class="flex items-center gap-1.5 min-w-0">
+                                        <span class="material-symbols-outlined text-sm text-sky-600 shrink-0">domain</span>
+                                        <span x-text="off.label" class="truncate"></span>
+                                    </span>
+                                    <template x-if="String(selectedOfficeId) === String(off.id)">
+                                        <span class="material-symbols-outlined text-sm text-emerald-600 shrink-0">check_circle</span>
+                                    </template>
+                                </button>
+                            </template>
+
+                            {{-- خيار إضافة النص المكتوب كمكتب خارجي --}}
+                            <template x-if="destinationQuery.trim() !== ''">
+                                <button type="button"
+                                        @mousedown.prevent
+                                        @click="confirmExternalOffice()"
+                                        class="w-full px-3 py-2.5 text-right text-xs font-extrabold text-amber-800 bg-amber-50/70 hover:bg-amber-100/80 flex items-center gap-1.5 transition-colors">
+                                    <span class="material-symbols-outlined text-sm text-amber-600 shrink-0">storefront</span>
+                                    <span class="truncate" x-text="'إضافة &quot;' + destinationQuery.trim() + '&quot; كمكتب خارجي'"></span>
+                                </button>
+                            </template>
+
+                            <template x-if="filteredOffices.length === 0 && destinationQuery.trim() === ''">
+                                <div class="px-3 py-3 text-center text-[11px] text-slate-400 font-bold">
+                                    لا توجد فروع أخرى مسجلة، يمكنك كتابة اسم مكتب خارجي مباشرة.
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     {{-- ب. بيانات المرسل --}}
@@ -596,14 +647,23 @@
 @push('scripts')
 <script>
     function outgoingParcelsPage(config) {
+        const officesList = config.offices || [];
+        const initOfficeId = String(config.initialOfficeId || '');
+        const initExternal = String(config.initialExternalName || '').trim();
+        const matchedOffice = initOfficeId
+            ? officesList.find(o => String(o.id) === initOfficeId)
+            : null;
+
         return {
             showModal: Boolean(config.hasErrors),
-            destType: config.initialDestType || 'office',
-            selectedOfficeId: String(config.initialOfficeId || ''),
-            officeSearch: '',
+            destDropdownOpen: false,
+            destType: matchedOffice ? 'office' : (initExternal !== '' ? 'external' : (config.initialDestType || 'office')),
+            selectedOfficeId: matchedOffice ? String(matchedOffice.id) : '',
+            externalOfficeName: matchedOffice ? '' : initExternal,
+            destinationQuery: matchedOffice ? matchedOffice.label : initExternal,
             packageType: config.initialPackageType || '',
             paymentType: config.initialPaymentType || 'paid',
-            offices: config.offices || [],
+            offices: officesList,
 
             catalog: {
                 'كيس': ['أبيض', 'أسود', 'أزرق', 'أحمر', 'بني', 'بنفسجي', 'أصفر', 'وردي', 'رمادي', 'شفاف'],
@@ -613,7 +673,37 @@
             sizes: ['كبير', 'وسط', 'صغير'],
 
             norm(str) {
-                return (str || '').replace(/[أإآ]/g, 'ا');
+                return String(str || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+            },
+
+            onDestinationInput() {
+                this.destDropdownOpen = true;
+                this.selectedOfficeId = '';
+                this.destType = 'external';
+                this.externalOfficeName = (this.destinationQuery || '').trim();
+            },
+
+            selectInternalOffice(off) {
+                this.selectedOfficeId = String(off.id);
+                this.destType = 'office';
+                this.destinationQuery = off.label;
+                this.externalOfficeName = '';
+                this.destDropdownOpen = false;
+            },
+
+            confirmExternalOffice() {
+                this.selectedOfficeId = '';
+                this.destType = 'external';
+                this.externalOfficeName = (this.destinationQuery || '').trim();
+                this.destDropdownOpen = false;
+            },
+
+            clearDestination() {
+                this.selectedOfficeId = '';
+                this.destType = 'office';
+                this.destinationQuery = '';
+                this.externalOfficeName = '';
+                this.destDropdownOpen = true;
             },
 
             get activeCategory() {
@@ -640,21 +730,32 @@
             openModal() {
                 this.packageType = '';
                 this.paymentType = 'paid';
-                this.officeSearch = '';
+                this.destDropdownOpen = false;
+                this.selectedOfficeId = '';
+                this.destType = 'office';
+                this.destinationQuery = '';
+                this.externalOfficeName = '';
                 this.showModal = true;
             },
 
             closeModal() {
                 this.showModal = false;
+                this.destDropdownOpen = false;
                 this.packageType = '';
                 this.paymentType = 'paid';
-                this.officeSearch = '';
+                this.selectedOfficeId = '';
+                this.destType = 'office';
+                this.destinationQuery = '';
+                this.externalOfficeName = '';
             },
 
             get filteredOffices() {
-                const q = (this.officeSearch || '').trim().toLowerCase();
+                if (this.selectedOfficeId !== '') {
+                    return this.offices;
+                }
+                const q = this.norm(this.destinationQuery);
                 if (!q) return this.offices;
-                return this.offices.filter(o => (o.label || '').toLowerCase().includes(q));
+                return this.offices.filter(o => this.norm(o.label).includes(q));
             }
         };
     }
