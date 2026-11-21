@@ -52,24 +52,40 @@ class OutgoingParcelService
         }
 
         $recipientName = trim((string) ($data['recipient_name'] ?? ''));
-        $receiptNumber = trim((string) ($data['receipt_number'] ?? ''));
         $notes = trim((string) ($data['notes'] ?? ''));
 
-        return OutgoingParcel::create([
-            'office_id'             => $office->id,
-            'destination_office_id' => $destinationOfficeId,
-            'external_office_name'  => $externalOfficeName,
-            'sender_name'           => trim((string) ($data['sender_name'] ?? '')),
-            'sender_phone'          => trim((string) ($data['sender_phone'] ?? '')),
-            'recipient_name'        => $recipientName !== '' ? $recipientName : null,
-            'recipient_phone'       => trim((string) ($data['recipient_phone'] ?? '')),
-            'package_type'          => trim((string) ($data['package_type'] ?? 'طرد')) ?: 'طرد',
-            'quantity'              => max(1, (int) ($data['quantity'] ?? 1)),
-            'receipt_number'        => $receiptNumber !== '' ? $receiptNumber : null,
-            'cod_amount'            => $codAmount,
-            'notes'                 => $notes !== '' ? $notes : null,
-            'status'                => OutgoingParcelStatus::PENDING,
-        ]);
+        return DB::transaction(function () use (
+            $office,
+            $destinationOfficeId,
+            $externalOfficeName,
+            $codAmount,
+            $recipientName,
+            $notes,
+            $data
+        ): OutgoingParcel {
+            Office::query()->whereKey($office->id)->lockForUpdate()->firstOrFail();
+
+            $lastNumber = (int) OutgoingParcel::where('office_id', $office->id)
+                ->selectRaw('MAX(CAST(receipt_number AS UNSIGNED)) as max_num')
+                ->value('max_num');
+
+            $nextReceiptNumber = (string) ($lastNumber + 1);
+
+            return OutgoingParcel::create([
+                'office_id'             => $office->id,
+                'destination_office_id' => $destinationOfficeId,
+                'external_office_name'  => $externalOfficeName,
+                'sender_name'           => trim((string) ($data['sender_name'] ?? '')),
+                'sender_phone'          => trim((string) ($data['sender_phone'] ?? '')),
+                'recipient_name'        => $recipientName !== '' ? $recipientName : null,
+                'recipient_phone'       => trim((string) ($data['recipient_phone'] ?? '')),
+                'package_type'          => trim((string) ($data['package_type'] ?? 'طرد')) ?: 'طرد',
+                'receipt_number'        => $nextReceiptNumber,
+                'cod_amount'            => $codAmount,
+                'notes'                 => $notes !== '' ? $notes : null,
+                'status'                => OutgoingParcelStatus::PENDING,
+            ]);
+        });
     }
 
     /**

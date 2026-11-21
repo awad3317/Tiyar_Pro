@@ -95,8 +95,6 @@ class OutgoingParcelController extends Controller
             $validated['destination_office_id'] = null;
         }
 
-        $validated['quantity'] = (int) ($validated['quantity'] ?? 1);
-
         try {
             $service->create($office, $validated);
 

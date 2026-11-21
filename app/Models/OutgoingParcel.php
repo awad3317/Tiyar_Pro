@@ -20,7 +20,6 @@ class OutgoingParcel extends Model
         'recipient_name',
         'recipient_phone',
         'package_type',
-        'quantity',
         'receipt_number',
         'cod_amount',
         'notes',
@@ -36,7 +35,6 @@ class OutgoingParcel extends Model
         return [
             'status'        => OutgoingParcelStatus::class,
             'cod_amount'    => 'decimal:2',
-            'quantity'      => 'integer',
             'dispatched_at' => 'datetime',
             'received_at'   => 'datetime',
             'cancelled_at'  => 'datetime',

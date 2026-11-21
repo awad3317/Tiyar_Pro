@@ -24,16 +24,12 @@ class StoreOutgoingParcelRequest extends FormRequest
             return str_replace($eastern, $western, trim($value));
         };
 
-        $quantity = $this->input('quantity');
-        $normalizedQty = $normalizeDigits($quantity !== null ? (string) $quantity : null);
-
         $cod = $this->input('cod_amount');
         $normalizedCod = $normalizeDigits($cod !== null ? (string) $cod : null);
 
         $this->merge([
             'sender_phone'    => $normalizeDigits((string) $this->input('sender_phone', '')),
             'recipient_phone' => $normalizeDigits((string) $this->input('recipient_phone', '')),
-            'quantity'        => ($normalizedQty !== null && $normalizedQty !== '') ? $normalizedQty : 1,
             'cod_amount'      => ($normalizedCod !== null && $normalizedCod !== '') ? $normalizedCod : null,
         ]);
     }
@@ -60,8 +56,6 @@ class StoreOutgoingParcelRequest extends FormRequest
             'recipient_name'        => ['nullable', 'string', 'max:255'],
             'recipient_phone'       => ['required', 'string', 'max:25'],
             'package_type'          => ['required', 'string', 'max:255'],
-            'quantity'              => ['nullable', 'integer', 'min:1', 'max:999'],
-            'receipt_number'        => ['nullable', 'string', 'max:100'],
             'cod_amount'            => ['nullable', 'numeric', 'min:0'],
             'notes'                 => ['nullable', 'string', 'max:1000'],
         ];
@@ -90,10 +84,6 @@ class StoreOutgoingParcelRequest extends FormRequest
             'recipient_phone.max'               => 'رقم هاتف المستلم يجب ألا يتجاوز 25 حرفاً.',
             'package_type.required'             => 'يرجى إدخال نوع الطرد.',
             'package_type.max'                  => 'نوع الطرد يجب ألا يتجاوز 255 حرفاً.',
-            'quantity.integer'                  => 'العدد يجب أن يكون رقماً صحيحاً.',
-            'quantity.min'                      => 'العدد يجب ألا يقل عن 1.',
-            'quantity.max'                      => 'العدد يجب ألا يتجاوز 999.',
-            'receipt_number.max'                => 'رقم السند يجب ألا يتجاوز 100 حرف.',
             'cod_amount.numeric'                => 'مبلغ التحصيل يجب أن يكون رقماً صالحاً.',
             'cod_amount.min'                    => 'مبلغ التحصيل يجب ألا يقل عن صفر.',
             'notes.max'                         => 'الملاحظات يجب ألا تتجاوز 1000 حرف.',

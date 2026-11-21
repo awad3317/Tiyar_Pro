@@ -54,7 +54,7 @@
                         : 'مكتب غير معروف';
                 @endphp
                 <article class="bg-white border border-sky-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
-                    {{-- الرأس: المكتب المرسل ونوع الطرد والعدد --}}
+                    {{-- الرأس: المكتب المرسل ونوع الطرد --}}
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
@@ -63,12 +63,9 @@
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <h3 class="font-extrabold text-sm text-slate-800">{{ $parcel->package_type }}</h3>
-                                    <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                        العدد: {{ $parcel->quantity }}
-                                    </span>
                                     @if($parcel->receipt_number)
-                                        <span class="text-[11px] text-slate-400 font-mono font-bold">
-                                            سند: #{{ $parcel->receipt_number }}
+                                        <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-extrabold">
+                                            سند #{{ $parcel->receipt_number }}
                                         </span>
                                     @endif
                                 </div>

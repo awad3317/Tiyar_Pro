@@ -94,7 +94,7 @@ class OutgoingParcelUiTest extends TestCase
             ->assertSee('الطرود الصادرة')
             ->assertSee('+ إضافة طرد صادر');
 
-        // 2. إنشاء طرد موجّه إلى فرع في النظام
+        // 2. إنشاء طرد موجّه إلى فرع في النظام → يأخذ رقم السند التلقائي '1'
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.store'), [
                 'destination_type'      => 'office',
@@ -103,9 +103,7 @@ class OutgoingParcelUiTest extends TestCase
                 'sender_phone'          => '771234567',
                 'recipient_name'        => 'سعيد المستلم',
                 'recipient_phone'       => '777654321',
-                'package_type'          => 'كرتون كاكي',
-                'quantity'              => 3,
-                'receipt_number'        => 'SN-501',
+                'package_type'          => 'كرتون كاكي كبير',
                 'cod_amount'            => 4000,
                 'notes'                 => 'يسلم يداً بيد',
             ])
@@ -113,14 +111,15 @@ class OutgoingParcelUiTest extends TestCase
 
         $internalParcel = OutgoingParcel::query()
             ->where('office_id', $this->senderOffice->id)
-            ->where('receipt_number', 'SN-501')
+            ->where('recipient_phone', '777654321')
             ->firstOrFail();
 
+        $this->assertSame('1', $internalParcel->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $internalParcel->status);
         $this->assertFalse($internalParcel->isExternal());
         $this->assertEquals($this->targetOffice->id, $internalParcel->destination_office_id);
 
-        // 3. إنشاء طرد موجّه إلى مكتب خارجي
+        // 3. إنشاء طرد ثانٍ موجّه إلى مكتب خارجي → يأخذ رقم السند التلقائي '2'
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.store'), [
                 'destination_type'     => 'external',
@@ -129,20 +128,39 @@ class OutgoingParcelUiTest extends TestCase
                 'sender_phone'         => '773111222',
                 'recipient_name'       => 'نبيل المستلم',
                 'recipient_phone'      => '773999888',
-                'package_type'         => 'ظرف أبيض',
-                'quantity'             => 1,
-                'receipt_number'       => 'SN-502',
+                'package_type'         => 'ضرف أبيض صغير',
             ])
             ->assertRedirect(route('office.outgoing-parcels.index'));
 
         $externalParcel = OutgoingParcel::query()
             ->where('office_id', $this->senderOffice->id)
-            ->where('receipt_number', 'SN-502')
+            ->where('recipient_phone', '773999888')
             ->firstOrFail();
 
+        $this->assertSame('2', $externalParcel->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $externalParcel->status);
         $this->assertTrue($externalParcel->isExternal());
         $this->assertSame('مكتب الأمانة الخارجي - مأرب', $externalParcel->destinationLabel());
+
+        // التحقق من أن مكتب آخر يبدأ ترقيمه المستقل من '1'
+        $this->targetOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->targetOffice->refreshFeaturesCache();
+
+        $this->actingAs($this->targetOffice, 'office')
+            ->post(route('office.outgoing-parcels.store'), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->senderOffice->id,
+                'sender_name'           => 'مرسل عدن',
+                'sender_phone'          => '778111222',
+                'recipient_phone'       => '778333444',
+                'package_type'          => 'كيس أزرق وسط',
+            ])
+            ->assertRedirect(route('office.outgoing-parcels.index'));
+
+        $targetOfficeOutgoing = OutgoingParcel::query()
+            ->where('office_id', $this->targetOffice->id)
+            ->firstOrFail();
+        $this->assertSame('1', $targetOfficeOutgoing->receipt_number);
 
         // 4. شحن الطردين (تحويلهما إلى in_transit)
         $this->actingAs($this->senderOffice, 'office')
@@ -177,7 +195,6 @@ class OutgoingParcelUiTest extends TestCase
             'recipient_name'        => 'ماجد المستلم',
             'recipient_phone'       => '772000222',
             'package_type'          => 'كيس ملابس كبير',
-            'quantity'              => 1,
             'receipt_number'        => 'TR-900',
             'status'                => OutgoingParcelStatus::IN_TRANSIT,
             'dispatched_at'         => now(),
@@ -224,7 +241,6 @@ class OutgoingParcelUiTest extends TestCase
             'recipient_name'        => 'وليد المستلم',
             'recipient_phone'       => '775333444',
             'package_type'          => 'كرتون قطع غيار',
-            'quantity'              => 2,
             'receipt_number'        => 'RCV-777',
             'cod_amount'            => 7500,
             'status'                => OutgoingParcelStatus::IN_TRANSIT,

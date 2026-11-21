@@ -142,7 +142,7 @@
         <div class="space-y-2.5">
             @forelse ($parcels as $parcel)
                 <article class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
-                    {{-- رأس البطاقة: نوع الطرد، العدد، السند، وحالة الطرد --}}
+                    {{-- رأس البطاقة: نوع الطرد، السند، وحالة الطرد --}}
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="w-8 h-8 rounded-lg bg-slate-100 text-primary flex items-center justify-center shrink-0">
@@ -151,12 +151,9 @@
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <h3 class="font-extrabold text-sm text-slate-800">{{ $parcel->package_type }}</h3>
-                                    <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                        العدد: {{ $parcel->quantity }}
-                                    </span>
                                     @if($parcel->receipt_number)
-                                        <span class="text-[11px] text-slate-400 font-mono font-bold">
-                                            سند: #{{ $parcel->receipt_number }}
+                                        <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-extrabold">
+                                            سند #{{ $parcel->receipt_number }}
                                         </span>
                                     @endif
                                 </div>
@@ -317,7 +314,7 @@
         <div x-show="showModal"
              x-cloak
              class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div @click.outside="showModal = false"
+            <div @click.outside="closeModal()"
                  class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
 
                 {{-- هيدر المودال --}}
@@ -326,7 +323,7 @@
                         <span class="material-symbols-outlined text-secondary text-xl">outbox</span>
                         <h3 class="text-sm font-extrabold">إضافة طرد صادر جديد</h3>
                     </div>
-                    <button type="button" @click="showModal = false" class="text-slate-300 hover:text-white p-1">
+                    <button type="button" @click="closeModal()" class="text-slate-300 hover:text-white p-1">
                         <span class="material-symbols-outlined text-lg">close</span>
                     </button>
                 </div>
@@ -437,62 +434,102 @@
                         </div>
                     </div>
 
-                    {{-- د. نوع الطرد + أزرار الاختصار السريع + العدد --}}
-                    <div class="grid grid-cols-12 gap-2">
-                        <div class="col-span-8">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد <span class="text-rose-500">*</span></label>
-                            <input type="text"
-                                   name="package_type"
-                                   x-model="packageType"
-                                   required
-                                   placeholder="مثال: كرتون، كيس، ظرف..."
-                                   class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
-                        </div>
-                        <div class="col-span-4">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">العدد</label>
-                            <input type="number"
-                                   name="quantity"
-                                   value="{{ old('quantity', 1) }}"
-                                   min="1"
-                                   max="999"
-                                   dir="ltr"
-                                   class="w-full py-2 px-2.5 text-xs font-mono font-bold text-center text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                    {{-- د. نوع الطرد + أزرار الاختصار التفاعلية المتدرجة (النوع ← اللون ← المقاس) --}}
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد <span class="text-rose-500">*</span></label>
+                        <input type="text"
+                               name="package_type"
+                               x-ref="outgoingPackageInput"
+                               x-model="packageType"
+                               required
+                               dir="rtl"
+                               autocomplete="off"
+                               placeholder="طرد"
+                               class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+
+                        {{-- أزرار الاختصار السريع لنوع الطرد (نفس آلية الإرسال السريع: النوع ← اللون ← المقاس) --}}
+                        <div class="mt-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                            {{-- المستوى 1: الفئات الرئيسية (كيس، ضرف، كرتون) --}}
+                            <template x-if="!activeCategory">
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <template x-for="cat in Object.keys(catalog)" :key="cat">
+                                        <button type="button" @click="
+                                            packageType = cat + ' ';
+                                            $refs.outgoingPackageInput.focus();
+                                        " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                            <span x-text="cat"></span>
+                                            <span class="text-[9px] text-slate-400">◀</span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+
+                            {{-- المستوى 2: اختيار اللون للفئة المختارة --}}
+                            <template x-if="activeCategory && !activeColor">
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button type="button" @click="
+                                        packageType = '';
+                                        $refs.outgoingPackageInput.focus();
+                                    " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير النوع">
+                                        <span x-text="activeCategory + ' ✕'"></span>
+                                    </button>
+
+                                    <template x-for="color in catalog[activeCategory]" :key="color">
+                                        <button type="button" @click="
+                                            packageType = activeCategory + ' ' + color;
+                                            $refs.outgoingPackageInput.focus();
+                                        " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                            <span x-text="color"></span>
+                                            <span class="text-[9px] text-slate-400">◀</span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+
+                            {{-- المستوى 3: اختيار الحجم (كبير، وسط، صغير) بعد اختيار اللون --}}
+                            <template x-if="activeCategory && activeColor">
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button type="button" @click="
+                                        packageType = '';
+                                        $refs.outgoingPackageInput.focus();
+                                    " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير الفئة">
+                                        <span x-text="activeCategory + ' ✕'"></span>
+                                    </button>
+
+                                    <button type="button" @click="
+                                        packageType = activeCategory + ' ';
+                                        $refs.outgoingPackageInput.focus();
+                                    " class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير اللون">
+                                        <span x-text="activeColor + ' ✕'"></span>
+                                    </button>
+
+                                    <template x-for="size in sizes" :key="size">
+                                        <button type="button" @click="
+                                            packageType = activeCategory + ' ' + activeColor + ' ' + size;
+                                            $refs.outgoingPackageInput.focus();
+                                        " :class="activeSize === size
+                                            ? 'bg-secondary text-white shadow-sm'
+                                            : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
+                                        class="py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95">
+                                            <span x-text="size"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
                         </div>
                     </div>
 
-                    {{-- شرائح الاختيار السريع لنوع الطرد --}}
-                    <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                        <template x-for="preset in ['كيس', 'ضرف', 'كرتون', 'كيس أبيض', 'كرتون كاكي', 'ضرف أبيض']" :key="preset">
-                            <button type="button"
-                                    @click="packageType = preset"
-                                    class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/15 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors">
-                                <span x-text="preset"></span>
-                            </button>
-                        </template>
-                    </div>
-
-                    {{-- هـ. رقم السند ومبلغ التحصيل --}}
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم السند <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
-                            <input type="text"
-                                   name="receipt_number"
-                                   value="{{ old('receipt_number') }}"
-                                   dir="ltr"
-                                   placeholder="مثال: 1050"
-                                   class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">مبلغ التحصيل (ر.ي) <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
-                            <input type="number"
-                                   step="any"
-                                   min="0"
-                                   name="cod_amount"
-                                   value="{{ old('cod_amount') }}"
-                                   dir="ltr"
-                                   placeholder="مثال: 5000"
-                                   class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
-                        </div>
+                    {{-- هـ. مبلغ التحصيل (اختياري) --}}
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">مبلغ التحصيل (ر.ي) <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
+                        <input type="number"
+                               step="any"
+                               min="0"
+                               name="cod_amount"
+                               value="{{ old('cod_amount') }}"
+                               dir="ltr"
+                               placeholder="مثال: 5000"
+                               class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
                     </div>
 
                     {{-- و. ملاحظات --}}
@@ -513,7 +550,7 @@
                             <span x-text="submitting ? 'جاري الحفظ...' : 'حفظ الطرد الصادر'"></span>
                         </button>
                         <button type="button"
-                                @click="showModal = false"
+                                @click="closeModal()"
                                 class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
                             إلغاء
                         </button>
@@ -533,11 +570,51 @@
             destType: config.initialDestType || 'office',
             selectedOfficeId: String(config.initialOfficeId || ''),
             officeSearch: '',
-            packageType: config.initialPackageType || 'طرد',
+            packageType: config.initialPackageType || '',
             offices: config.offices || [],
 
+            catalog: {
+                'كيس': ['أبيض', 'أسود', 'أزرق', 'أحمر', 'بني', 'بنفسجي', 'أصفر', 'وردي', 'رمادي', 'شفاف'],
+                'ضرف': ['أبيض', 'كاكي'],
+                'كرتون': ['كاكي', 'أبيض']
+            },
+            sizes: ['كبير', 'وسط', 'صغير'],
+
+            norm(str) {
+                return (str || '').replace(/[أإآ]/g, 'ا');
+            },
+
+            get activeCategory() {
+                const desc = (this.packageType || '').trim();
+                if (desc === 'ظرف' || desc.startsWith('ظرف ')) return 'ضرف';
+                return Object.keys(this.catalog).find(cat => desc === cat || desc.startsWith(cat + ' ')) || null;
+            },
+
+            get activeColor() {
+                if (!this.activeCategory) return null;
+                const parts = (this.packageType || '').trim().split(/\s+/);
+                if (parts.length < 2) return null;
+                const colors = this.catalog[this.activeCategory] || [];
+                return colors.find(c => this.norm(c) === this.norm(parts[1])) || null;
+            },
+
+            get activeSize() {
+                if (!this.activeColor) return null;
+                const parts = (this.packageType || '').trim().split(/\s+/);
+                if (parts.length < 3) return null;
+                return this.sizes.find(s => s === parts[2]) || null;
+            },
+
             openModal() {
+                this.packageType = '';
+                this.officeSearch = '';
                 this.showModal = true;
+            },
+
+            closeModal() {
+                this.showModal = false;
+                this.packageType = '';
+                this.officeSearch = '';
             },
 
             get filteredOffices() {

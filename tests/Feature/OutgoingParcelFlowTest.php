@@ -106,32 +106,51 @@ class OutgoingParcelFlowTest extends TestCase
     {
         $service = app(OutgoingParcelService::class);
 
-        // 1. المكتب أ ينشئ طرداً صادراً (pending)
+        // 1. المكتب أ ينشئ طرداً صادراً أولاً → يأخذ رقم السند التلقائي '1'
         $outgoing = $service->create($this->officeA, [
             'destination_office_id' => $this->officeB->id,
             'sender_name'           => 'أحمد المرسل',
             'sender_phone'          => '771111111',
             'recipient_name'        => 'خالد المستلم',
             'recipient_phone'       => '772222222',
-            'package_type'          => 'كرتون أبيض متوسط',
-            'quantity'              => 2,
-            'receipt_number'        => 'OUT-1001',
+            'package_type'          => 'كرتون أبيض وسط',
             'cod_amount'            => 5500,
             'notes'                 => 'قابل للكسر',
         ]);
 
+        $this->assertSame('1', $outgoing->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $outgoing->status);
         $this->assertFalse($outgoing->isExternal());
         $this->assertSame('مكتب عدن (اختبار) - عدن - المنصورة', $outgoing->destinationLabel());
         $this->assertNull($outgoing->linked_incoming_parcel_id);
 
-        // 2. المكتب أ يحوّله إلى في الطريق (in_transit)
+        // إنشاء طرد صادر ثانٍ للمكتب أ → يأخذ رقم السند التلقائي '2'
+        $outgoingSecond = $service->create($this->officeA, [
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل ثانٍ',
+            'sender_phone'          => '771999999',
+            'recipient_phone'       => '772999999',
+            'package_type'          => 'كيس أبيض صغير',
+        ]);
+        $this->assertSame('2', $outgoingSecond->receipt_number);
+
+        // إنشاء طرد صادر للمكتب ب → يبدأ ترقيمه المستقل من '1'
+        $outgoingOfficeB = $service->create($this->officeB, [
+            'destination_office_id' => $this->officeA->id,
+            'sender_name'           => 'مرسل من عدن',
+            'sender_phone'          => '773888888',
+            'recipient_phone'       => '774888888',
+            'package_type'          => 'ضرف كاكي وسط',
+        ]);
+        $this->assertSame('1', $outgoingOfficeB->receipt_number);
+
+        // 2. المكتب أ يحوّل الطرد الأول إلى في الطريق (in_transit)
         $outgoing = $service->markInTransit($outgoing, $this->officeA);
 
         $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $outgoing->status);
         $this->assertNotNull($outgoing->dispatched_at);
 
-        // 3. المكتب ب يستلم الطرد → يُنشأ طرد وارد تلقائياً في parcels
+        // 3. المكتب ب يستلم الطرد → يُنشأ طرد وارد تلقائياً في parcels بنفس رقم السند '1'
         $incomingParcel = $service->receiveAtDestination($outgoing, $this->officeB);
 
         $this->assertInstanceOf(Parcel::class, $incomingParcel);
@@ -140,8 +159,8 @@ class OutgoingParcelFlowTest extends TestCase
             'office_id'          => $this->officeB->id,
             'recipient_name'     => 'خالد المستلم',
             'recipient_phone'    => '772222222',
-            'package_type'       => 'كرتون أبيض متوسط',
-            'receipt_number'     => 'OUT-1001',
+            'package_type'       => 'كرتون أبيض وسط',
+            'receipt_number'     => '1',
             'source_office_id'   => $this->officeA->id,
             'source_office_name' => 'مكتب صنعاء الرئيسي (اختبار) - صنعاء - حدة',
             'source_region'      => 'صنعاء - حدة',
@@ -171,16 +190,18 @@ class OutgoingParcelFlowTest extends TestCase
             'sender_phone'          => '773333333',
             'recipient_name'        => 'علي المستلم',
             'recipient_phone'       => '774444444',
-            'package_type'          => 'ظرف مستندات',
-            'receipt_number'        => 'OUT-2002',
+            'package_type'          => 'ضرف أبيض صغير',
         ]);
+
+        $this->assertSame('1', $outgoing->receipt_number);
 
         $service->markInTransit($outgoing, $this->officeA);
 
         $firstParcel = $service->receiveAtDestination($outgoing, $this->officeB);
         $countAfterFirst = Parcel::query()
             ->where('office_id', $this->officeB->id)
-            ->where('receipt_number', 'OUT-2002')
+            ->where('source_office_id', $this->officeA->id)
+            ->where('receipt_number', '1')
             ->count();
 
         $this->assertSame(1, $countAfterFirst);
@@ -195,7 +216,8 @@ class OutgoingParcelFlowTest extends TestCase
 
         $countAfterSecond = Parcel::query()
             ->where('office_id', $this->officeB->id)
-            ->where('receipt_number', 'OUT-2002')
+            ->where('source_office_id', $this->officeA->id)
+            ->where('receipt_number', '1')
             ->count();
 
         $this->assertSame(1, $countAfterSecond);
