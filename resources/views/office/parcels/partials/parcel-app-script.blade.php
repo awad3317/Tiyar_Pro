@@ -146,7 +146,7 @@
                 return data;
             },
 
-            async quickSendSingle(phone, description, channel = 'whatsapp', recipientName = null, codAmount = null) {
+            async quickSendSingle(phone, description, channel = 'whatsapp', recipientName = null, codAmount = null, sourceRegion = null, slotNumber = null) {
                 const res = await fetch(ROUTES.quickSendSingle, {
                     method: 'POST',
                     headers: {
@@ -159,7 +159,9 @@
                         description,
                         channel,
                         recipient_name: recipientName || null,
-                        cod_amount: (codAmount && codAmount > 0) ? codAmount : null
+                        cod_amount: (codAmount && codAmount > 0) ? codAmount : null,
+                        source_region: sourceRegion || null,
+                        slot_number: slotNumber || null
                     }),
                 });
                 const data = await res.json().catch(() => ({}));
@@ -524,7 +526,8 @@
                     .replace('{package}', parcel.package_type || 'طرد')
                     .replace('{receipt}', parcel.receipt_number || '')
                     .replace('{recipient}', parcel.recipient_name || 'العميل')
-                    .replace(/\{region\}|\{source_region\}/g, parcel.source_region || '');
+                    .replace(/\{region\}|\{source_region\}/g, parcel.source_region || '')
+                    .replace(/\{slot\}|\{slot_number\}/g, parcel.slot_number || '');
 
                 let cleanPhone = String(parcel.recipient_phone || '').replace(/\D/g, '').replace(/^0+/, '');
                 if (!cleanPhone.startsWith('967')) {
@@ -575,10 +578,11 @@
 
             // ---------- الإرسال التدريجي الفردي (Streaming Dispatch) ----------
 
-            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '') {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '', slotNumber = '') {
                 const id = ++this.streamingIdCounter;
                 const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
                 const cleanRegion = String(sourceRegion || this.quickSms?.sourceRegion || '').trim();
+                const cleanSlot = String(slotNumber || '').trim();
                 const entry = {
                     id,
                     phone,
@@ -586,6 +590,7 @@
                     recipientName: (recipientName || '').trim(),
                     codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
                     sourceRegion: cleanRegion || null,
+                    slotNumber: cleanSlot || null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -611,6 +616,7 @@
                     recipient_name: entry.recipientName || null,
                     cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
                     source_region: entry.sourceRegion || null,
+                    slot_number: entry.slotNumber || null,
                     channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                 };
 
@@ -698,6 +704,7 @@
                     package_type: entry.description || 'طرد',
                     cod_amount: payload.cod_amount,
                     source_region: payload.source_region || null,
+                    slot_number: payload.slot_number || null,
                     status: 'in_office',
                     created_at: new Date().toISOString(),
                     is_local_temp: true,
@@ -805,6 +812,7 @@
                     .replace(/\{receipt\}|\{receipt_number\}/g, parcel.receipt_number || '')
                     .replace(/\{recipient\}|\{recipient_name\}/g, parcel.recipient_name || 'العميل')
                     .replace(/\{region\}|\{source_region\}/g, parcel.source_region || '')
+                    .replace(/\{slot\}|\{slot_number\}/g, parcel.slot_number || '')
                     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
                     .trim();
 
@@ -1054,7 +1062,7 @@
                     : this.normalizeText(this.search).trim().toLowerCase();
                 if (!term) return true;
 
-                return [parcel.recipient_phone, parcel.package_type, parcel.receipt_number, parcel.recipient_name, parcel.source_region]
+                return [parcel.recipient_phone, parcel.package_type, parcel.receipt_number, parcel.recipient_name, parcel.source_region, parcel.slot_number]
                     .some((value) => String(value ?? '').toLowerCase().includes(term));
             },
 

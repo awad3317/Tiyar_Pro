@@ -58,7 +58,7 @@
                 
                 <!-- البحث بالنص -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">البحث (اسم، هاتف، أو رقم سند)</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">البحث (اسم، هاتف، رقم سند، أو خانة)</label>
                     <div class="relative">
                         <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                                placeholder="اكتب للبحث..."
@@ -134,7 +134,7 @@
             <table class="w-full text-right text-xs">
                 <thead>
                     <tr class="bg-slate-100/70 text-slate-600 font-extrabold uppercase border-b border-slate-200">
-                        <th class="py-4 px-5">رقم السند</th>
+                        <th class="py-4 px-5">رقم السند / الخانة</th>
                         <th class="py-4 px-4">المكتب الحالي</th>
                         <th class="py-4 px-4">المستلم ورقم الهاتف</th>
                         <th class="py-4 px-4">نوع الطرد والشحنة</th>
@@ -149,9 +149,15 @@
                     @forelse ($parcels as $parcel)
                         <tr class="hover:bg-slate-50/80 transition-colors" id="parcel-row-{{ $parcel->id }}">
                             
-                            <!-- رقم السند -->
-                            <td class="py-4 px-5 font-mono font-black text-slate-900 text-sm">
-                                {{ $parcel->receipt_number ?: '-' }}
+                            <!-- رقم السند والخانة -->
+                            <td class="py-4 px-5">
+                                <div class="font-mono font-black text-slate-900 text-sm">{{ $parcel->receipt_number ?: '-' }}</div>
+                                @if($parcel->slot_number)
+                                    <span class="inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold font-mono">
+                                        <span class="material-symbols-outlined text-[12px]">grid_view</span>
+                                        <span>خانة: {{ $parcel->slot_number }}</span>
+                                    </span>
+                                @endif
                             </td>
 
                             <!-- المكتب -->
@@ -242,7 +248,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="py-12 text-center text-slate-400 font-bold text-sm">
+                            <td colspan="9" class="py-12 text-center text-slate-400 font-bold text-sm">
                                 لا توجد أي طرود مطابقة لشروط البحث والفلترة.
                             </td>
                         </tr>

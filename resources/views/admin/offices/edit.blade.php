@@ -249,7 +249,12 @@
                         <tbody class="divide-y divide-slate-100 font-semibold">
                             @forelse ($recentParcels as $parcel)
                                 <tr class="hover:bg-slate-50">
-                                    <td class="py-2.5 px-3 font-mono font-bold text-slate-900">{{ $parcel->receipt_number ?: '-' }}</td>
+                                    <td class="py-2.5 px-3 font-mono font-bold text-slate-900">
+                                        <div>{{ $parcel->receipt_number ?: '-' }}</div>
+                                        @if($parcel->slot_number)
+                                            <span class="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">خانة: {{ $parcel->slot_number }}</span>
+                                        @endif
+                                    </td>
                                     <td class="py-2.5 px-3">
                                         <div class="text-slate-800">{{ $parcel->recipient_name ?: 'بدون اسم' }}</div>
                                         <div class="text-[11px] font-mono text-slate-400" dir="ltr">{{ $parcel->recipient_phone }}</div>
@@ -317,6 +322,7 @@
                                 <button type="button" @click="insertTag('sms_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package} (نوع الطرد)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt} (رقم السند)</button>
                                 <button type="button" @click="insertTag('sms_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (منطقة قدوم الطرد)</button>
+                                <button type="button" @click="insertTag('sms_template_input', '{slot}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 hover:bg-indigo-100 transition-colors">+ {slot} (رقم الخانة)</button>
                             </div>
                         </div>
                     </div>
@@ -338,6 +344,8 @@
                                 <button type="button" @click="insertTag('delivery_sms_template_input', '{branch_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch_name} (اسم الفرع)</button>
                                 <button type="button" @click="insertTag('delivery_sms_template_input', '{recipient_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {recipient_name} (اسم المستلم)</button>
                                 <button type="button" @click="insertTag('delivery_sms_template_input', '{receipt_number}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt_number} (رقم السند)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (منطقة القدوم)</button>
+                                <button type="button" @click="insertTag('delivery_sms_template_input', '{slot}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 hover:bg-indigo-100 transition-colors">+ {slot} (رقم الخانة)</button>
                             </div>
                         </div>
                     </div>
@@ -482,6 +490,7 @@
                                 <button type="button" @click="insertTag('wa_template_input', '{package}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {package}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{receipt}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt}</button>
                                 <button type="button" @click="insertTag('wa_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (المنطقة)</button>
+                                <button type="button" @click="insertTag('wa_template_input', '{slot}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 hover:bg-indigo-100 transition-colors">+ {slot} (رقم الخانة)</button>
                             </div>
                         </div>
                     </div>
@@ -502,6 +511,8 @@
                                 <button type="button" @click="insertTag('delivery_wa_template_input', '{branch_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {branch_name}</button>
                                 <button type="button" @click="insertTag('delivery_wa_template_input', '{recipient_name}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {recipient_name}</button>
                                 <button type="button" @click="insertTag('delivery_wa_template_input', '{receipt_number}')" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:bg-slate-100 transition-colors">+ {receipt_number}</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{region}')" class="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-mono text-purple-700 hover:bg-purple-100 transition-colors">+ {region} (المنطقة)</button>
+                                <button type="button" @click="insertTag('delivery_wa_template_input', '{slot}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-mono text-indigo-700 hover:bg-indigo-100 transition-colors">+ {slot} (رقم الخانة)</button>
                             </div>
                         </div>
                     </div>

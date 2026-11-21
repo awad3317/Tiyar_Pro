@@ -20,6 +20,7 @@ class Parcel extends Model
         'recipient_phone',
         'package_type',
         'receipt_number',
+        'slot_number',
         'cod_amount',
         'payment_type',
         'source_office_id',

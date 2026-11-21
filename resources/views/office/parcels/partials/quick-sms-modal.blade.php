@@ -412,42 +412,71 @@
         ═══════════════════════════════════ --}}
         <div class="px-4 pb-2 space-y-2 bg-white shrink-0 border-b border-slate-100">
 
-            {{-- 1. حقل رقم الهاتف --}}
-            <div class="relative">
-                <label class="block text-[11px] font-bold text-slate-600 mb-0.5">رقم الهاتف</label>
-                <div
-                    class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+            @php
+                $hasSlotNumberFeature = auth('office')->check() && auth('office')->user()->hasFeature('parcel_slot_number');
+            @endphp
 
-                    {{-- علم اليمن ومؤشر الحالة معاً في الجهة اليمنى --}}
+            {{-- 1. حقل رقم الهاتف (+ رقم الخانة بجانبه عند تفعيل الميزة) --}}
+            <div class="relative {{ $hasSlotNumberFeature ? 'grid grid-cols-12 gap-2' : '' }}">
+                <div class="relative {{ $hasSlotNumberFeature ? 'col-span-8' : '' }}">
+                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5">رقم الهاتف</label>
                     <div
-                        class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 select-none pointer-events-none">
-                        <span class="text-xs font-bold">🇾🇪</span>
+                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
 
-                        {{-- علامة الصح أو الخطأ بجانب العلم مباشرة --}}
-                        <template x-if="quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))">
-                            <span
-                                class="material-symbols-outlined text-base text-emerald-500 flex items-center">check_circle</span>
-                        </template>
-                        <template
-                            x-if="quickSms.phone.length > 0 && (quickSms.phone.length < 9 || !/^7[01378]/.test(normalizeText(quickSms.phone)))">
-                            <span
-                                class="material-symbols-outlined text-base text-rose-400 flex items-center">error</span>
-                        </template>
+                        {{-- علم اليمن ومؤشر الحالة معاً في الجهة اليمنى --}}
+                        <div
+                            class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 select-none pointer-events-none">
+                            <span class="text-xs font-bold">🇾🇪</span>
+
+                            {{-- علامة الصح أو الخطأ بجانب العلم مباشرة --}}
+                            <template x-if="quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))">
+                                <span
+                                    class="material-symbols-outlined text-base text-emerald-500 flex items-center">check_circle</span>
+                            </template>
+                            <template
+                                x-if="quickSms.phone.length > 0 && (quickSms.phone.length < 9 || !/^7[01378]/.test(normalizeText(quickSms.phone)))">
+                                <span
+                                    class="material-symbols-outlined text-base text-rose-400 flex items-center">error</span>
+                            </template>
+                        </div>
+
+                        <input type="tel" id="streaming-phone-input" x-model="quickSms.phone" :disabled="isClosing"
+                            @focus="favSearchField = 'phone'"
+                            @blur="if (favSearchField === 'phone') favSearchField = null"
+                            @input="favSearchField = 'phone'; quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
+                            @keydown.enter.prevent="
+                           if (!isClosing && quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
+                               favSearchField = null;
+                               if ($refs.streamingSlotInput) {
+                                   $refs.streamingSlotInput.focus();
+                               } else {
+                                   $refs.streamingDescInput.focus();
+                               }
+                           }
+                        " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
+                            class="w-full py-2 {{ $hasSlotNumberFeature ? 'px-3 pr-14' : 'px-4 pr-16' }} text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                            placeholder="7XXXXXXXX" />
                     </div>
-
-                    <input type="tel" id="streaming-phone-input" x-model="quickSms.phone" :disabled="isClosing"
-                        @focus="favSearchField = 'phone'"
-                        @blur="if (favSearchField === 'phone') favSearchField = null"
-                        @input="favSearchField = 'phone'; quickSms.phone = normalizeText(quickSms.phone).replace(/\D/g, '').substring(0, 9)"
-                        @keydown.enter.prevent="
-                       if (!isClosing && quickSms.phone.length === 9 && /^7[01378]/.test(normalizeText(quickSms.phone))) {
-                           favSearchField = null;
-                           $refs.streamingDescInput.focus();
-                       }
-                    " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
-                        class="w-full py-2 px-4 pr-16 text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
-                        placeholder="7XXXXXXXX" />
                 </div>
+
+                @if($hasSlotNumberFeature)
+                {{-- حقل رقم الخانة بجانب رقم الهاتف مباشرة --}}
+                <div class="col-span-4">
+                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center gap-0.5 truncate">
+                        <span class="material-symbols-outlined text-[13px] text-indigo-500 shrink-0">grid_view</span>
+                        <span class="truncate">رقم الخانة</span>
+                    </label>
+                    <div
+                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                        <input type="text" x-ref="streamingSlotInput" x-model="quickSms.slotNumber" :disabled="isClosing"
+                            @input="quickSms.slotNumber = normalizeText(quickSms.slotNumber).substring(0, 50)"
+                            @keydown.enter.prevent="$refs.streamingDescInput.focus()"
+                            dir="ltr" autocomplete="off" maxlength="50"
+                            class="w-full py-2 px-2.5 text-sm font-mono font-bold text-center text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                            placeholder="مثال: 12" />
+                    </div>
+                </div>
+                @endif
 
                 @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                 {{-- اقتراحات العملاء المميزين عند البحث بالرقم --}}
@@ -455,7 +484,7 @@
                     <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
                         <template x-for="fav in favoriteSuggestions('phone')" :key="'fp-' + fav.phone">
                             <button type="button" @mousedown.prevent
-                                @click="selectFavorite(fav); $nextTick(() => { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); })"
+                                @click="selectFavorite(fav); $nextTick(() => { if ($refs.streamingSlotInput) { $refs.streamingSlotInput.focus(); } else { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); } })"
                                 class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 border-b border-slate-50 last:border-b-0 transition-colors">
                                 <span class="material-symbols-outlined text-[16px] text-amber-500">star</span>
                                 <span class="flex-1 truncate text-xs font-bold text-slate-700" x-text="fav.name"></span>
@@ -475,11 +504,12 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '', quickSms.slotNumber || '');
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
                             quickSms.codAmount = '';
+                            quickSms.slotNumber = '';
                             $nextTick(() => document.getElementById('streaming-phone-input').focus());
                         } else {
                             showFeedback('رقم الهاتف غير صالح', true);
@@ -502,11 +532,12 @@
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                         if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
+                            addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '', quickSms.slotNumber || '');
                             quickSms.phone = '';
                             quickSms.description = '';
                             quickSms.recipientName = '';
                             quickSms.codAmount = '';
+                            quickSms.slotNumber = '';
                             $nextTick(() => document.getElementById('streaming-phone-input').focus());
                         } else {
                             showFeedback('رقم الهاتف غير صالح', true);
@@ -746,11 +777,12 @@
                                    if (isClosing) return;
                                    const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                                    if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                                       addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
+                                       addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '', quickSms.slotNumber || '');
                                        quickSms.phone = '';
                                        quickSms.description = '';
                                        quickSms.recipientName = '';
                                        quickSms.codAmount = '';
+                                       quickSms.slotNumber = '';
                                        $nextTick(() => document.getElementById('streaming-phone-input').focus());
                                    } else {
                                        showFeedback('أدخل رقم هاتف صالح', true);
@@ -772,11 +804,12 @@
                     if (isClosing) return;
                     const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
                     if (phone.length === 9 && /^7[01378]/.test(phone)) {
-                        addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '');
+                        addToStreamingQueue(phone, quickSms.description || 'طرد', quickSms.recipientName || '', quickSms.codAmount || null, quickSms.sourceRegion || '', quickSms.slotNumber || '');
                         quickSms.phone = '';
                         quickSms.description = '';
                         quickSms.recipientName = '';
                         quickSms.codAmount = '';
+                        quickSms.slotNumber = '';
                         $nextTick(() => document.getElementById('streaming-phone-input').focus());
                     } else {
                         showFeedback('أدخل رقم هاتف صالح', true);
@@ -835,6 +868,15 @@
                     {{-- نوع الطرد واسم المستلم إن وُجد --}}
                     <span class="text-[11px] font-bold text-slate-500 flex-1 truncate"
                         x-text="entry.recipientName ? (entry.description + ' • ' + entry.recipientName) : entry.description"></span>
+
+                    @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_slot_number'))
+                    <template x-if="entry.slotNumber">
+                        <span class="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-[11px]">grid_view</span>
+                            <span x-text="'#' + entry.slotNumber"></span>
+                        </span>
+                    </template>
+                    @endif
 
                     @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region'))
                     <template x-if="entry.sourceRegion">

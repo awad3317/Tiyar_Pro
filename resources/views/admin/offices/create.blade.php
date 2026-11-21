@@ -128,6 +128,7 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{package}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt}</span>
                         <span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono">{region}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{slot}</span>
                     </div>
                 </div>
 
@@ -143,6 +144,8 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{branch_name}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{recipient_name}</span>
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt_number}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono">{region}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{slot}</span>
                     </div>
                 </div>
             </div>
@@ -216,6 +219,16 @@
                     <textarea name="delivery_whatsapp_template" rows="3"
                               class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed focus:bg-white focus:outline-none focus:border-secondary transition-all"
                               placeholder="✅ *إشعار تسليم طرد*&#10;&#10;عميلنا العزيز، تم بحمد الله تسليم طردك: *{package_type}*&#10;من مكتب: *{office_name}*&#10;&#10;نسعد بخدمتكم دائماً.">{{ old('delivery_whatsapp_template') }}</textarea>
+                    <div class="flex flex-wrap gap-1.5 mt-2 text-[11px] text-slate-500">
+                        <span>المتغيرات:</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{package_type}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{office_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{branch_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{recipient_name}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{receipt_number}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono">{region}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{slot}</span>
+                    </div>
                 </div>
             </div>
         </div>

@@ -108,6 +108,8 @@ class WhatsAppMessageComposer
             '{cod_amount}'      => $cod,
             '{region}'          => trim((string) ($parcel->source_region ?? '')),
             '{source_region}'   => trim((string) ($parcel->source_region ?? '')),
+            '{slot}'            => trim((string) ($parcel->slot_number ?? '')),
+            '{slot_number}'     => trim((string) ($parcel->slot_number ?? '')),
         ];
     }
 

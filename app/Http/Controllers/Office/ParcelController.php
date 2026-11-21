@@ -148,7 +148,7 @@ class ParcelController extends Controller
         $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
         $smsBody = str_replace(
-            ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
+            ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
             [
                 $office->name,
                 $office->branch_name ?? '',
@@ -157,6 +157,8 @@ class ParcelController extends Controller
                 $parcel->recipient_name ?? '',
                 $parcel->source_region ?? '',
                 $parcel->source_region ?? '',
+                $parcel->slot_number ?? '',
+                $parcel->slot_number ?? '',
             ],
             $template
         );
@@ -349,6 +351,7 @@ class ParcelController extends Controller
         $waScheduler = app(WhatsAppQueueScheduler::class);
         $hasCodFeature = $office->hasFeature('parcel_cod_amount');
         $hasRegionFeature = $office->hasFeature('parcel_source_region');
+        $hasSlotFeature = $office->hasFeature('parcel_slot_number');
 
         foreach ($items as $item) {
             $phone = trim($item['phone'] ?? '');
@@ -370,6 +373,12 @@ class ParcelController extends Controller
                 $sourceRegion = $rawRegion !== '' ? mb_substr($rawRegion, 0, 100) : null;
             }
 
+            $slotNumber = null;
+            if ($hasSlotFeature) {
+                $rawSlot = trim($this->normalizeEasternDigits(strip_tags((string) ($item['slot_number'] ?? ''))));
+                $slotNumber = $rawSlot !== '' ? mb_substr($rawSlot, 0, 50) : null;
+            }
+
             // 1. إنشاء الطرد في قاعدة البيانات
             try {
                 $parcel = Parcel::create([
@@ -378,6 +387,7 @@ class ParcelController extends Controller
                     'package_type'       => $desc ?: 'طرد',
                     'cod_amount'         => $codAmount,
                     'source_region'      => $sourceRegion,
+                    'slot_number'        => $slotNumber,
                     'status'             => defined(ParcelStatus::class . '::InOffice') 
                                             ? ParcelStatus::InOffice 
                                             : 'in_office',
@@ -404,7 +414,7 @@ class ParcelController extends Controller
                     ]);
                 } elseif ($hasSmsGatewayConfigured) {
                     $smsBody = str_replace(
-                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
+                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
                         [
                             $office->name,
                             $office->branch_name ?? '',
@@ -413,6 +423,8 @@ class ParcelController extends Controller
                             $parcel->recipient_name ?? '',
                             $parcel->source_region ?? '',
                             $parcel->source_region ?? '',
+                            $parcel->slot_number ?? '',
+                            $parcel->slot_number ?? '',
                         ],
                         $smsTemplate
                     );
@@ -534,6 +546,13 @@ class ParcelController extends Controller
             $sourceRegion = $rawRegion !== '' ? mb_substr($rawRegion, 0, 100) : null;
         }
 
+        // التحقق من ميزة رقم الخانة (الرف) من الكاش
+        $slotNumber = null;
+        if ($office->hasFeature('parcel_slot_number')) {
+            $rawSlot = trim($this->normalizeEasternDigits(strip_tags((string) $request->input('slot_number', ''))));
+            $slotNumber = $rawSlot !== '' ? mb_substr($rawSlot, 0, 50) : null;
+        }
+
         // 1. إنشاء الطرد في قاعدة البيانات
         try {
             $parcel = Parcel::create([
@@ -543,6 +562,7 @@ class ParcelController extends Controller
                 'package_type'    => $desc ?: 'طرد',
                 'cod_amount'      => $codAmount,
                 'source_region'   => $sourceRegion,
+                'slot_number'     => $slotNumber,
                 'status'          => defined(ParcelStatus::class . '::InOffice')
                                         ? ParcelStatus::InOffice
                                         : 'in_office',
@@ -576,7 +596,7 @@ class ParcelController extends Controller
                 $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
 
                 $smsBody = str_replace(
-                    ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
+                    ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
                     [
                         $office->name,
                         $office->branch_name ?? '',
@@ -585,6 +605,8 @@ class ParcelController extends Controller
                         $parcel->recipient_name ?? '',
                         $parcel->source_region ?? '',
                         $parcel->source_region ?? '',
+                        $parcel->slot_number ?? '',
+                        $parcel->slot_number ?? '',
                     ],
                     $template
                 );
@@ -764,7 +786,7 @@ class ParcelController extends Controller
                     }
 
                     $smsBody = str_replace(
-                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}'],
+                        ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
                         [
                             $office->name,
                             $office->branch_name ?? '',
@@ -773,6 +795,8 @@ class ParcelController extends Controller
                             $p->recipient_name ?? '',
                             $p->source_region ?? '',
                             $p->source_region ?? '',
+                            $p->slot_number ?? '',
+                            $p->slot_number ?? '',
                         ],
                         $template
                     );

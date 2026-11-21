@@ -231,11 +231,17 @@ class ParcelBotController extends Controller
                 Log::error("Failed to store parcel in DB: " . $e->getMessage());
             }
             $smsBody = str_replace(
-                ['{office}', '{branch}', '{package}'],
+                ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
                 [
                     $office->name,
                     $office->branch_name ?? '',
-                    $parcel['package_type']
+                    $parcel['package_type'],
+                    $parcel['receipt_number'] ?? '',
+                    $parcel['recipient_name'] ?? '',
+                    $parcel['source_region'] ?? '',
+                    $parcel['source_region'] ?? '',
+                    $parcel['slot_number'] ?? '',
+                    $parcel['slot_number'] ?? '',
                 ],
                 $template
             );

@@ -56,6 +56,7 @@ class ParcelController extends Controller
             $query->where(function ($q) use ($search, $cleanPhone) {
                 $q->where('recipient_name', 'like', "%{$search}%")
                   ->orWhere('receipt_number', 'like', "%{$search}%")
+                  ->orWhere('slot_number', 'like', "%{$search}%")
                   ->orWhere('package_type', 'like', "%{$search}%");
 
                 if (!empty($cleanPhone)) {

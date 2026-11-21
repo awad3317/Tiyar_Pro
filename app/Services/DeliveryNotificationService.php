@@ -64,6 +64,10 @@ class DeliveryNotificationService
                 '{recipient}'       => $parcel->recipient_name ?: 'العميل',
                 '{receipt_number}'  => $parcel->receipt_number ?? '',
                 '{receipt}'         => $parcel->receipt_number ?? '',
+                '{slot}'            => trim((string) ($parcel->slot_number ?? '')),
+                '{slot_number}'     => trim((string) ($parcel->slot_number ?? '')),
+                '{region}'          => trim((string) ($parcel->source_region ?? '')),
+                '{source_region}'   => trim((string) ($parcel->source_region ?? '')),
                 '{phone}'           => $phone,
                 '{recipient_phone}' => $phone,
             ];

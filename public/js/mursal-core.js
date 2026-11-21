@@ -265,6 +265,7 @@
                 recipientName: '',
                 codAmount: '',
                 sourceRegion: '',
+                slotNumber: '',
                 channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
@@ -283,6 +284,7 @@
                 this.quickSms.recipientName = '';
                 this.quickSms.codAmount = '';
                 this.quickSms.sourceRegion = '';
+                this.quickSms.slotNumber = '';
                 this.quickSms.channel = this.quickSms.channel || 'whatsapp';
                 // autofocus على حقل الهاتف بعد فتح المودال
                 this.$nextTick(() => {
@@ -307,6 +309,7 @@
                 this.quickSms.recipientName = '';
                 this.quickSms.codAmount = '';
                 this.quickSms.sourceRegion = '';
+                this.quickSms.slotNumber = '';
             },
 
             showFeedback(message, isError = false) {
@@ -544,10 +547,11 @@
             },
 
             // ---------- الإرسال التدريجي الفردي الموحد (Streaming Dispatch) ----------
-            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '') {
+            addToStreamingQueue(phone, description, recipientName = '', codAmount = null, sourceRegion = '', slotNumber = '') {
                 const id = ++this.streamingIdCounter;
                 const parsedCod = (codAmount !== null && codAmount !== '' && !isNaN(codAmount)) ? parseFloat(codAmount) : null;
                 const cleanRegion = String(sourceRegion || this.quickSms?.sourceRegion || '').trim();
+                const cleanSlot = String(slotNumber || '').trim();
                 const entry = {
                     id,
                     phone,
@@ -555,6 +559,7 @@
                     recipientName: (recipientName || '').trim(),
                     codAmount: (parsedCod && parsedCod > 0) ? parsedCod : null,
                     sourceRegion: cleanRegion || null,
+                    slotNumber: cleanSlot || null,
                     channel: this.quickSms?.channel || 'whatsapp',
                     status: 'pending',   // pending | success | failed
                     message: '',
@@ -587,6 +592,7 @@
                             recipient_name: entry.recipientName || null,
                             cod_amount: (entry.codAmount && entry.codAmount > 0) ? entry.codAmount : null,
                             source_region: entry.sourceRegion || null,
+                            slot_number: entry.slotNumber || null,
                             channel: entry.channel || this.quickSms?.channel || 'whatsapp'
                         })
                     });

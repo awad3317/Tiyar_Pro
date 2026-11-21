@@ -48,6 +48,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'إتاحة اختيار المنطقة القادم منها الطرد عبر قائمة قابلة للبحث في الإرسال السريع وعرضها في بطاقة الطرد ولوحة التحكم',
             ],
+            [
+                'code' => 'parcel_slot_number',
+                'name' => 'رقم الخانة (الرف)',
+                'category' => 'general',
+                'description' => 'إتاحة إدخال رقم الخانة أو الرف بجانب رقم المستلم عند إضافة الطرد وعرضه في البطاقة وإدراجه كمتغير في قوالب SMS والواتساب',
+            ],
         ];
 
         $features = collect();
