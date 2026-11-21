@@ -15,6 +15,28 @@ use Illuminate\Support\Facades\Auth;
 
 class OutgoingParcelController extends Controller
 {
+    private const SELECT_COLUMNS = [
+        'id',
+        'office_id',
+        'destination_office_id',
+        'external_office_name',
+        'sender_name',
+        'sender_phone',
+        'recipient_name',
+        'recipient_phone',
+        'package_type',
+        'receipt_number',
+        'cod_amount',
+        'payment_type',
+        'notes',
+        'status',
+        'linked_incoming_parcel_id',
+        'dispatched_at',
+        'received_at',
+        'cancelled_at',
+        'created_at',
+    ];
+
     public function index(Request $request)
     {
         /** @var Office $office */
@@ -26,7 +48,9 @@ class OutgoingParcelController extends Controller
         $western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
         $search = str_replace($eastern, $western, $rawSearch);
 
-        $query = $office->outgoingParcels()
+        $query = OutgoingParcel::query()
+            ->select(self::SELECT_COLUMNS)
+            ->where('office_id', $office->id)
             ->with([
                 'destinationOffice:id,name,branch_name',
                 'linkedIncomingParcel:id,status,delivered_at',
@@ -55,27 +79,25 @@ class OutgoingParcelController extends Controller
             });
         }
 
-        $rawCounts = $office->outgoingParcels()
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $counts = $this->getStatusCounts($office);
+        $parcels = $query->latest('created_at')->paginate(20)->withQueryString();
 
-        $counts = [
-            'all'        => (int) $rawCounts->sum(),
-            'pending'    => (int) ($rawCounts[OutgoingParcelStatus::PENDING->value] ?? 0),
-            'in_transit' => (int) ($rawCounts[OutgoingParcelStatus::IN_TRANSIT->value] ?? 0),
-            'received'   => (int) ($rawCounts[OutgoingParcelStatus::RECEIVED->value] ?? 0),
-            'delivered'  => (int) ($rawCounts[OutgoingParcelStatus::DELIVERED->value] ?? 0),
-            'cancelled'  => (int) ($rawCounts[OutgoingParcelStatus::CANCELLED->value] ?? 0),
-        ];
+        // استجابة JSON خفيفة للبحث والتصفية الفورية بدون إعادة تحميل الصفحة أو استعلام الفروع مجدداً
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok'            => true,
+                'status_filter' => $statusFilter,
+                'search'        => $search,
+                'counts'        => $counts,
+                'html'          => view('office.outgoing_parcels.partials.cards-list', compact('parcels'))->render(),
+            ]);
+        }
 
         $destinationOffices = $office->partnerOffices()
             ->where('offices.is_active', true)
             ->orderBy('offices.name')
             ->orderBy('offices.branch_name')
             ->get(['offices.id', 'offices.name', 'offices.branch_name']);
-
-        $parcels = $query->latest('created_at')->paginate(20)->withQueryString();
 
         return view('office.outgoing_parcels.index', compact(
             'office',
@@ -100,12 +122,31 @@ class OutgoingParcelController extends Controller
         }
 
         try {
-            $service->create($office, $validated);
+            $created = $service->create($office, $validated);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $created->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+
+                return response()->json([
+                    'ok'        => true,
+                    'message'   => 'تم تسجيل الطرد الصادر بنجاح.',
+                    'counts'    => $this->getStatusCounts($office),
+                    'parcel'    => $this->formatParcelJson($created),
+                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $created])->render(),
+                ], 201);
+            }
 
             return redirect()
                 ->route('office.outgoing-parcels.index')
                 ->with('success', 'تم تسجيل الطرد الصادر بنجاح.');
         } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->back()
                 ->withInput()
@@ -113,7 +154,7 @@ class OutgoingParcelController extends Controller
         }
     }
 
-    public function dispatch(OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
+    public function dispatch(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
@@ -123,19 +164,38 @@ class OutgoingParcelController extends Controller
         }
 
         try {
-            $service->markInTransit($outgoingParcel, $office);
+            $updated = $service->markInTransit($outgoingParcel, $office);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+
+                return response()->json([
+                    'ok'        => true,
+                    'message'   => 'تم تحديث حالة الطرد إلى (في الطريق) بنجاح.',
+                    'counts'    => $this->getStatusCounts($office),
+                    'parcel'    => $this->formatParcelJson($updated),
+                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                ]);
+            }
 
             return redirect()
                 ->back()
                 ->with('success', 'تم تحديث حالة الطرد إلى (في الطريق) بنجاح.');
         } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->back()
                 ->with('error', $e->getMessage());
         }
     }
 
-    public function deliverExternal(OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
+    public function deliverExternal(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
@@ -145,19 +205,38 @@ class OutgoingParcelController extends Controller
         }
 
         try {
-            $service->markExternalDelivered($outgoingParcel, $office);
+            $updated = $service->markExternalDelivered($outgoingParcel, $office);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+
+                return response()->json([
+                    'ok'        => true,
+                    'message'   => 'تم تأكيد تسليم الطرد للمكتب الخارجي بنجاح.',
+                    'counts'    => $this->getStatusCounts($office),
+                    'parcel'    => $this->formatParcelJson($updated),
+                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                ]);
+            }
 
             return redirect()
                 ->back()
                 ->with('success', 'تم تأكيد تسليم الطرد للمكتب الخارجي بنجاح.');
         } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->back()
                 ->with('error', $e->getMessage());
         }
     }
 
-    public function cancel(OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
+    public function cancel(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
@@ -167,15 +246,69 @@ class OutgoingParcelController extends Controller
         }
 
         try {
-            $service->cancel($outgoingParcel, $office);
+            $updated = $service->cancel($outgoingParcel, $office);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+
+                return response()->json([
+                    'ok'        => true,
+                    'message'   => 'تم إلغاء الطرد الصادر بنجاح.',
+                    'counts'    => $this->getStatusCounts($office),
+                    'parcel'    => $this->formatParcelJson($updated),
+                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                ]);
+            }
 
             return redirect()
                 ->back()
                 ->with('success', 'تم إلغاء الطرد الصادر بنجاح.');
         } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->back()
                 ->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * استعلام موحد واحد لحساب عدادات الحالات للمكتب.
+     *
+     * @return array{all:int, pending:int, in_transit:int, received:int, delivered:int, cancelled:int}
+     */
+    private function getStatusCounts(Office $office): array
+    {
+        $rawCounts = OutgoingParcel::where('office_id', $office->id)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'all'        => (int) $rawCounts->sum(),
+            'pending'    => (int) ($rawCounts[OutgoingParcelStatus::PENDING->value] ?? 0),
+            'in_transit' => (int) ($rawCounts[OutgoingParcelStatus::IN_TRANSIT->value] ?? 0),
+            'received'   => (int) ($rawCounts[OutgoingParcelStatus::RECEIVED->value] ?? 0),
+            'delivered'  => (int) ($rawCounts[OutgoingParcelStatus::DELIVERED->value] ?? 0),
+            'cancelled'  => (int) ($rawCounts[OutgoingParcelStatus::CANCELLED->value] ?? 0),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatParcelJson(OutgoingParcel $parcel): array
+    {
+        return [
+            'id'           => $parcel->id,
+            'status'       => $parcel->status->value,
+            'status_label' => $parcel->status->label(),
+            'badge_class'  => $parcel->status->badgeClass(),
+        ];
     }
 }

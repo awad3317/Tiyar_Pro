@@ -14,12 +14,32 @@ use Illuminate\Support\Facades\Auth;
 
 class IncomingTransitParcelController extends Controller
 {
+    private const SELECT_COLUMNS = [
+        'id',
+        'office_id',
+        'destination_office_id',
+        'sender_name',
+        'sender_phone',
+        'recipient_name',
+        'recipient_phone',
+        'package_type',
+        'receipt_number',
+        'cod_amount',
+        'payment_type',
+        'notes',
+        'status',
+        'dispatched_at',
+        'created_at',
+    ];
+
     public function index(Request $request)
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
 
-        $transitParcels = OutgoingParcel::with('office:id,name,branch_name')
+        $transitParcels = OutgoingParcel::query()
+            ->select(self::SELECT_COLUMNS)
+            ->with('office:id,name,branch_name')
             ->where('destination_office_id', $office->id)
             ->where('status', OutgoingParcelStatus::IN_TRANSIT)
             ->latest('dispatched_at')
@@ -28,7 +48,7 @@ class IncomingTransitParcelController extends Controller
         return view('office.transit_parcels.index', compact('office', 'transitParcels'));
     }
 
-    public function receive(OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
+    public function receive(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
@@ -38,12 +58,34 @@ class IncomingTransitParcelController extends Controller
         }
 
         try {
-            $service->receiveAtDestination($outgoingParcel, $office);
+            $incomingParcel = $service->receiveAtDestination($outgoingParcel, $office, afterResponse: true);
+            $successMessage = 'تم استلام الطرد بنجاح، تم تحويله إلى قائمة الطرود وإرسال الإشعار للعميل.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $remainingCount = OutgoingParcel::where('destination_office_id', $office->id)
+                    ->where('status', OutgoingParcelStatus::IN_TRANSIT)
+                    ->count();
+
+                return response()->json([
+                    'ok'              => true,
+                    'message'         => $successMessage,
+                    'parcel_id'       => $outgoingParcel->id,
+                    'incoming_id'     => $incomingParcel->id,
+                    'remaining_count' => $remainingCount,
+                ]);
+            }
 
             return redirect()
                 ->route('office.transit-parcels.index')
-                ->with('success', 'تم استلام الطرد بنجاح، تم تحويله إلى قائمة الطرود وإرسال الإشعار للعميل.');
+                ->with('success', $successMessage);
         } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
             return redirect()
                 ->route('office.transit-parcels.index')
                 ->with('error', $e->getMessage());

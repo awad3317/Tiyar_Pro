@@ -13,6 +13,7 @@ use App\Services\OutgoingParcelService;
 use Database\Seeders\FeatureSeeder;
 use DomainException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -467,5 +468,120 @@ class OutgoingParcelUiTest extends TestCase
 
         $this->assertSame([$zajil->id], array_map('intval', $qatn->partnerOffices()->pluck('offices.id')->all()));
         $this->assertEmpty($mukalla->partnerOffices()->pluck('offices.id')->all());
+    }
+
+    public function test_json_ajax_endpoints_and_query_counts_are_optimized(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $p1 = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل أجاكس 1',
+            'sender_phone'          => '771111222',
+            'recipient_name'        => 'مستلم أجاكس 1',
+            'recipient_phone'       => '773333444',
+            'package_type'          => 'كرتون كاكي كبير',
+            'receipt_number'        => '1',
+            'cod_amount'            => 5000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $p2 = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل أجاكس 2',
+            'sender_phone'          => '775555666',
+            'recipient_name'        => 'مستلم أجاكس 2',
+            'recipient_phone'       => '778888999',
+            'package_type'          => 'كيس أبيض صغير',
+            'receipt_number'        => '2',
+            'cod_amount'            => 2000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        // 1. فحص عدد استعلامات SQL في بحث وتصفية AJAX على GET /office/outgoing-parcels
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $ajaxFilterResponse = $this->actingAs($this->senderOffice, 'office')
+            ->getJson(route('office.outgoing-parcels.index', ['status' => 'pending', 'q' => '773333444']));
+
+        $outgoingAjaxQueries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $ajaxFilterResponse->assertOk()
+            ->assertJson([
+                'ok'            => true,
+                'status_filter' => 'pending',
+                'counts'        => [
+                    'all'        => 2,
+                    'pending'    => 2,
+                    'in_transit' => 0,
+                    'received'   => 0,
+                ],
+            ]);
+        $this->assertStringContainsString('مستلم أجاكس 1', $ajaxFilterResponse->json('html'));
+        $this->assertLessThanOrEqual(5, $outgoingAjaxQueries);
+
+        // 2. شحن الطرد الأول عبر AJAX (POST dispatch) بدون إعادة تحميل الصفحة
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.dispatch', $p1))
+            ->assertOk()
+            ->assertJson([
+                'ok'     => true,
+                'counts' => [
+                    'pending'    => 1,
+                    'in_transit' => 1,
+                ],
+                'parcel' => [
+                    'id'     => $p1->id,
+                    'status' => 'in_transit',
+                ],
+            ]);
+
+        // 3. إلغاء الطرد الثاني عبر AJAX (POST cancel) بدون إعادة تحميل الصفحة
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $p2))
+            ->assertOk()
+            ->assertJson([
+                'ok'     => true,
+                'counts' => [
+                    'pending'    => 0,
+                    'in_transit' => 1,
+                    'cancelled'  => 1,
+                ],
+                'parcel' => [
+                    'id'     => $p2->id,
+                    'status' => 'cancelled',
+                ],
+            ]);
+
+        // 4. فحص عدد استعلامات GET /office/transit-parcels
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->actingAs($this->targetOffice, 'office')
+            ->get(route('office.transit-parcels.index'))
+            ->assertOk();
+
+        $transitQueries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+        $this->assertLessThanOrEqual(3, $transitQueries);
+
+        // 5. استلام الطرد في الفرع المستهدف عبر AJAX (POST receive)
+        $this->actingAs($this->targetOffice, 'office')
+            ->postJson(route('office.transit-parcels.receive', $p1))
+            ->assertOk()
+            ->assertJson([
+                'ok'              => true,
+                'parcel_id'       => $p1->id,
+                'remaining_count' => 0,
+            ]);
+
+        $this->assertSame(OutgoingParcelStatus::RECEIVED, $p1->fresh()->status);
     }
 }

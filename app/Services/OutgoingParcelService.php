@@ -209,10 +209,13 @@ class OutgoingParcelService
      * استلام الطرد الصادر في الفرع المستلم وتحويله تلقائياً إلى طرد وارد (Parcel)
      * مع حماية كاملة ضد الاستلام المزدوج وإطلاق إشعار الوصول بعد اعتماد المعاملة.
      */
-    public function receiveAtDestination(OutgoingParcel $outgoingParcel, Office $receivingOffice): Parcel
-    {
+    public function receiveAtDestination(
+        OutgoingParcel $outgoingParcel,
+        Office $receivingOffice,
+        bool $afterResponse = false
+    ): Parcel {
         $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice): Parcel {
-            $locked = OutgoingParcel::with('office')
+            $locked = OutgoingParcel::with('office:id,name,branch_name')
                 ->whereKey($outgoingParcel->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -270,16 +273,26 @@ class OutgoingParcelService
 
         $outgoingParcel->refresh();
 
-        // إطلاق مسار إشعارات الوصول المعتمد بعد commit المعاملة؛ أي فشل في الإشعار لا يُلغي الاستلام
-        try {
-            $this->arrivalNotificationService->notifyArrival($newParcel, $receivingOffice, 'both');
-        } catch (\Throwable $e) {
-            Log::error("OutgoingParcelService::receiveAtDestination arrival notification failed for parcel #{$newParcel->id}: " . $e->getMessage(), [
-                'outgoing_parcel_id'  => $outgoingParcel->id,
-                'incoming_parcel_id'  => $newParcel->id,
-                'receiving_office_id' => $receivingOffice->id,
-            ]);
+        $triggerNotification = function () use ($newParcel, $receivingOffice, $outgoingParcel): void {
+            try {
+                $this->arrivalNotificationService->notifyArrival($newParcel, $receivingOffice, 'both');
+            } catch (\Throwable $e) {
+                Log::error("OutgoingParcelService::receiveAtDestination arrival notification failed for parcel #{$newParcel->id}: " . $e->getMessage(), [
+                    'outgoing_parcel_id'  => $outgoingParcel->id,
+                    'incoming_parcel_id'  => $newParcel->id,
+                    'receiving_office_id' => $receivingOffice->id,
+                ]);
+            }
+        };
+
+        // في بيئة الإنتاج عند طلب afterResponse نرسل الرد فوراً للمتصفح وننفذ طلب httpSMS الخارجي بعد انتهاء الاستجابة
+        if ($afterResponse && ! app()->runningUnitTests()) {
+            dispatch($triggerNotification)->afterResponse();
+
+            return $newParcel;
         }
+
+        $triggerNotification();
 
         return $newParcel->fresh() ?? $newParcel;
     }
