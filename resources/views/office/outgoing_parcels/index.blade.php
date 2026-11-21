@@ -319,9 +319,9 @@
         {{-- 4. مودال إضافة طرد صادر جديد --}}
         <div x-show="showModal"
              x-cloak
-             class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+             class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start pt-2 px-2 sm:items-center justify-center sm:p-4">
             <div @click.outside="closeModal()"
-                 class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+                 class="bg-white w-full max-w-md rounded-2xl max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
 
                 {{-- هيدر المودال --}}
                 <div class="px-4 py-3.5 bg-primary text-white flex items-center justify-between shrink-0">
@@ -337,7 +337,7 @@
                 {{-- نموذج الإضافة --}}
                 <form method="POST"
                       action="{{ route('office.outgoing-parcels.store') }}"
-                      class="p-4 space-y-3 overflow-y-auto flex-1"
+                      class="p-4 pb-4 space-y-3 flex-1 overflow-y-auto overscroll-contain"
                       x-data="{ submitting: false }"
                       @submit="if (submitting) { $event.preventDefault(); return; } submitting = true">
                     @csrf
@@ -509,10 +509,13 @@
                             <template x-if="!activeCategory">
                                 <div class="flex items-center gap-1.5 shrink-0">
                                     <template x-for="cat in Object.keys(catalog)" :key="cat">
-                                        <button type="button" @click="
-                                            packageType = cat + ' ';
-                                            $refs.outgoingPackageInput.focus();
-                                        " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                        <button type="button"
+                                                @mousedown.prevent
+                                                @click="
+                                                    packageType = cat + ' ';
+                                                    document.activeElement?.blur();
+                                                "
+                                                class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
                                             <span x-text="cat"></span>
                                             <span class="text-[9px] text-slate-400">◀</span>
                                         </button>
@@ -523,18 +526,25 @@
                             {{-- المستوى 2: اختيار اللون للفئة المختارة --}}
                             <template x-if="activeCategory && !activeColor">
                                 <div class="flex items-center gap-1.5 shrink-0">
-                                    <button type="button" @click="
-                                        packageType = '';
-                                        $refs.outgoingPackageInput.focus();
-                                    " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير النوع">
+                                    <button type="button"
+                                            @mousedown.prevent
+                                            @click="
+                                                packageType = '';
+                                                document.activeElement?.blur();
+                                            "
+                                            class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                            title="تغيير النوع">
                                         <span x-text="activeCategory + ' ✕'"></span>
                                     </button>
 
                                     <template x-for="color in catalog[activeCategory]" :key="color">
-                                        <button type="button" @click="
-                                            packageType = activeCategory + ' ' + color;
-                                            $refs.outgoingPackageInput.focus();
-                                        " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                        <button type="button"
+                                                @mousedown.prevent
+                                                @click="
+                                                    packageType = activeCategory + ' ' + color;
+                                                    document.activeElement?.blur();
+                                                "
+                                                class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
                                             <span x-text="color"></span>
                                             <span class="text-[9px] text-slate-400">◀</span>
                                         </button>
@@ -545,28 +555,39 @@
                             {{-- المستوى 3: اختيار الحجم (كبير، وسط، صغير) بعد اختيار اللون --}}
                             <template x-if="activeCategory && activeColor">
                                 <div class="flex items-center gap-1.5 shrink-0">
-                                    <button type="button" @click="
-                                        packageType = '';
-                                        $refs.outgoingPackageInput.focus();
-                                    " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير الفئة">
+                                    <button type="button"
+                                            @mousedown.prevent
+                                            @click="
+                                                packageType = '';
+                                                document.activeElement?.blur();
+                                            "
+                                            class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                            title="تغيير الفئة">
                                         <span x-text="activeCategory + ' ✕'"></span>
                                     </button>
 
-                                    <button type="button" @click="
-                                        packageType = activeCategory + ' ';
-                                        $refs.outgoingPackageInput.focus();
-                                    " class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95" title="تغيير اللون">
+                                    <button type="button"
+                                            @mousedown.prevent
+                                            @click="
+                                                packageType = activeCategory + ' ';
+                                                document.activeElement?.blur();
+                                            "
+                                            class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                            title="تغيير اللون">
                                         <span x-text="activeColor + ' ✕'"></span>
                                     </button>
 
                                     <template x-for="size in sizes" :key="size">
-                                        <button type="button" @click="
-                                            packageType = activeCategory + ' ' + activeColor + ' ' + size;
-                                            $refs.outgoingPackageInput.focus();
-                                        " :class="activeSize === size
-                                            ? 'bg-secondary text-white shadow-sm'
-                                            : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
-                                        class="py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95">
+                                        <button type="button"
+                                                @mousedown.prevent
+                                                @click="
+                                                    packageType = activeCategory + ' ' + activeColor + ' ' + size;
+                                                    document.activeElement?.blur();
+                                                "
+                                                :class="activeSize === size
+                                                    ? 'bg-secondary text-white shadow-sm'
+                                                    : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
+                                                class="py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95">
                                             <span x-text="size"></span>
                                         </button>
                                     </template>
