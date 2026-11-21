@@ -4,6 +4,61 @@
 
 @section('shell-class', 'bg-slate-50')
 
+@section('header-search')
+    <form method="GET"
+          action="{{ route('office.outgoing-parcels.index') }}"
+          x-ref="headerSearchForm"
+          x-data="{
+              q: @js($search),
+              _t: null,
+              normDigits(str) {
+                  const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                  const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+                  return String(str || '')
+                      .replace(/[٠-٩]/g, d => ar.indexOf(d))
+                      .replace(/[۰-۹]/g, d => fa.indexOf(d))
+                      .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+              },
+              onInput() {
+                  this.q = this.normDigits(this.q);
+                  if (this._t) clearTimeout(this._t);
+                  this._t = setTimeout(() => this.submitNow(), 380);
+              },
+              submitNow() {
+                  if (this._t) clearTimeout(this._t);
+                  this.$refs.headerSearchForm.submit();
+              },
+              clear() {
+                  this.q = '';
+                  this.$nextTick(() => this.submitNow());
+              }
+          }"
+          @submit.prevent="submitNow()"
+          class="mt-3 relative">
+        @if($statusFilter !== 'all')
+            <input type="hidden" name="status" value="{{ $statusFilter }}">
+        @endif
+        <input type="text"
+               name="q"
+               x-model="q"
+               @input="onInput()"
+               dir="rtl"
+               autocomplete="off"
+               placeholder="بحث برقم الهاتف، السند، المرسل، المستلم، نوع الطرد..."
+               class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
+        <span class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg pointer-events-none">search</span>
+
+        <template x-if="q.length > 0">
+            <button type="button"
+                    @click="clear()"
+                    title="مسح البحث"
+                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-700 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 flex items-center justify-center text-xs font-bold transition-colors">
+                ✕
+            </button>
+        </template>
+    </form>
+@endsection
+
 @section('content')
     @php
         $officesForJs = $destinationOffices->map(fn ($o) => [
@@ -15,6 +70,7 @@
     @endphp
 
     <main class="flex-1 p-3.5 space-y-3.5"
+          @open-outgoing-parcel-modal.window="openModal()"
           x-data="outgoingParcelsPage({
               hasErrors: {{ $errors->any() ? 'true' : 'false' }},
               initialSearch: @js($search),
@@ -127,37 +183,7 @@
             @endif
         </div>
 
-        {{-- 2. شريط البحث الفوري (مطابق لشريط بحث شاشة الطرود بدون زر منفصل) --}}
-        <form method="GET"
-              action="{{ route('office.outgoing-parcels.index') }}"
-              x-ref="searchForm"
-              @submit.prevent="submitSearchNow()">
-            @if($statusFilter !== 'all')
-                <input type="hidden" name="status" value="{{ $statusFilter }}">
-            @endif
-            <div class="relative">
-                <input type="text"
-                       name="q"
-                       x-model="searchQuery"
-                       @input="onSearchInput()"
-                       dir="rtl"
-                       autocomplete="off"
-                       placeholder="بحث برقم الهاتف، السند، المرسل، المستلم، نوع الطرد..."
-                       class="w-full bg-white text-slate-800 placeholder-slate-400 text-xs font-bold rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-200/90 shadow-2xs focus:border-secondary focus:ring-2 focus:ring-secondary/15 transition-all">
-                <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">search</span>
-
-                <template x-if="searchQuery.length > 0">
-                    <button type="button"
-                            @click="clearSearch()"
-                            title="مسح البحث"
-                            class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold transition-colors">
-                        ✕
-                    </button>
-                </template>
-            </div>
-        </form>
-
-        {{-- 3. قائمة كروت الطرود الصادرة --}}
+        {{-- 2. قائمة كروت الطرود الصادرة --}}
         <div class="space-y-2.5">
             @forelse ($parcels as $parcel)
                 <article class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">

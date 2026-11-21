@@ -11,7 +11,8 @@
 
 @section('content')
     <!-- شريط العداد الفرعي وزر الإضافة السريع -->
-    <div class="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-[125px] z-20 shadow-2xs">
+    <div @open-vip-customer-modal.window="openCreateModal()"
+         class="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-[125px] z-20 shadow-2xs">
         <div class="flex items-center gap-2">
             <span class="w-7 h-7 rounded-lg bg-amber-50 text-secondary flex items-center justify-center font-bold text-xs">
                 <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">stars</span>

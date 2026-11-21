@@ -57,13 +57,29 @@
                 <span x-text="isOnline ? 'متصل' : 'بدون نت'"></span>
             </div>
 
-            <!-- زر الإرسال السريع الموحد (+) -->
-            <button type="button"
-                    @click="$dispatch('open-quick-sms')"
-                    title="إرسال كشف سريع SMS"
-                    class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
-                <span class="material-symbols-outlined text-[19px] font-bold">add</span>
-            </button>
+            <!-- زر الإضافة السريع في الهيدر (يتكيف حسب الصفحة الحالية) -->
+            @if (request()->routeIs('office.outgoing-parcels.*'))
+                <button type="button"
+                        @click="window.dispatchEvent(new CustomEvent('open-outgoing-parcel-modal'))"
+                        title="إضافة طرد صادر"
+                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </button>
+            @elseif (request()->routeIs('office.favorite_customers.*'))
+                <button type="button"
+                        @click="window.dispatchEvent(new CustomEvent('open-vip-customer-modal'))"
+                        title="إضافة عميل مميز"
+                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </button>
+            @else
+                <button type="button"
+                        @click="$dispatch('open-quick-sms')"
+                        title="إرسال كشف سريع SMS"
+                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </button>
+            @endif
 
             <!-- زر المزامنة اليدوية السريعة -->
             <button type="button" 
@@ -99,8 +115,10 @@
         </div>
     </template>
 
-    <!-- شريط البحث (يظهر تلقائياً في صفحة الطرود، العملاء المميزين، أو إذا تم تفعيل المتغير $showSearch) -->
-    @if (!empty($showSearch) || request()->routeIs('office.parcels.*') || request()->routeIs('office.favorite_customers.*'))
+    <!-- شريط البحث (يظهر تلقائياً في صفحة الطرود، الصادر، العملاء المميزين، أو إذا تم تفعيل المتغير $showSearch) -->
+    @hasSection('header-search')
+        @yield('header-search')
+    @elseif (!empty($showSearch) || request()->routeIs('office.parcels.*') || request()->routeIs('office.favorite_customers.*'))
         <div class="mt-3 relative">
             <input type="text" 
                    x-model="search" 
