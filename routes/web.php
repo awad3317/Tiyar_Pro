@@ -4,6 +4,8 @@ use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Office\DashboardController;
 use App\Http\Controllers\Office\ParcelController;
+use App\Http\Controllers\Office\OutgoingParcelController;
+use App\Http\Controllers\Office\IncomingTransitParcelController;
 use App\Http\Controllers\Office\WhatsAppSettingsController;
 use App\Http\Controllers\Office\FavoriteCustomerController;
 use App\Http\Controllers\Office\Auth\LoginController;
@@ -131,6 +133,26 @@ Route::prefix('office')->name('office.')->group(function () {
 
         // صفحة العملاء المميزين (PWA)
         Route::get('/favorite-customers', [FavoriteCustomerController::class, 'page'])->name('favorite_customers.index');
+
+        // قسم الطرود الصادرة (محمي بتفعيل الميزة outgoing_parcels)
+        Route::middleware('office.feature:outgoing_parcels')
+            ->prefix('outgoing-parcels')
+            ->name('outgoing-parcels.')
+            ->group(function () {
+                Route::get('/', [OutgoingParcelController::class, 'index'])->name('index');
+                Route::post('/', [OutgoingParcelController::class, 'store'])->name('store');
+                Route::post('/{outgoingParcel}/dispatch', [OutgoingParcelController::class, 'dispatch'])->name('dispatch');
+                Route::post('/{outgoingParcel}/deliver-external', [OutgoingParcelController::class, 'deliverExternal'])->name('deliver-external');
+                Route::post('/{outgoingParcel}/cancel', [OutgoingParcelController::class, 'cancel'])->name('cancel');
+            });
+
+        // الطرود القادمة في الطريق إلى هذا المكتب (متاحة لجميع المكاتب المسجلة)
+        Route::prefix('transit-parcels')
+            ->name('transit-parcels.')
+            ->group(function () {
+                Route::get('/', [IncomingTransitParcelController::class, 'index'])->name('index');
+                Route::post('/{outgoingParcel}/receive', [IncomingTransitParcelController::class, 'receive'])->name('receive');
+            });
 
         // إعدادات الواتساب (Evolution API)
         Route::prefix('whatsapp')->name('whatsapp.')->group(function () {

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Office;
 
+use App\Enums\OutgoingParcelStatus;
 use App\Http\Controllers\Controller;
+use App\Models\OutgoingParcel;
 use App\Models\Parcel;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,6 +22,10 @@ class DashboardController extends Controller
             'returned'  => Parcel::where('office_id', $office->id)->where('status', 'returned')->count(),
         ];
 
-        return view('office.dashboard', compact('office', 'stats'));
+        $inTransitCount = OutgoingParcel::where('destination_office_id', $office->id)
+            ->where('status', OutgoingParcelStatus::IN_TRANSIT)
+            ->count();
+
+        return view('office.dashboard', compact('office', 'stats', 'inTransitCount'));
     }
 }

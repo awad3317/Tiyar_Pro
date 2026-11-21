@@ -6,6 +6,7 @@ use App\Enums\ParcelStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Parcel;
 use App\Services\HttpSmsService;
+use App\Services\ParcelArrivalNotificationService;
 use App\Services\WhatsAppMessageComposer;
 use App\Services\WhatsAppQueueScheduler;
 use App\Services\WhatsAppService;
@@ -578,79 +579,18 @@ class ParcelController extends Controller
             ], 500);
         }
 
-        $isSmsOutOfBalance = Cache::has("sms_out_of_balance_office_{$office->id}");
-        $smsSent      = false;
-        $whatsappSent = false;
-
-        // 2. إرسال رسالة SMS إذا طُلب
-        $hasSmsGateway = !empty($office->httpsms_api_key) && !empty($office->httpsms_from_phone);
-        if (in_array($channel, ['sms', 'both'])) {
-            if ($isSmsOutOfBalance) {
-                $parcel->update([
-                    'sms_status'         => 'failed_balance',
-                    'sms_failure_reason' => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).',
-                ]);
-                $smsSent = false;
-            } elseif ($hasSmsGateway) {
-                $defaultTemplate = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-                $template = !empty($office->sms_template) ? $office->sms_template : $defaultTemplate;
-
-                $smsBody = str_replace(
-                    ['{office}', '{branch}', '{package}', '{receipt}', '{recipient}', '{region}', '{source_region}', '{slot}', '{slot_number}'],
-                    [
-                        $office->name,
-                        $office->branch_name ?? '',
-                        $parcel->package_type,
-                        $parcel->receipt_number ?? '',
-                        $parcel->recipient_name ?? '',
-                        $parcel->source_region ?? '',
-                        $parcel->source_region ?? '',
-                        $parcel->slot_number ?? '',
-                        $parcel->slot_number ?? '',
-                    ],
-                    $template
-                );
-                $smsBody = str_replace(' ()', '', $smsBody);
-
-                try {
-                    $result = $smsService->send(
-                        $parcel->recipient_phone,
-                        $smsBody,
-                        $office->httpsms_api_key,
-                        $office->httpsms_from_phone
-                    );
-
-                    $smsSent = !empty($result['success']) || (is_bool($result) && $result);
-
-                    if ($smsSent) {
-                        $parcel->update([
-                            'sms_status'         => 'pending',
-                            'sms_failure_reason' => null,
-                        ]);
-                    } else {
-                        $parcel->update([
-                            'sms_status'         => 'failed',
-                            'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
-                        ]);
-                        Log::warning("QuickSendSingle - البوابة لم تؤكد النجاح للرقم: {$parcel->recipient_phone}");
-                    }
-                } catch (\Throwable $e) {
-                    $parcel->update([
-                        'sms_status'         => 'failed',
-                        'sms_failure_reason' => 'تعذر الاتصال بخدمة الرسائل مؤقتاً. يرجى إعادة المحاولة بعد قليل، أو إرسال الرسالة يدوياً.',
-                    ]);
-                    Log::error("QuickSendSingle - خطأ SMS للرقم {$parcel->recipient_phone}: " . $e->getMessage());
-                }
-            }
-        }
-
-        // 3. جدولة إشعار الواتساب في الطابور الذكي بدلاً من الإرسال الفوري (حماية رقم المكتب من الحظر)
-        $waQueue = app(WhatsAppQueueScheduler::class)->scheduleForParcel(
+        // 2 & 3. إرسال إشعار الـ SMS وجدولة إشعار الواتساب عبر الخدمة الموحدة
+        $notificationResult = app(ParcelArrivalNotificationService::class)->notifyArrival(
             $parcel,
             $office,
-            in_array($channel, ['whatsapp', 'both'], true)
+            $channel,
+            $smsService
         );
-        $whatsappQueued = $waQueue['queued'];
+
+        $isSmsOutOfBalance = $notificationResult['sms_out_of_balance'];
+        $smsSent           = $notificationResult['sms_sent'];
+        $whatsappSent      = $notificationResult['whatsapp_sent'];
+        $whatsappQueued    = $notificationResult['whatsapp_queued'];
 
         $sentChannels = [];
         if ($smsSent) $sentChannels[] = 'SMS';
@@ -670,7 +610,7 @@ class ParcelController extends Controller
             'sms_status_data'       => $isSmsOutOfBalance ? Cache::get("sms_out_of_balance_office_{$office->id}") : null,
             'whatsapp_sent'         => $whatsappSent,
             'whatsapp_queued'       => $whatsappQueued,
-            'whatsapp_scheduled_at' => $waQueue['scheduled_at']?->toIso8601String(),
+            'whatsapp_scheduled_at' => $notificationResult['whatsapp_scheduled_at']?->toIso8601String(),
             'message'               => $feedbackMsg,
             'parcel'                => $parcel,
         ]);

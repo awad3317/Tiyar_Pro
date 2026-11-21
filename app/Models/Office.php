@@ -101,4 +101,14 @@ class Office extends Authenticatable
     {
         return $this->hasMany(ParcelEditLog::class, 'office_id');
     }
+
+    public function outgoingParcels(): HasMany
+    {
+        return $this->hasMany(OutgoingParcel::class, 'office_id');
+    }
+
+    public function incomingTransitParcels(): HasMany
+    {
+        return $this->hasMany(OutgoingParcel::class, 'destination_office_id');
+    }
 }

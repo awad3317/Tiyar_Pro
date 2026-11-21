@@ -54,6 +54,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'إتاحة إدخال رقم الخانة أو الرف بجانب رقم المستلم عند إضافة الطرد وعرضه في البطاقة وإدراجه كمتغير في قوالب SMS والواتساب',
             ],
+            [
+                'code' => 'outgoing_parcels',
+                'name' => 'الطرود الصادرة',
+                'category' => 'general',
+                'description' => 'تفعيل قسم الطرود الصادرة لإرسال الشحنات إلى الفروع والمكاتب الأخرى ومتابعة حالتها',
+            ],
         ];
 
         $features = collect();

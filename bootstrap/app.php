@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'accountant.auth' => \App\Http\Middleware\EnsureAccountantAccess::class,
+            'office.feature'  => \App\Http\Middleware\EnsureOfficeHasFeature::class,
         ]);
 
         $middleware->redirectUsersTo(function (Request $request) {

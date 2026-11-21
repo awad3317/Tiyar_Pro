@@ -18,6 +18,17 @@
         <span class="mt-0.5">الطرود</span>
     </a>
 
+    @if(auth('office')->check() && auth('office')->user()->hasFeature('outgoing_parcels'))
+        <!-- زر الصادر -->
+        @php
+            $isOutgoing = request()->routeIs('office.outgoing-parcels.*');
+        @endphp
+        <a href="{{ route('office.outgoing-parcels.index') }}" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isOutgoing ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+            <span class="material-symbols-outlined text-2xl {{ $isOutgoing ? 'text-secondary' : '' }}">outbox</span>
+            <span class="mt-0.5">الصادر</span>
+        </a>
+    @endif
+
     @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
         <!-- زر العملاء المميزين -->
         @php
