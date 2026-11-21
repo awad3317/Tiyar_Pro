@@ -224,6 +224,78 @@
                 </div>
             </div>
 
+            <!-- بطاقة الفروع والمكاتب المرتبطة (للطرود الصادرة - ربط ثنائي الاتجاه) -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5"
+                 x-data="{
+                     partnerSearch: '',
+                     selectedPartnerIds: @js(array_map('strval', $linkedPartnerIds ?? [])),
+                     matchesPartner(label) {
+                         const q = (this.partnerSearch || '').trim().toLowerCase();
+                         if (!q) return true;
+                         return String(label || '').toLowerCase().includes(q);
+                     }
+                 }">
+                <input type="hidden" name="partner_links_submitted" value="1">
+
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-xl">hub</span>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900">الفروع والمكاتب المرتبطة (للطرود الصادرة)</h3>
+                            <p class="text-xs text-slate-500">ربط تبادلي ثنائي الاتجاه: أي مكتب تحدده هنا يظهر لهذا المكتب في وجهة الطرود الصادرة، ويظهر هذا المكتب لديهم تلقائياً</p>
+                        </div>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-extrabold">
+                        <span x-text="selectedPartnerIds.length"></span> مكتب مرتبط
+                    </span>
+                </div>
+
+                @if(isset($allOtherOffices) && $allOtherOffices->isNotEmpty())
+                    <div class="relative">
+                        <input type="text"
+                               x-model="partnerSearch"
+                               placeholder="ابحث عن مكتب أو فرع للربط السريع..."
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-xs font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-secondary transition-all">
+                        <span class="material-symbols-outlined text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 text-base pointer-events-none">search</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto p-1">
+                        @foreach ($allOtherOffices as $otherOffice)
+                            @php
+                                $otherLabel = $otherOffice->branch_name
+                                    ? ($otherOffice->name . ' - ' . $otherOffice->branch_name)
+                                    : $otherOffice->name;
+                            @endphp
+                            <label x-show="matchesPartner(@js($otherLabel))"
+                                   class="flex items-center justify-between gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all"
+                                   :class="selectedPartnerIds.includes('{{ $otherOffice->id }}')
+                                       ? 'bg-indigo-50/70 border-indigo-300 text-indigo-950 shadow-2xs'
+                                       : 'bg-slate-50/70 border-slate-200/80 text-slate-700 hover:bg-slate-100/70'">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <input type="checkbox"
+                                           name="partner_office_ids[]"
+                                           value="{{ $otherOffice->id }}"
+                                           x-model="selectedPartnerIds"
+                                           class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 shrink-0">
+                                    <span class="text-xs font-extrabold truncate">{{ $otherLabel }}</span>
+                                </div>
+
+                                @if (! $otherOffice->is_active)
+                                    <span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold shrink-0">
+                                        غير نشط
+                                    </span>
+                                @endif
+                            </label>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-400 font-bold text-center py-4">لا توجد مكاتب أخرى مسجلة في النظام حالياً للربط معها.</p>
+                @endif
+            </div>
+
             <!-- أحدث طرود هذا المكتب -->
             <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">

@@ -40,6 +40,15 @@ class OutgoingParcelService
                 throw new DomainException('المكتب المستلم المحدد غير موجود.');
             }
 
+            $isLinkedActivePartner = $office->partnerOffices()
+                ->where('offices.id', $destinationOfficeId)
+                ->where('offices.is_active', true)
+                ->exists();
+
+            if (! $isLinkedActivePartner) {
+                throw new DomainException('المكتب المستلم غير مرتبط بهذا المكتب.');
+            }
+
             // وجهة داخلية معتمدة
             $externalOfficeName = null;
         } elseif ($externalOfficeName === null) {

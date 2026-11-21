@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Traits\HasOfficeFeatures;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Office extends Authenticatable
 {
@@ -110,5 +112,71 @@ class Office extends Authenticatable
     public function incomingTransitParcels(): HasMany
     {
         return $this->hasMany(OutgoingParcel::class, 'destination_office_id');
+    }
+
+    public function partnerOffices(): BelongsToMany
+    {
+        return $this->belongsToMany(Office::class, 'office_partner_links', 'office_id', 'partner_office_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * مزامنة الفروع والمكاتب المرتبطة بشكل ثنائي الاتجاه (Symmetric / Bidirectional).
+     *
+     * @param  array<int|string>  $partnerIds
+     */
+    public function syncPartnerOffices(array $partnerIds): void
+    {
+        $selfId = (int) $this->id;
+        $normalizedIds = array_values(array_unique(array_filter(
+            array_map(static fn ($id) => (int) $id, $partnerIds),
+            static fn (int $id) => $id > 0 && $id !== $selfId
+        )));
+
+        DB::transaction(function () use ($selfId, $normalizedIds): void {
+            $currentIds = array_map(
+                'intval',
+                $this->partnerOffices()->pluck('offices.id')->all()
+            );
+
+            $toAttach = array_diff($normalizedIds, $currentIds);
+            $toDetach = array_diff($currentIds, $normalizedIds);
+
+            if (! empty($toAttach)) {
+                $now = now();
+                $rows = [];
+                foreach ($toAttach as $partnerId) {
+                    $rows[] = [
+                        'office_id'         => $selfId,
+                        'partner_office_id' => $partnerId,
+                        'created_at'        => $now,
+                        'updated_at'        => $now,
+                    ];
+                    $rows[] = [
+                        'office_id'         => $partnerId,
+                        'partner_office_id' => $selfId,
+                        'created_at'        => $now,
+                        'updated_at'        => $now,
+                    ];
+                }
+                DB::table('office_partner_links')->insertOrIgnore($rows);
+            }
+
+            if (! empty($toDetach)) {
+                $detachIds = array_values($toDetach);
+
+                DB::table('office_partner_links')
+                    ->where('office_id', $selfId)
+                    ->whereIn('partner_office_id', $detachIds)
+                    ->delete();
+
+                DB::table('office_partner_links')
+                    ->whereIn('office_id', $detachIds)
+                    ->where('partner_office_id', $selfId)
+                    ->delete();
+            }
+        });
+
+        $this->unsetRelation('partnerOffices');
     }
 }

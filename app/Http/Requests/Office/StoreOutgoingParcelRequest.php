@@ -66,6 +66,21 @@ class StoreOutgoingParcelRequest extends FormRequest
                 'integer',
                 Rule::notIn([$currentOfficeId]),
                 Rule::exists('offices', 'id')->where(fn ($query) => $query->where('is_active', true)),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($this->input('destination_type') !== 'office' || $value === null || $value === '') {
+                        return;
+                    }
+
+                    $office = $this->user('office');
+                    $isLinkedPartner = $office && $office->partnerOffices()
+                        ->where('offices.id', (int) $value)
+                        ->where('offices.is_active', true)
+                        ->exists();
+
+                    if (! $isLinkedPartner) {
+                        $fail('المكتب المستلم غير مرتبط بهذا المكتب.');
+                    }
+                },
             ],
             'external_office_name'  => ['required_if:destination_type,external', 'nullable', 'string', 'max:255'],
             'sender_name'           => ['required', 'string', 'max:255'],

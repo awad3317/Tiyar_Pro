@@ -203,12 +203,23 @@ class OfficeController extends Controller
 
         $availableInstances = WhatsappInstance::where('is_active', true)->get();
 
+        $allOtherOffices = Office::where('id', '!=', $office->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_name', 'is_active']);
+
+        $linkedPartnerIds = array_map(
+            'intval',
+            $office->partnerOffices()->pluck('offices.id')->all()
+        );
+
         return view('admin.offices.edit', [
             'office'             => $office,
             'parcelsSummary'     => $parcelsSummary,
             'recentParcels'      => $recentParcels,
             'whatsappStatus'     => $whatsappStatus,
             'availableInstances' => $availableInstances,
+            'allOtherOffices'    => $allOtherOffices,
+            'linkedPartnerIds'   => $linkedPartnerIds,
         ]);
     }
 
@@ -218,12 +229,12 @@ class OfficeController extends Controller
     public function update(Request $request, Office $office): RedirectResponse
     {
         $validated = $request->validate([
-            'name'                   => ['required', 'string', 'max:255'],
-            'branch_name'            => ['nullable', 'string', 'max:255'],
-            'whatsapp_sender_phone'  => ['required', 'string', 'max:30'],
-            'manager_phone'          => ['nullable', 'string', 'max:30'],
-            'send_daily_report'      => ['nullable', 'boolean'],
-            'httpsms_from_phone'     => ['required', 'string', 'max:30'],
+            'name'                       => ['required', 'string', 'max:255'],
+            'branch_name'                => ['nullable', 'string', 'max:255'],
+            'whatsapp_sender_phone'      => ['required', 'string', 'max:30'],
+            'manager_phone'              => ['nullable', 'string', 'max:30'],
+            'send_daily_report'          => ['nullable', 'boolean'],
+            'httpsms_from_phone'         => ['required', 'string', 'max:30'],
             'httpsms_api_key'            => ['nullable', 'string', 'max:255'],
             'sms_template'               => ['nullable', 'string'],
             'delivery_sms_template'      => ['nullable', 'string'],
@@ -236,6 +247,9 @@ class OfficeController extends Controller
             'whatsapp_template'          => ['nullable', 'string'],
             'delivery_whatsapp_template' => ['nullable', 'string'],
             'is_active'                  => ['nullable', 'boolean'],
+            'partner_links_submitted'    => ['nullable', 'boolean'],
+            'partner_office_ids'         => ['nullable', 'array'],
+            'partner_office_ids.*'       => ['integer', 'exists:offices,id'],
         ]);
 
         $cleanWaPhone = preg_replace('/[^0-9]/', '', $validated['whatsapp_sender_phone']);
@@ -264,6 +278,10 @@ class OfficeController extends Controller
         ];
 
         $office->update($updateData);
+
+        if ($request->boolean('partner_links_submitted')) {
+            $office->syncPartnerOffices($request->input('partner_office_ids', []));
+        }
 
         // مسح كاش الواتساب لإعادة الفحص بالإعدادات الجديدة
         Cache::forget('whatsapp_status_office_' . $office->id);

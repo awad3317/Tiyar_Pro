@@ -8,7 +8,10 @@ use App\Enums\ParcelStatus;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
 use App\Models\Parcel;
+use App\Models\User;
+use App\Services\OutgoingParcelService;
 use Database\Seeders\FeatureSeeder;
+use DomainException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -61,6 +64,9 @@ class OutgoingParcelUiTest extends TestCase
             'password'              => Hash::make('password123'),
             'is_active'             => true,
         ]);
+
+        // ربط مكتب الإرسال بمكتب الاستقبال ثنائياً
+        $this->senderOffice->syncPartnerOffices([$this->targetOffice->id]);
     }
 
     public function test_office_without_outgoing_parcels_feature_gets_403_on_get_and_post(): void
@@ -356,5 +362,110 @@ class OutgoingParcelUiTest extends TestCase
             'sender_phone'    => '771234567',
             'recipient_phone' => '739876543',
         ]);
+    }
+
+    public function test_bidirectional_partner_office_linking_isolates_destinations_correctly(): void
+    {
+        $qatn = Office::create([
+            'name'                  => 'مكتب الجعيدي',
+            'branch_name'           => 'القطن',
+            'whatsapp_sender_phone' => '770400501',
+            'httpsms_from_phone'    => '+967770400501',
+            'httpsms_api_key'       => 'test-qatn',
+            'password'              => Hash::make('password123'),
+            'is_active'             => true,
+        ]);
+
+        $mukalla = Office::create([
+            'name'                  => 'مكتب الجعيدي',
+            'branch_name'           => 'المكلا',
+            'whatsapp_sender_phone' => '770400502',
+            'httpsms_from_phone'    => '+967770400502',
+            'httpsms_api_key'       => 'test-mukalla',
+            'password'              => Hash::make('password123'),
+            'is_active'             => true,
+        ]);
+
+        $zajil = Office::create([
+            'name'                  => 'مكتب زاجل',
+            'branch_name'           => 'سيئون',
+            'whatsapp_sender_phone' => '770400503',
+            'httpsms_from_phone'    => '+967770400503',
+            'httpsms_api_key'       => 'test-zajil',
+            'password'              => Hash::make('password123'),
+            'is_active'             => true,
+        ]);
+
+        foreach ([$qatn, $mukalla, $zajil] as $off) {
+            $off->syncFeaturesStatus(['outgoing_parcels']);
+            $off->refreshFeaturesCache();
+        }
+
+        // 1. ربط القطن مع المكلا وزاجل عبر لوحة تحكم الأدمن
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@mursal.pro'],
+            ['name' => 'المدير العام', 'password' => Hash::make('password')]
+        );
+
+        $this->actingAs($admin, 'web')
+            ->put(route('admin.offices.update', $qatn), [
+                'name'                    => $qatn->name,
+                'branch_name'             => $qatn->branch_name,
+                'whatsapp_sender_phone'   => $qatn->whatsapp_sender_phone,
+                'httpsms_from_phone'      => $qatn->httpsms_from_phone,
+                'is_active'               => 1,
+                'partner_links_submitted' => 1,
+                'partner_office_ids'      => [$mukalla->id, $zajil->id],
+            ])
+            ->assertRedirect();
+
+        // 2. مكتب القطن يرى كلاً من المكلا وزاجل في صفحة الطرود الصادرة
+        $this->actingAs($qatn, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->assertSee('مكتب الجعيدي - المكلا')
+            ->assertSee('مكتب زاجل - سيئون');
+
+        // 3. مكتب المكلا يرى القطن فقط ولا يرى زاجل
+        $this->actingAs($mukalla, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->assertSee('مكتب الجعيدي - القطن')
+            ->assertDontSee('مكتب زاجل - سيئون');
+
+        // 4. محاولة المكلا الإرسال إلى زاجل كفرع في النظام تُرفض في الـ FormRequest وفي الـ Service
+        $this->actingAs($mukalla, 'office')
+            ->post(route('office.outgoing-parcels.store'), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $zajil->id,
+                'sender_name'           => 'مرسل المكلا',
+                'sender_phone'          => '771222333',
+                'recipient_phone'       => '774555666',
+                'package_type'          => 'كرتون كاكي وسط',
+                'cod_amount'            => 3000,
+                'payment_type'          => 'paid',
+            ])
+            ->assertSessionHasErrors(['destination_office_id']);
+
+        try {
+            app(OutgoingParcelService::class)->create($mukalla, [
+                'destination_office_id' => $zajil->id,
+                'sender_name'           => 'مرسل المكلا',
+                'sender_phone'          => '771222333',
+                'recipient_phone'       => '774555666',
+                'package_type'          => 'كرتون كاكي وسط',
+                'cod_amount'            => 3000,
+                'payment_type'          => 'paid',
+            ]);
+            $this->fail('Expected DomainException when sending to an unlinked office.');
+        } catch (DomainException $e) {
+            $this->assertSame('المكتب المستلم غير مرتبط بهذا المكتب.', $e->getMessage());
+        }
+
+        // 5. إلغاء ربط المكلا من القطن يحذف الربط من الطرفين
+        $qatn->syncPartnerOffices([$zajil->id]);
+
+        $this->assertSame([$zajil->id], array_map('intval', $qatn->partnerOffices()->pluck('offices.id')->all()));
+        $this->assertEmpty($mukalla->partnerOffices()->pluck('offices.id')->all());
     }
 }

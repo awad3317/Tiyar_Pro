@@ -55,6 +55,9 @@ class OutgoingParcelFlowTest extends TestCase
             'password'              => Hash::make('password123'),
             'is_active'             => true,
         ]);
+
+        // ربط المكتبين ثنائياً للسماح بالإرسال الداخلي بينهما
+        $this->officeA->syncPartnerOffices([$this->officeB->id]);
     }
 
     public function test_outgoing_parcels_feature_is_seeded_as_disabled_by_default(): void

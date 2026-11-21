@@ -69,10 +69,11 @@ class OutgoingParcelController extends Controller
             'cancelled'  => (int) ($rawCounts[OutgoingParcelStatus::CANCELLED->value] ?? 0),
         ];
 
-        $destinationOffices = Office::where('is_active', true)
-            ->where('id', '!=', $office->id)
-            ->orderBy('name')
-            ->get(['id', 'name', 'branch_name']);
+        $destinationOffices = $office->partnerOffices()
+            ->where('offices.is_active', true)
+            ->orderBy('offices.name')
+            ->orderBy('offices.branch_name')
+            ->get(['offices.id', 'offices.name', 'offices.branch_name']);
 
         $parcels = $query->latest('created_at')->paginate(20)->withQueryString();
 
