@@ -315,4 +315,46 @@ class OutgoingParcelUiTest extends TestCase
         $incomingPaid = Parcel::findOrFail($paidOutgoing->linked_incoming_parcel_id);
         $this->assertNull($incomingPaid->cod_amount);
     }
+
+    public function test_outgoing_parcel_phone_validation_normalizes_valid_numbers_and_rejects_invalid_ones(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        // 1. أرقام غير صالحة (بادئة غير يمنية أو طول ناقص) يجب رفضها بأخطاء تحقق
+        $this->actingAs($this->senderOffice, 'office')
+            ->post(route('office.outgoing-parcels.store'), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'مرسل خطأ',
+                'sender_phone'          => '791234567',
+                'recipient_phone'       => '7712345',
+                'package_type'          => 'كيس أبيض وسط',
+                'cod_amount'            => 2000,
+                'payment_type'          => 'paid',
+            ])
+            ->assertSessionHasErrors(['sender_phone', 'recipient_phone']);
+
+        // 2. أرقام يمنية صالحة بأرقام عربية مشرقية ومع مفتاح الدولة (+967) تُقبل وتُوحّد إلى 9 أرقام
+        $this->actingAs($this->senderOffice, 'office')
+            ->post(route('office.outgoing-parcels.store'), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'مرسل أرقام عربية',
+                'sender_phone'          => '٧٧١٢٣٤٥٦٧',
+                'recipient_phone'       => '+967 73 987 6543',
+                'package_type'          => 'كرتون كاكي وسط',
+                'cod_amount'            => 3500,
+                'payment_type'          => 'deferred',
+            ])
+            ->assertRedirect(route('office.outgoing-parcels.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('outgoing_parcels', [
+            'office_id'       => $this->senderOffice->id,
+            'sender_name'     => 'مرسل أرقام عربية',
+            'sender_phone'    => '771234567',
+            'recipient_phone' => '739876543',
+        ]);
+    }
 }

@@ -20,6 +20,8 @@
               initialDestType: @js(old('destination_type', 'office')),
               initialOfficeId: @js(old('destination_office_id', '')),
               initialExternalName: @js(old('external_office_name', '')),
+              initialSenderPhone: @js(old('sender_phone', '')),
+              initialRecipientPhone: @js(old('recipient_phone', '')),
               initialPackageType: @js(old('package_type', '')),
               initialPaymentType: @js(old('payment_type', 'paid')),
               offices: @js($officesForJs)
@@ -466,14 +468,37 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">هاتف المرسل <span class="text-rose-500">*</span></label>
-                            <input type="tel"
-                                   name="sender_phone"
-                                   value="{{ old('sender_phone') }}"
-                                   required
-                                   dir="ltr"
-                                   inputmode="numeric"
-                                   placeholder="7XXXXXXXX"
-                                   class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                            <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
+                                 :class="senderPhone.length > 0 && !isValidPhone(senderPhone) ? 'border-rose-300' : (isValidPhone(senderPhone) ? 'border-emerald-300' : 'border-slate-200')">
+                                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 select-none pointer-events-none">
+                                    <span class="text-[11px]">🇾🇪</span>
+                                    <template x-if="isValidPhone(senderPhone)">
+                                        <span class="material-symbols-outlined text-[15px] text-emerald-500 flex items-center">check_circle</span>
+                                    </template>
+                                    <template x-if="senderPhone.length > 0 && !isValidPhone(senderPhone)">
+                                        <span class="material-symbols-outlined text-[15px] text-rose-400 flex items-center">error</span>
+                                    </template>
+                                </div>
+                                <input type="tel"
+                                       name="sender_phone"
+                                       x-model="senderPhone"
+                                       @input="senderPhone = sanitizePhone(senderPhone)"
+                                       required
+                                       dir="ltr"
+                                       inputmode="numeric"
+                                       maxlength="9"
+                                       pattern="7[01378][0-9]{7}"
+                                       title="يجب أن يتكون الرقم من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70"
+                                       autocomplete="off"
+                                       placeholder="7XXXXXXXX"
+                                       class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal">
+                            </div>
+                            <template x-if="senderPhone.length > 0 && !isValidPhone(senderPhone)">
+                                <p class="text-[10px] font-bold text-rose-500 mt-0.5">9 أرقام تبدأ بـ 70/71/73/77/78</p>
+                            </template>
+                            @error('sender_phone')
+                                <p class="text-[10px] font-bold text-rose-600 mt-0.5">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
 
@@ -489,14 +514,37 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">هاتف المستلم <span class="text-rose-500">*</span></label>
-                            <input type="tel"
-                                   name="recipient_phone"
-                                   value="{{ old('recipient_phone') }}"
-                                   required
-                                   dir="ltr"
-                                   inputmode="numeric"
-                                   placeholder="7XXXXXXXX"
-                                   class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                            <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
+                                 :class="recipientPhone.length > 0 && !isValidPhone(recipientPhone) ? 'border-rose-300' : (isValidPhone(recipientPhone) ? 'border-emerald-300' : 'border-slate-200')">
+                                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 select-none pointer-events-none">
+                                    <span class="text-[11px]">🇾🇪</span>
+                                    <template x-if="isValidPhone(recipientPhone)">
+                                        <span class="material-symbols-outlined text-[15px] text-emerald-500 flex items-center">check_circle</span>
+                                    </template>
+                                    <template x-if="recipientPhone.length > 0 && !isValidPhone(recipientPhone)">
+                                        <span class="material-symbols-outlined text-[15px] text-rose-400 flex items-center">error</span>
+                                    </template>
+                                </div>
+                                <input type="tel"
+                                       name="recipient_phone"
+                                       x-model="recipientPhone"
+                                       @input="recipientPhone = sanitizePhone(recipientPhone)"
+                                       required
+                                       dir="ltr"
+                                       inputmode="numeric"
+                                       maxlength="9"
+                                       pattern="7[01378][0-9]{7}"
+                                       title="يجب أن يتكون الرقم من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70"
+                                       autocomplete="off"
+                                       placeholder="7XXXXXXXX"
+                                       class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal">
+                            </div>
+                            <template x-if="recipientPhone.length > 0 && !isValidPhone(recipientPhone)">
+                                <p class="text-[10px] font-bold text-rose-500 mt-0.5">9 أرقام تبدأ بـ 70/71/73/77/78</p>
+                            </template>
+                            @error('recipient_phone')
+                                <p class="text-[10px] font-bold text-rose-600 mt-0.5">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
 
@@ -821,6 +869,8 @@
             selectedOfficeId: matchedOffice ? String(matchedOffice.id) : '',
             externalOfficeName: matchedOffice ? '' : initExternal,
             destinationQuery: matchedOffice ? matchedOffice.label : initExternal,
+            senderPhone: String(config.initialSenderPhone || ''),
+            recipientPhone: String(config.initialRecipientPhone || ''),
             packageType: config.initialPackageType || '',
             paymentType: config.initialPaymentType || 'paid',
             offices: officesList,
@@ -852,6 +902,29 @@
 
             norm(str) {
                 return String(str || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+            },
+
+            sanitizePhone(str) {
+                const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                let digits = String(str || '')
+                    .replace(/[٠-٩]/g, d => arabicDigits.indexOf(d))
+                    .replace(/[۰-۹]/g, d => persianDigits.indexOf(d))
+                    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '')
+                    .replace(/\D/g, '');
+
+                if (digits.length === 12 && digits.startsWith('9677')) {
+                    digits = digits.substring(3);
+                } else if (digits.length === 14 && digits.startsWith('009677')) {
+                    digits = digits.substring(5);
+                }
+
+                return digits.substring(0, 9);
+            },
+
+            isValidPhone(phone) {
+                const clean = this.sanitizePhone(phone);
+                return clean.length === 9 && /^7[01378]\d{7}$/.test(clean);
             },
 
             onDestinationInput() {
@@ -906,6 +979,8 @@
             },
 
             openModal() {
+                this.senderPhone = '';
+                this.recipientPhone = '';
                 this.packageType = '';
                 this.paymentType = 'paid';
                 this.destDropdownOpen = false;
@@ -919,6 +994,8 @@
             closeModal() {
                 this.showModal = false;
                 this.destDropdownOpen = false;
+                this.senderPhone = '';
+                this.recipientPhone = '';
                 this.packageType = '';
                 this.paymentType = 'paid';
                 this.selectedOfficeId = '';

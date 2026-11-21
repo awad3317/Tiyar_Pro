@@ -24,12 +24,29 @@ class StoreOutgoingParcelRequest extends FormRequest
             return str_replace($eastern, $western, trim($value));
         };
 
+        $normalizePhone = static function (?string $phone) use ($normalizeDigits): string {
+            if ($phone === null || $phone === '') {
+                return '';
+            }
+
+            $converted = $normalizeDigits($phone) ?? '';
+            $digits = preg_replace('/\D+/', '', $converted) ?? '';
+
+            if (strlen($digits) === 12 && str_starts_with($digits, '9677')) {
+                $digits = substr($digits, 3);
+            } elseif (strlen($digits) === 14 && str_starts_with($digits, '009677')) {
+                $digits = substr($digits, 5);
+            }
+
+            return $digits;
+        };
+
         $cod = $this->input('cod_amount');
         $normalizedCod = $normalizeDigits($cod !== null ? (string) $cod : null);
 
         $this->merge([
-            'sender_phone'    => $normalizeDigits((string) $this->input('sender_phone', '')),
-            'recipient_phone' => $normalizeDigits((string) $this->input('recipient_phone', '')),
+            'sender_phone'    => $normalizePhone((string) $this->input('sender_phone', '')),
+            'recipient_phone' => $normalizePhone((string) $this->input('recipient_phone', '')),
             'cod_amount'      => ($normalizedCod !== null && $normalizedCod !== '') ? $normalizedCod : null,
         ]);
     }
@@ -52,9 +69,9 @@ class StoreOutgoingParcelRequest extends FormRequest
             ],
             'external_office_name'  => ['required_if:destination_type,external', 'nullable', 'string', 'max:255'],
             'sender_name'           => ['required', 'string', 'max:255'],
-            'sender_phone'          => ['required', 'string', 'max:25'],
+            'sender_phone'          => ['required', 'regex:/^7[01378]\d{7}$/'],
             'recipient_name'        => ['nullable', 'string', 'max:255'],
-            'recipient_phone'       => ['required', 'string', 'max:25'],
+            'recipient_phone'       => ['required', 'regex:/^7[01378]\d{7}$/'],
             'package_type'          => ['required', 'string', 'max:255'],
             'cod_amount'            => ['required', 'numeric', 'min:0'],
             'payment_type'          => ['required', Rule::in(['paid', 'deferred'])],
@@ -79,10 +96,10 @@ class StoreOutgoingParcelRequest extends FormRequest
             'sender_name.required'              => 'يرجى إدخال اسم المرسل.',
             'sender_name.max'                   => 'اسم المرسل يجب ألا يتجاوز 255 حرفاً.',
             'sender_phone.required'             => 'يرجى إدخال رقم هاتف المرسل.',
-            'sender_phone.max'                  => 'رقم هاتف المرسل يجب ألا يتجاوز 25 حرفاً.',
+            'sender_phone.regex'                => 'رقم هاتف المرسل غير صالح. يجب أن يتكون من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70.',
             'recipient_name.max'                => 'اسم المستلم يجب ألا يتجاوز 255 حرفاً.',
             'recipient_phone.required'          => 'يرجى إدخال رقم هاتف المستلم.',
-            'recipient_phone.max'               => 'رقم هاتف المستلم يجب ألا يتجاوز 25 حرفاً.',
+            'recipient_phone.regex'             => 'رقم هاتف المستلم غير صالح. يجب أن يتكون من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70.',
             'package_type.required'             => 'يرجى إدخال نوع الطرد.',
             'package_type.max'                  => 'نوع الطرد يجب ألا يتجاوز 255 حرفاً.',
             'cod_amount.required'               => 'يرجى إدخال المبلغ.',
