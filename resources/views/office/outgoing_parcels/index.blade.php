@@ -120,15 +120,7 @@
                     <span class="material-symbols-outlined text-lg text-secondary">outbox</span>
                     <span>الطرود الصادرة</span>
                 </h2>
-                <p class="text-[11px] text-slate-400">إرسال ومتابعة الشحنات الموجهة للفروع والمكاتب</p>
             </div>
-
-            <button type="button"
-                    @click="openModal()"
-                    class="py-2 px-3.5 rounded-xl bg-secondary hover:bg-amber-500 active:scale-95 text-white text-xs font-extrabold shadow-sm shadow-secondary/25 flex items-center gap-1 transition-all shrink-0">
-                <span class="material-symbols-outlined text-base">add_circle</span>
-                <span>+ إضافة طرد صادر</span>
-            </button>
         </div>
 
         {{-- 1. بطاقات الملخص العلوية التفاعلية (تعمل كفلاتر بالضغط، والضغط مجدداً يلغي الفلتر ويعرض الكل) --}}
