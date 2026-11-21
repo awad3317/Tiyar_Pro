@@ -16,6 +16,7 @@ return new class extends Migration
     }
 
     public function down(): void
+    
     {
         if (Schema::hasColumn('outgoing_parcels', 'payment_type')) {
             Schema::table('outgoing_parcels', function (Blueprint $table) {
