@@ -76,11 +76,15 @@
                                         <span>قادم من: {{ $senderOfficeLabel }}</span>
                                     </span>
 
-                                    @if($parcel->cod_amount && (float) $parcel->cod_amount > 0)
-                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold font-mono">
-                                            <span>تحصيل: {{ number_format((float) $parcel->cod_amount) }} ر.ي</span>
-                                        </span>
-                                    @endif
+                                    @php
+                                        $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
+                                            ? $parcel->payment_type
+                                            : (\App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold {{ $paymentEnum->badgeClass() }}">
+                                        <span>{{ $paymentEnum->label() }}:</span>
+                                        <span class="font-mono">{{ number_format((float) ($parcel->cod_amount ?? 0)) }} ر.ي</span>
+                                    </span>
                                 </div>
                             </div>
                         </div>

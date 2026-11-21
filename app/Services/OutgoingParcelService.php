@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
 use App\Enums\ParcelStatus;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
@@ -18,7 +19,7 @@ class OutgoingParcelService
     ) {}
 
     /**
-     * إنشاء طرد صادر جديد للمكتب بحالة pending.
+     * إنشاء طرد صادر جديد للمكتب بحالة pending مع توليد رقم سند تسلسلي خاص بالمكتب.
      */
     public function create(Office $office, array $data): OutgoingParcel
     {
@@ -45,10 +46,18 @@ class OutgoingParcelService
             throw new DomainException('يجب تحديد مكتب مستلم داخل النظام أو إدخال اسم مكتب خارجي.');
         }
 
-        $codAmount = null;
-        if (isset($data['cod_amount']) && $data['cod_amount'] !== null && $data['cod_amount'] !== '') {
-            $parsedCod = (float) $data['cod_amount'];
-            $codAmount = $parsedCod > 0 ? $parsedCod : null;
+        if (! isset($data['cod_amount']) || $data['cod_amount'] === '' || ! is_numeric($data['cod_amount']) || (float) $data['cod_amount'] < 0) {
+            throw new DomainException('يرجى إدخال المبلغ بشكل صحيح.');
+        }
+        $codAmount = (float) $data['cod_amount'];
+
+        $rawPaymentType = $data['payment_type'] ?? null;
+        $paymentType = $rawPaymentType instanceof OutgoingPaymentType
+            ? $rawPaymentType
+            : OutgoingPaymentType::tryFrom((string) $rawPaymentType);
+
+        if ($paymentType === null) {
+            throw new DomainException('يرجى تحديد حالة الدفع: محاسب أو آجل.');
         }
 
         $recipientName = trim((string) ($data['recipient_name'] ?? ''));
@@ -59,6 +68,7 @@ class OutgoingParcelService
             $destinationOfficeId,
             $externalOfficeName,
             $codAmount,
+            $paymentType,
             $recipientName,
             $notes,
             $data
@@ -82,6 +92,7 @@ class OutgoingParcelService
                 'package_type'          => trim((string) ($data['package_type'] ?? 'طرد')) ?: 'طرد',
                 'receipt_number'        => $nextReceiptNumber,
                 'cod_amount'            => $codAmount,
+                'payment_type'          => $paymentType,
                 'notes'                 => $notes !== '' ? $notes : null,
                 'status'                => OutgoingParcelStatus::PENDING,
             ]);
@@ -220,7 +231,9 @@ class OutgoingParcelService
             }
 
             $sourceRegion = $sourceBranch !== '' ? mb_substr($sourceBranch, 0, 100) : null;
-            $codAmount = ($locked->cod_amount !== null && (float) $locked->cod_amount > 0)
+
+            // إذا كان الطرد (آجل - deferred) ينتقل المبلغ لتحصيله عند التسليم، أما إذا كان (محاسب - paid) فيكون null لعدم التحصيل مرتين
+            $codAmount = ($locked->payment_type === OutgoingPaymentType::DEFERRED && $locked->cod_amount !== null)
                 ? (float) $locked->cod_amount
                 : null;
 

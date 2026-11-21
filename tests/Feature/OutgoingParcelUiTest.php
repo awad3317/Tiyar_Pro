@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
 use App\Enums\ParcelStatus;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
@@ -94,7 +95,19 @@ class OutgoingParcelUiTest extends TestCase
             ->assertSee('الطرود الصادرة')
             ->assertSee('+ إضافة طرد صادر');
 
-        // 2. إنشاء طرد موجّه إلى فرع في النظام → يأخذ رقم السند التلقائي '1'
+        // التحقق من إلزامية المبلغ وحالة الدفع (محاسب / آجل)
+        $this->actingAs($this->senderOffice, 'office')
+            ->post(route('office.outgoing-parcels.store'), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'محمد المرسل',
+                'sender_phone'          => '771234567',
+                'recipient_phone'       => '777654321',
+                'package_type'          => 'كرتون كاكي كبير',
+            ])
+            ->assertSessionHasErrors(['cod_amount', 'payment_type']);
+
+        // 2. إنشاء طرد موجّه إلى فرع في النظام (آجل) → يأخذ رقم السند التلقائي '1'
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.store'), [
                 'destination_type'      => 'office',
@@ -105,6 +118,7 @@ class OutgoingParcelUiTest extends TestCase
                 'recipient_phone'       => '777654321',
                 'package_type'          => 'كرتون كاكي كبير',
                 'cod_amount'            => 4000,
+                'payment_type'          => 'deferred',
                 'notes'                 => 'يسلم يداً بيد',
             ])
             ->assertRedirect(route('office.outgoing-parcels.index'));
@@ -116,10 +130,11 @@ class OutgoingParcelUiTest extends TestCase
 
         $this->assertSame('1', $internalParcel->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $internalParcel->status);
+        $this->assertSame(OutgoingPaymentType::DEFERRED, $internalParcel->payment_type);
         $this->assertFalse($internalParcel->isExternal());
         $this->assertEquals($this->targetOffice->id, $internalParcel->destination_office_id);
 
-        // 3. إنشاء طرد ثانٍ موجّه إلى مكتب خارجي → يأخذ رقم السند التلقائي '2'
+        // 3. إنشاء طرد ثانٍ موجّه إلى مكتب خارجي (محاسب) → يأخذ رقم السند التلقائي '2'
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.store'), [
                 'destination_type'     => 'external',
@@ -129,6 +144,8 @@ class OutgoingParcelUiTest extends TestCase
                 'recipient_name'       => 'نبيل المستلم',
                 'recipient_phone'      => '773999888',
                 'package_type'         => 'ضرف أبيض صغير',
+                'cod_amount'           => 2500,
+                'payment_type'         => 'paid',
             ])
             ->assertRedirect(route('office.outgoing-parcels.index'));
 
@@ -139,6 +156,7 @@ class OutgoingParcelUiTest extends TestCase
 
         $this->assertSame('2', $externalParcel->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $externalParcel->status);
+        $this->assertSame(OutgoingPaymentType::PAID, $externalParcel->payment_type);
         $this->assertTrue($externalParcel->isExternal());
         $this->assertSame('مكتب الأمانة الخارجي - مأرب', $externalParcel->destinationLabel());
 
@@ -154,6 +172,8 @@ class OutgoingParcelUiTest extends TestCase
                 'sender_phone'          => '778111222',
                 'recipient_phone'       => '778333444',
                 'package_type'          => 'كيس أزرق وسط',
+                'cod_amount'            => 1500,
+                'payment_type'          => 'paid',
             ])
             ->assertRedirect(route('office.outgoing-parcels.index'));
 
@@ -196,6 +216,8 @@ class OutgoingParcelUiTest extends TestCase
             'recipient_phone'       => '772000222',
             'package_type'          => 'كيس ملابس كبير',
             'receipt_number'        => 'TR-900',
+            'cod_amount'            => 3000,
+            'payment_type'          => OutgoingPaymentType::PAID,
             'status'                => OutgoingParcelStatus::IN_TRANSIT,
             'dispatched_at'         => now(),
         ]);
@@ -233,7 +255,8 @@ class OutgoingParcelUiTest extends TestCase
 
     public function test_target_office_can_receive_transit_parcel_creating_incoming_parcel(): void
     {
-        $outgoing = OutgoingParcel::create([
+        // 1. طرد آجل (deferred) → ينسخ المبلغ إلى parcels.cod_amount
+        $deferredOutgoing = OutgoingParcel::create([
             'office_id'             => $this->senderOffice->id,
             'destination_office_id' => $this->targetOffice->id,
             'sender_name'           => 'عمر المرسل',
@@ -241,29 +264,55 @@ class OutgoingParcelUiTest extends TestCase
             'recipient_name'        => 'وليد المستلم',
             'recipient_phone'       => '775333444',
             'package_type'          => 'كرتون قطع غيار',
-            'receipt_number'        => 'RCV-777',
+            'receipt_number'        => '1',
             'cod_amount'            => 7500,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
             'status'                => OutgoingParcelStatus::IN_TRANSIT,
             'dispatched_at'         => now(),
         ]);
 
         $this->actingAs($this->targetOffice, 'office')
-            ->post(route('office.transit-parcels.receive', $outgoing))
+            ->post(route('office.transit-parcels.receive', $deferredOutgoing))
             ->assertRedirect(route('office.transit-parcels.index'))
             ->assertSessionHas('success', 'تم استلام الطرد بنجاح، تم تحويله إلى قائمة الطرود وإرسال الإشعار للعميل.');
 
-        $outgoing->refresh();
-        $this->assertSame(OutgoingParcelStatus::RECEIVED, $outgoing->status);
-        $this->assertNotNull($outgoing->linked_incoming_parcel_id);
+        $deferredOutgoing->refresh();
+        $this->assertSame(OutgoingParcelStatus::RECEIVED, $deferredOutgoing->status);
+        $this->assertNotNull($deferredOutgoing->linked_incoming_parcel_id);
 
-        $incomingParcel = Parcel::findOrFail($outgoing->linked_incoming_parcel_id);
-        $this->assertEquals($this->targetOffice->id, $incomingParcel->office_id);
-        $this->assertEquals($this->senderOffice->id, $incomingParcel->source_office_id);
-        $this->assertSame('وليد المستلم', $incomingParcel->recipient_name);
-        $this->assertSame('775333444', $incomingParcel->recipient_phone);
-        $this->assertSame('كرتون قطع غيار', $incomingParcel->package_type);
-        $this->assertSame('RCV-777', $incomingParcel->receipt_number);
-        $this->assertSame(ParcelStatus::InOffice, $incomingParcel->status);
-        $this->assertEquals(7500.0, (float) $incomingParcel->cod_amount);
+        $incomingDeferred = Parcel::findOrFail($deferredOutgoing->linked_incoming_parcel_id);
+        $this->assertEquals($this->targetOffice->id, $incomingDeferred->office_id);
+        $this->assertEquals($this->senderOffice->id, $incomingDeferred->source_office_id);
+        $this->assertSame('وليد المستلم', $incomingDeferred->recipient_name);
+        $this->assertSame('775333444', $incomingDeferred->recipient_phone);
+        $this->assertSame('كرتون قطع غيار', $incomingDeferred->package_type);
+        $this->assertSame('1', $incomingDeferred->receipt_number);
+        $this->assertSame(ParcelStatus::InOffice, $incomingDeferred->status);
+        $this->assertEquals(7500.0, (float) $incomingDeferred->cod_amount);
+
+        // 2. طرد محاسب (paid) → يصبح parcels.cod_amount = null لعدم التحصيل مرة أخرى
+        $paidOutgoing = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'عمر المرسل',
+            'sender_phone'          => '774111222',
+            'recipient_name'        => 'سامي المستلم',
+            'recipient_phone'       => '775666777',
+            'package_type'          => 'كيس أبيض وسط',
+            'receipt_number'        => '2',
+            'cod_amount'            => 4000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'status'                => OutgoingParcelStatus::IN_TRANSIT,
+            'dispatched_at'         => now(),
+        ]);
+
+        $this->actingAs($this->targetOffice, 'office')
+            ->post(route('office.transit-parcels.receive', $paidOutgoing))
+            ->assertRedirect(route('office.transit-parcels.index'));
+
+        $paidOutgoing->refresh();
+        $this->assertSame(OutgoingParcelStatus::RECEIVED, $paidOutgoing->status);
+        $incomingPaid = Parcel::findOrFail($paidOutgoing->linked_incoming_parcel_id);
+        $this->assertNull($incomingPaid->cod_amount);
     }
 }

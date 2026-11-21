@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
 use App\Enums\ParcelStatus;
 use App\Models\Feature;
 use App\Models\Office;
@@ -106,7 +107,7 @@ class OutgoingParcelFlowTest extends TestCase
     {
         $service = app(OutgoingParcelService::class);
 
-        // 1. المكتب أ ينشئ طرداً صادراً أولاً → يأخذ رقم السند التلقائي '1'
+        // 1. المكتب أ ينشئ طرداً صادراً (آجل - deferred) → يأخذ رقم السند التلقائي '1'
         $outgoing = $service->create($this->officeA, [
             'destination_office_id' => $this->officeB->id,
             'sender_name'           => 'أحمد المرسل',
@@ -115,24 +116,29 @@ class OutgoingParcelFlowTest extends TestCase
             'recipient_phone'       => '772222222',
             'package_type'          => 'كرتون أبيض وسط',
             'cod_amount'            => 5500,
+            'payment_type'          => 'deferred',
             'notes'                 => 'قابل للكسر',
         ]);
 
         $this->assertSame('1', $outgoing->receipt_number);
         $this->assertSame(OutgoingParcelStatus::PENDING, $outgoing->status);
+        $this->assertSame(OutgoingPaymentType::DEFERRED, $outgoing->payment_type);
         $this->assertFalse($outgoing->isExternal());
         $this->assertSame('مكتب عدن (اختبار) - عدن - المنصورة', $outgoing->destinationLabel());
         $this->assertNull($outgoing->linked_incoming_parcel_id);
 
-        // إنشاء طرد صادر ثانٍ للمكتب أ → يأخذ رقم السند التلقائي '2'
+        // إنشاء طرد صادر ثانٍ للمكتب أ (محاسب - paid) → يأخذ رقم السند التلقائي '2'
         $outgoingSecond = $service->create($this->officeA, [
             'destination_office_id' => $this->officeB->id,
             'sender_name'           => 'مرسل ثانٍ',
             'sender_phone'          => '771999999',
             'recipient_phone'       => '772999999',
             'package_type'          => 'كيس أبيض صغير',
+            'cod_amount'            => 3000,
+            'payment_type'          => 'paid',
         ]);
         $this->assertSame('2', $outgoingSecond->receipt_number);
+        $this->assertSame(OutgoingPaymentType::PAID, $outgoingSecond->payment_type);
 
         // إنشاء طرد صادر للمكتب ب → يبدأ ترقيمه المستقل من '1'
         $outgoingOfficeB = $service->create($this->officeB, [
@@ -141,16 +147,18 @@ class OutgoingParcelFlowTest extends TestCase
             'sender_phone'          => '773888888',
             'recipient_phone'       => '774888888',
             'package_type'          => 'ضرف كاكي وسط',
+            'cod_amount'            => 1500,
+            'payment_type'          => 'paid',
         ]);
         $this->assertSame('1', $outgoingOfficeB->receipt_number);
 
-        // 2. المكتب أ يحوّل الطرد الأول إلى في الطريق (in_transit)
+        // 2. المكتب أ يحوّل الطرد الأول (آجل) إلى في الطريق (in_transit)
         $outgoing = $service->markInTransit($outgoing, $this->officeA);
 
         $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $outgoing->status);
         $this->assertNotNull($outgoing->dispatched_at);
 
-        // 3. المكتب ب يستلم الطرد → يُنشأ طرد وارد تلقائياً في parcels بنفس رقم السند '1'
+        // 3. المكتب ب يستلم الطرد الآجل → ينتقل المبلغ (5500) إلى parcels.cod_amount لتحصيله عند التسليم
         $incomingParcel = $service->receiveAtDestination($outgoing, $this->officeB);
 
         $this->assertInstanceOf(Parcel::class, $incomingParcel);
@@ -175,9 +183,21 @@ class OutgoingParcelFlowTest extends TestCase
         $this->assertSame($incomingParcel->id, $outgoing->linked_incoming_parcel_id);
         $this->assertSame($incomingParcel->id, $outgoing->linkedIncomingParcel->id);
 
+        // 4. استلام الطرد الثاني (محاسب - paid) → يجب أن يصبح parcels.cod_amount = null لعدم التحصيل مرتين
+        $service->markInTransit($outgoingSecond, $this->officeA);
+        $paidIncomingParcel = $service->receiveAtDestination($outgoingSecond, $this->officeB);
+
+        $this->assertNull($paidIncomingParcel->cod_amount);
+        $this->assertDatabaseHas('parcels', [
+            'id'             => $paidIncomingParcel->id,
+            'office_id'      => $this->officeB->id,
+            'receipt_number' => '2',
+            'cod_amount'     => null,
+        ]);
+
         // التحقق من تشغيل مسار إشعار الوصول (httpSMS)
         $this->assertSame('pending', $incomingParcel->sms_status);
-        Http::assertSentCount(1);
+        Http::assertSentCount(2);
     }
 
     public function test_receiving_same_outgoing_parcel_twice_fails_without_creating_duplicate(): void
@@ -191,6 +211,8 @@ class OutgoingParcelFlowTest extends TestCase
             'recipient_name'        => 'علي المستلم',
             'recipient_phone'       => '774444444',
             'package_type'          => 'ضرف أبيض صغير',
+            'cod_amount'            => 2000,
+            'payment_type'          => 'paid',
         ]);
 
         $this->assertSame('1', $outgoing->receipt_number);
@@ -234,6 +256,8 @@ class OutgoingParcelFlowTest extends TestCase
             'sender_phone'          => '775555555',
             'recipient_phone'       => '776666666',
             'package_type'          => 'كيس ملابس',
+            'cod_amount'            => 1000,
+            'payment_type'          => 'paid',
         ]);
 
         $service->markInTransit($outgoing, $this->officeA);

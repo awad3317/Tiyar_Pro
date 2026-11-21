@@ -20,6 +20,7 @@
               initialDestType: @js(old('destination_type', 'office')),
               initialOfficeId: @js(old('destination_office_id', '')),
               initialPackageType: @js(old('package_type', '')),
+              initialPaymentType: @js(old('payment_type', 'paid')),
               offices: @js($officesForJs)
           })">
 
@@ -158,7 +159,7 @@
                                     @endif
                                 </div>
 
-                                {{-- شارة الوجهة --}}
+                                {{-- شارة الوجهة وحالة الدفع والمبلغ --}}
                                 <div class="flex items-center gap-1.5 flex-wrap mt-1">
                                     @if($parcel->isExternal())
                                         <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
@@ -172,11 +173,15 @@
                                         </span>
                                     @endif
 
-                                    @if($parcel->cod_amount && (float) $parcel->cod_amount > 0)
-                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold font-mono">
-                                            <span>تحصيل: {{ number_format((float) $parcel->cod_amount) }} ر.ي</span>
-                                        </span>
-                                    @endif
+                                    @php
+                                        $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
+                                            ? $parcel->payment_type
+                                            : (\App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold {{ $paymentEnum->badgeClass() }}">
+                                        <span>{{ $paymentEnum->label() }}:</span>
+                                        <span class="font-mono">{{ number_format((float) ($parcel->cod_amount ?? 0)) }} ر.ي</span>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -519,17 +524,43 @@
                         </div>
                     </div>
 
-                    {{-- هـ. مبلغ التحصيل (اختياري) --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">مبلغ التحصيل (ر.ي) <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
-                        <input type="number"
-                               step="any"
-                               min="0"
-                               name="cod_amount"
-                               value="{{ old('cod_amount') }}"
-                               dir="ltr"
-                               placeholder="مثال: 5000"
-                               class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                    {{-- هـ. المبلغ وحالة الدفع (محاسب / آجل) --}}
+                    <div class="grid grid-cols-12 gap-2 items-end">
+                        <div class="col-span-6">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">المبلغ (ر.ي) <span class="text-rose-500">*</span></label>
+                            <input type="number"
+                                   step="any"
+                                   min="0"
+                                   name="cod_amount"
+                                   value="{{ old('cod_amount') }}"
+                                   required
+                                   dir="ltr"
+                                   placeholder="مثال: 5000"
+                                   class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                        </div>
+
+                        <div class="col-span-6">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">حالة الدفع <span class="text-rose-500">*</span></label>
+                            <input type="hidden" name="payment_type" :value="paymentType">
+                            <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                                <button type="button"
+                                        @click="paymentType = 'paid'"
+                                        :class="paymentType === 'paid'
+                                            ? 'bg-emerald-600 text-white shadow-xs font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-800 font-bold'"
+                                        class="py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
+                                    <span>محاسب</span>
+                                </button>
+                                <button type="button"
+                                        @click="paymentType = 'deferred'"
+                                        :class="paymentType === 'deferred'
+                                            ? 'bg-amber-500 text-white shadow-xs font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-800 font-bold'"
+                                        class="py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
+                                    <span>آجل</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- و. ملاحظات --}}
@@ -571,6 +602,7 @@
             selectedOfficeId: String(config.initialOfficeId || ''),
             officeSearch: '',
             packageType: config.initialPackageType || '',
+            paymentType: config.initialPaymentType || 'paid',
             offices: config.offices || [],
 
             catalog: {
@@ -607,6 +639,7 @@
 
             openModal() {
                 this.packageType = '';
+                this.paymentType = 'paid';
                 this.officeSearch = '';
                 this.showModal = true;
             },
@@ -614,6 +647,7 @@
             closeModal() {
                 this.showModal = false;
                 this.packageType = '';
+                this.paymentType = 'paid';
                 this.officeSearch = '';
             },
 

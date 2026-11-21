@@ -56,7 +56,8 @@ class StoreOutgoingParcelRequest extends FormRequest
             'recipient_name'        => ['nullable', 'string', 'max:255'],
             'recipient_phone'       => ['required', 'string', 'max:25'],
             'package_type'          => ['required', 'string', 'max:255'],
-            'cod_amount'            => ['nullable', 'numeric', 'min:0'],
+            'cod_amount'            => ['required', 'numeric', 'min:0'],
+            'payment_type'          => ['required', Rule::in(['paid', 'deferred'])],
             'notes'                 => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -84,8 +85,11 @@ class StoreOutgoingParcelRequest extends FormRequest
             'recipient_phone.max'               => 'رقم هاتف المستلم يجب ألا يتجاوز 25 حرفاً.',
             'package_type.required'             => 'يرجى إدخال نوع الطرد.',
             'package_type.max'                  => 'نوع الطرد يجب ألا يتجاوز 255 حرفاً.',
-            'cod_amount.numeric'                => 'مبلغ التحصيل يجب أن يكون رقماً صالحاً.',
-            'cod_amount.min'                    => 'مبلغ التحصيل يجب ألا يقل عن صفر.',
+            'cod_amount.required'               => 'يرجى إدخال المبلغ.',
+            'cod_amount.numeric'                => 'المبلغ يجب أن يكون رقماً صالحاً.',
+            'cod_amount.min'                    => 'المبلغ يجب ألا يقل عن صفر.',
+            'payment_type.required'             => 'يرجى تحديد حالة الدفع: محاسب أو آجل.',
+            'payment_type.in'                   => 'يرجى تحديد حالة الدفع: محاسب أو آجل.',
             'notes.max'                         => 'الملاحظات يجب ألا تتجاوز 1000 حرف.',
         ];
     }

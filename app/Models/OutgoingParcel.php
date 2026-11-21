@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,7 @@ class OutgoingParcel extends Model
         'package_type',
         'receipt_number',
         'cod_amount',
+        'payment_type',
         'notes',
         'status',
         'linked_incoming_parcel_id',
@@ -34,6 +36,7 @@ class OutgoingParcel extends Model
     {
         return [
             'status'        => OutgoingParcelStatus::class,
+            'payment_type'  => OutgoingPaymentType::class,
             'cod_amount'    => 'decimal:2',
             'dispatched_at' => 'datetime',
             'received_at'   => 'datetime',
