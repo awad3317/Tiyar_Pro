@@ -319,12 +319,14 @@
         {{-- 4. مودال إضافة طرد صادر جديد --}}
         <div x-show="showModal"
              x-cloak
-             class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start pt-2 px-2 sm:items-center justify-center sm:p-4">
+             :style="{ height: viewportHeight + 'px', top: viewportTop + 'px' }"
+             class="fixed left-0 right-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start justify-center pt-1.5 px-1.5 sm:items-center sm:p-4">
             <div @click.outside="closeModal()"
-                 class="bg-white w-full max-w-md rounded-2xl max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+                 :style="{ maxHeight: Math.max(260, viewportHeight - 12) + 'px' }"
+                 class="bg-white w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
 
                 {{-- هيدر المودال --}}
-                <div class="px-4 py-3.5 bg-primary text-white flex items-center justify-between shrink-0">
+                <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-secondary text-xl">outbox</span>
                         <h3 class="text-sm font-extrabold">إضافة طرد صادر جديد</h3>
@@ -337,10 +339,14 @@
                 {{-- نموذج الإضافة --}}
                 <form method="POST"
                       action="{{ route('office.outgoing-parcels.store') }}"
-                      class="p-4 pb-4 space-y-3 flex-1 overflow-y-auto overscroll-contain"
+                      class="flex flex-col flex-1 min-h-0"
                       x-data="{ submitting: false }"
                       @submit="if (submitting) { $event.preventDefault(); return; } submitting = true">
                     @csrf
+
+                    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pt-3 pb-8 space-y-3"
+                         style="-webkit-overflow-scrolling: touch;"
+                         @focusin="if ($event.target.matches('input, textarea, select')) { setTimeout(() => $event.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180); }">
 
                     {{-- أ. حقل الوجهة الموحد الذكي (Searchable Combobox: فرع في النظام أو مكتب خارجي) --}}
                     <div class="relative" @click.outside="destDropdownOpen = false">
@@ -643,9 +649,10 @@
                                   placeholder="أي تفاصيل إضافية..."
                                   class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">{{ old('notes') }}</textarea>
                     </div>
+                    </div>
 
-                    {{-- أزرار الحفظ والإلغاء --}}
-                    <div class="pt-2 flex items-center gap-2">
+                    {{-- أزرار الحفظ والإلغاء (فوتر ثابت أسفل المودال وفوق الكيبورد) --}}
+                    <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
                         <button type="submit"
                                 :disabled="submitting"
                                 class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-white text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
@@ -677,6 +684,8 @@
 
         return {
             showModal: Boolean(config.hasErrors),
+            viewportHeight: window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight,
+            viewportTop: window.visualViewport ? Math.round(window.visualViewport.offsetTop) : 0,
             destDropdownOpen: false,
             destType: matchedOffice ? 'office' : (initExternal !== '' ? 'external' : (config.initialDestType || 'office')),
             selectedOfficeId: matchedOffice ? String(matchedOffice.id) : '',
@@ -685,6 +694,24 @@
             packageType: config.initialPackageType || '',
             paymentType: config.initialPaymentType || 'paid',
             offices: officesList,
+
+            init() {
+                const updateViewport = () => {
+                    if (window.visualViewport) {
+                        this.viewportHeight = Math.round(window.visualViewport.height);
+                        this.viewportTop = Math.round(window.visualViewport.offsetTop);
+                    } else {
+                        this.viewportHeight = window.innerHeight;
+                        this.viewportTop = 0;
+                    }
+                };
+                updateViewport();
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', updateViewport);
+                    window.visualViewport.addEventListener('scroll', updateViewport);
+                }
+                window.addEventListener('resize', updateViewport);
+            },
 
             catalog: {
                 'كيس': ['أبيض', 'أسود', 'أزرق', 'أحمر', 'بني', 'بنفسجي', 'أصفر', 'وردي', 'رمادي', 'شفاف'],
