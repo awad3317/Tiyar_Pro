@@ -2,6 +2,18 @@
     $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
         ? $parcel->payment_type
         : (\App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+
+    $modalPayload = [
+        'id'              => $parcel->id,
+        'receipt_number'  => $parcel->receipt_number,
+        'package_type'    => $parcel->package_type,
+        'destination'     => $parcel->destinationLabel(),
+        'is_external'     => $parcel->isExternal(),
+        'payment_label'   => $paymentEnum->label(),
+        'cod_amount'      => number_format((float) ($parcel->cod_amount ?? 0)),
+        'recipient_name'  => $parcel->recipient_name,
+        'recipient_phone' => $parcel->recipient_phone,
+    ];
 @endphp
 <article id="outgoing-card-{{ $parcel->id }}"
          style="content-visibility: auto; contain-intrinsic-size: 160px;"
@@ -73,30 +85,17 @@
     {{-- أزرار الإجراءات حسب الحالة --}}
     @if ($parcel->status === \App\Enums\OutgoingParcelStatus::PENDING)
         <div class="flex items-center gap-2 pt-1">
-            <form method="POST"
-                  action="{{ route('office.outgoing-parcels.dispatch', $parcel) }}"
-                  class="flex-1"
-                  @submit.prevent="performCardAction('{{ route('office.outgoing-parcels.dispatch', $parcel) }}', '{{ $parcel->id }}', 'تأكيد شحن الطرد وتحويل حالته إلى (في الطريق)؟')">
-                @csrf
-                <button type="submit"
-                        :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                        class="w-full py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
-                    <span class="material-symbols-outlined text-sm">local_shipping</span>
-                    <span x-text="actionLoading['{{ $parcel->id }}'] ? 'جاري الشحن...' : 'شحن (في الطريق)'"></span>
-                </button>
-            </form>
+            <button type="button"
+                    :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
+                    @click="openActionModal('dispatch', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.dispatch', $parcel)])))"
+                    class="flex-1 py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
+                <span class="material-symbols-outlined text-sm">local_shipping</span>
+                <span x-text="actionLoading['{{ $parcel->id }}'] ? 'جاري الشحن...' : 'شحن (في الطريق)'"></span>
+            </button>
 
             <button type="button"
                     :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                    @click="openCancelModal(@js([
-                        'id'              => $parcel->id,
-                        'receipt_number'  => $parcel->receipt_number,
-                        'package_type'    => $parcel->package_type,
-                        'destination'     => $parcel->destinationLabel(),
-                        'recipient_name'  => $parcel->recipient_name,
-                        'recipient_phone' => $parcel->recipient_phone,
-                        'cancel_url'      => route('office.outgoing-parcels.cancel', $parcel),
-                    ]))"
+                    @click="openActionModal('cancel', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)])))"
                     class="py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
                 <span class="material-symbols-outlined text-sm">cancel</span>
                 <span>إلغاء</span>
@@ -106,18 +105,13 @@
     @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::IN_TRANSIT)
         <div class="flex items-center gap-2 pt-1">
             @if ($parcel->isExternal())
-                <form method="POST"
-                      action="{{ route('office.outgoing-parcels.deliver-external', $parcel) }}"
-                      class="flex-1"
-                      @submit.prevent="performCardAction('{{ route('office.outgoing-parcels.deliver-external', $parcel) }}', '{{ $parcel->id }}', 'تأكيد تسليم الطرد للمكتب الخارجي؟')">
-                    @csrf
-                    <button type="submit"
-                            :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                            class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
-                        <span class="material-symbols-outlined text-sm">check_circle</span>
-                        <span x-text="actionLoading['{{ $parcel->id }}'] ? 'جاري التأكيد...' : 'تم التسليم'"></span>
-                    </button>
-                </form>
+                <button type="button"
+                        :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
+                        @click="openActionModal('deliver', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.deliver-external', $parcel)])))"
+                        class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
+                    <span class="material-symbols-outlined text-sm">check_circle</span>
+                    <span x-text="actionLoading['{{ $parcel->id }}'] ? 'جاري التأكيد...' : 'تم التسليم'"></span>
+                </button>
             @else
                 <div class="flex-1 py-2 px-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold flex items-center justify-center gap-1">
                     <span class="material-symbols-outlined text-sm">hourglass_top</span>
@@ -127,15 +121,7 @@
 
             <button type="button"
                     :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                    @click="openCancelModal(@js([
-                        'id'              => $parcel->id,
-                        'receipt_number'  => $parcel->receipt_number,
-                        'package_type'    => $parcel->package_type,
-                        'destination'     => $parcel->destinationLabel(),
-                        'recipient_name'  => $parcel->recipient_name,
-                        'recipient_phone' => $parcel->recipient_phone,
-                        'cancel_url'      => route('office.outgoing-parcels.cancel', $parcel),
-                    ]))"
+                    @click="openActionModal('cancel', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)])))"
                     class="py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
                 <span class="material-symbols-outlined text-sm">cancel</span>
                 <span>إلغاء</span>

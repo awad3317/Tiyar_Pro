@@ -599,27 +599,27 @@
             </div>
         </div>
 
-        {{-- 5. مودال تأكيد إلغاء الطرد الصادر (بدون backdrop-blur لأداء 60fps على أجهزة أندرويد الاقتصادية) --}}
-        <div x-show="cancelModal.open"
+        {{-- 5. مودال التأكيد الموحّد لإجراءات الطرد الصادر (شحن / تسليم خارجي / إلغاء) --}}
+        <div x-show="actionModal.open"
              x-cloak
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
-             @keydown.escape.window="closeCancelModal()">
+             @keydown.escape.window="closeActionModal()">
 
             {{-- خلفية التعتيم الشفافة السريعة --}}
             <div class="fixed inset-0 bg-slate-950/60 transition-opacity"
-                 x-show="cancelModal.open"
+                 x-show="actionModal.open"
                  x-transition:enter="ease-out duration-200"
                  x-transition:enter-start="opacity-0"
                  x-transition:enter-end="opacity-100"
                  x-transition:leave="ease-in duration-150"
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
-                 @click="closeCancelModal()">
+                 @click="closeActionModal()">
             </div>
 
             {{-- بطاقة المودال الرئيسية --}}
             <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-4 text-right"
-                 x-show="cancelModal.open"
+                 x-show="actionModal.open"
                  x-transition:enter="ease-out duration-200"
                  x-transition:enter-start="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95"
                  x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
@@ -629,8 +629,8 @@
 
                 {{-- زر إغلاق علوي --}}
                 <button type="button"
-                        @click="closeCancelModal()"
-                        :disabled="cancelModal.submitting"
+                        @click="closeActionModal()"
+                        :disabled="actionModal.submitting"
                         title="إغلاق"
                         class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors disabled:opacity-50">
                     <span class="material-symbols-outlined text-base">close</span>
@@ -638,79 +638,93 @@
 
                 {{-- الهيدر والأيقونة --}}
                 <div class="text-center pt-1">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shadow-inner mb-3">
-                        <span class="material-symbols-outlined text-3xl">cancel</span>
+                    <div class="w-14 h-14 mx-auto rounded-2xl border flex items-center justify-center shadow-inner mb-3"
+                         :class="actionModalMeta.iconBoxClass">
+                        <span class="material-symbols-outlined text-3xl" x-text="actionModalMeta.icon"></span>
                     </div>
-                    <h3 class="text-base font-extrabold text-slate-800">
-                        إلغاء الطرد الصادر
-                    </h3>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                        هل أنت متأكد من رغبتك في إلغاء هذا الطرد الصادر؟
-                    </p>
+                    <h3 class="text-base font-extrabold text-slate-800" x-text="actionModalMeta.title"></h3>
+                    <p class="text-xs text-slate-500 mt-1 leading-relaxed" x-text="actionModalMeta.subtitle"></p>
                 </div>
 
-                {{-- ملخص بيانات الطرد المراد إلغاؤه --}}
-                <template x-if="cancelModal.parcel">
+                {{-- ملخص بيانات الطرد --}}
+                <template x-if="actionModal.parcel">
                     <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
 
                         {{-- الوجهة المستلمة --}}
                         <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
                             <span class="text-slate-400 flex items-center gap-1 font-medium">
-                                <span class="material-symbols-outlined text-sm text-slate-400">domain</span>
+                                <span class="material-symbols-outlined text-sm text-slate-400"
+                                      x-text="actionModal.parcel.is_external ? 'storefront' : 'domain'"></span>
                                 الوجهة:
                             </span>
-                            <span class="font-bold text-rose-600 truncate max-w-[180px]"
-                                  x-text="cancelModal.parcel.destination || 'غير محدد'">
+                            <span class="font-bold truncate max-w-[180px]"
+                                  :class="actionModalMeta.destTextClass"
+                                  x-text="actionModal.parcel.destination || 'غير محدد'">
                             </span>
                         </div>
 
-                        {{-- رقم السند ونوع الشحنة --}}
+                        {{-- نوع الشحنة --}}
                         <div class="flex items-center justify-between">
                             <span class="text-slate-400">نوع الشحنة:</span>
-                            <span class="font-bold text-slate-700" x-text="cancelModal.parcel.package_type"></span>
+                            <span class="font-bold text-slate-700" x-text="actionModal.parcel.package_type"></span>
                         </div>
 
-                        <div class="flex items-center justify-between" x-show="cancelModal.parcel.receipt_number">
+                        {{-- رقم السند --}}
+                        <div class="flex items-center justify-between" x-show="actionModal.parcel.receipt_number">
                             <span class="text-slate-400">رقم السند:</span>
-                            <span class="font-mono font-bold text-slate-700" x-text="'#' + cancelModal.parcel.receipt_number"></span>
+                            <span class="font-mono font-bold text-slate-700" x-text="'#' + actionModal.parcel.receipt_number"></span>
+                        </div>
+
+                        {{-- المبلغ وحالة الدفع --}}
+                        <div class="flex items-center justify-between" x-show="actionModal.parcel.payment_label">
+                            <span class="text-slate-400">الحساب:</span>
+                            <span class="font-bold text-slate-700">
+                                <span x-text="actionModal.parcel.payment_label"></span>:
+                                <span class="font-mono" x-text="(actionModal.parcel.cod_amount || '0') + ' ر.ي'"></span>
+                            </span>
                         </div>
 
                         {{-- بيانات المستلم --}}
                         <div class="flex items-center justify-between pt-1">
                             <span class="text-slate-400">المستلم:</span>
                             <div class="text-left">
-                                <span class="font-bold text-slate-700 block" x-text="cancelModal.parcel.recipient_name || 'بدون اسم'"></span>
-                                <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="cancelModal.parcel.recipient_phone"></span>
+                                <span class="font-bold text-slate-700 block" x-text="actionModal.parcel.recipient_name || 'بدون اسم'"></span>
+                                <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="actionModal.parcel.recipient_phone"></span>
                             </div>
                         </div>
 
                     </div>
                 </template>
 
-                {{-- تنبيه تحذيري --}}
-                <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 leading-snug">
-                    <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">warning</span>
+                {{-- صندوق الملاحظة / التنبيه --}}
+                <div class="border rounded-xl p-2.5 flex items-start gap-2 text-[11px] leading-snug"
+                     :class="actionModalMeta.noticeBoxClass">
+                    <span class="material-symbols-outlined text-base shrink-0 mt-0.5"
+                          :class="actionModalMeta.noticeIconClass"
+                          x-text="actionModalMeta.noticeIcon"></span>
                     <span>
-                        <strong>تنبيه:</strong> سيتم إلغاء الطرد الصادر رسمياً ولن يظهر في قائمة الطرود القادمة لدى الفرع المستلم.
+                        <strong x-text="actionModalMeta.noticeLabel"></strong>
+                        <span x-text="actionModalMeta.noticeText"></span>
                     </span>
                 </div>
 
                 {{-- أزرار الإجراءات (تُرسل عبر AJAX بدون إعادة تحميل الصفحة) --}}
                 <form method="POST"
-                      :action="cancelModal.url"
+                      :action="actionModal.url"
                       class="flex flex-col gap-2 pt-1"
-                      @submit.prevent="submitCancelModal()">
+                      @submit.prevent="submitActionModal()">
                     @csrf
                     <button type="submit"
-                            :disabled="cancelModal.submitting"
-                            class="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50">
-                        <span class="material-symbols-outlined text-base">cancel</span>
-                        <span x-text="cancelModal.submitting ? 'جاري الإلغاء...' : 'تأكيد إلغاء الطرد الصادر'"></span>
+                            :disabled="actionModal.submitting"
+                            :class="actionModalMeta.confirmBtnClass"
+                            class="w-full py-3 px-4 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                        <span class="material-symbols-outlined text-base" x-text="actionModalMeta.icon"></span>
+                        <span x-text="actionModal.submitting ? actionModalMeta.submittingLabel : actionModalMeta.confirmLabel"></span>
                     </button>
 
                     <button type="button"
-                            @click="closeCancelModal()"
-                            :disabled="cancelModal.submitting"
+                            @click="closeActionModal()"
+                            :disabled="actionModal.submitting"
                             class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center transition-colors disabled:opacity-50">
                         <span>تراجع</span>
                     </button>
@@ -742,8 +756,9 @@
             _abortController: null,
             actionLoading: {},
 
-            cancelModal: {
+            actionModal: {
                 open: false,
+                type: 'dispatch', // 'dispatch' | 'deliver' | 'cancel'
                 submitting: false,
                 url: '#',
                 parcel: null,
@@ -898,12 +913,99 @@
                 }
             },
 
-            async performCardAction(url, parcelId, confirmMsg = null) {
-                if (this.actionLoading[parcelId]) return;
-                if (confirmMsg && !window.confirm(confirmMsg)) return;
+            get actionModalMeta() {
+                const isExternal = Boolean(this.actionModal.parcel?.is_external);
 
-                this.actionLoading[parcelId] = true;
+                if (this.actionModal.type === 'dispatch') {
+                    return {
+                        icon: 'local_shipping',
+                        iconBoxClass: 'bg-sky-50 border-sky-100 text-sky-600',
+                        destTextClass: 'text-sky-700',
+                        title: 'تأكيد شحن الطرد',
+                        subtitle: 'هل أنت متأكد من شحن هذا الطرد وتحويل حالته إلى (في الطريق)؟',
+                        noticeIcon: 'info',
+                        noticeBoxClass: 'bg-sky-50 border-sky-200/80 text-sky-800',
+                        noticeIconClass: 'text-sky-600',
+                        noticeLabel: 'ملاحظة: ',
+                        noticeText: isExternal
+                            ? 'سيتم تحويل الطرد إلى (في الطريق) نحو المكتب الخارجي، ويمكنك تأكيد تسليمه لاحقاً.'
+                            : 'سيظهر الطرد مباشرة في قائمة (في الطريق) لدى الفرع المستلم ليتسنى له استلامه.',
+                        confirmBtnClass: 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/25',
+                        confirmLabel: 'تأكيد الشحن (في الطريق)',
+                        submittingLabel: 'جاري الشحن...',
+                        successFallback: 'تم شحن الطرد وتحويله إلى (في الطريق) بنجاح.',
+                        errorFallback: 'تعذر شحن الطرد.',
+                    };
+                }
+
+                if (this.actionModal.type === 'deliver') {
+                    return {
+                        icon: 'check_circle',
+                        iconBoxClass: 'bg-emerald-50 border-emerald-100 text-emerald-600',
+                        destTextClass: 'text-emerald-700',
+                        title: 'تأكيد تسليم الطرد',
+                        subtitle: 'هل أنت متأكد من تسليم هذا الطرد للمكتب الخارجي؟',
+                        noticeIcon: 'verified',
+                        noticeBoxClass: 'bg-emerald-50 border-emerald-200/80 text-emerald-800',
+                        noticeIconClass: 'text-emerald-600',
+                        noticeLabel: 'ملاحظة: ',
+                        noticeText: 'سيتم اعتماد الطرد كـ (تم التسليم) بشكل نهائي ولن يمكن تعديله أو إلغاؤه بعد ذلك.',
+                        confirmBtnClass: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25',
+                        confirmLabel: 'تأكيد التسليم للمكتب الخارجي',
+                        submittingLabel: 'جاري التأكيد...',
+                        successFallback: 'تم تأكيد تسليم الطرد بنجاح.',
+                        errorFallback: 'تعذر تأكيد التسليم.',
+                    };
+                }
+
+                return {
+                    icon: 'cancel',
+                    iconBoxClass: 'bg-rose-50 border-rose-100 text-rose-600',
+                    destTextClass: 'text-rose-600',
+                    title: 'إلغاء الطرد الصادر',
+                    subtitle: 'هل أنت متأكد من رغبتك في إلغاء هذا الطرد الصادر؟',
+                    noticeIcon: 'warning',
+                    noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800',
+                    noticeIconClass: 'text-amber-600',
+                    noticeLabel: 'تنبيه: ',
+                    noticeText: 'سيتم إلغاء الطرد الصادر رسمياً ولن يظهر في قائمة الطرود القادمة لدى الفرع المستلم.',
+                    confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25',
+                    confirmLabel: 'تأكيد إلغاء الطرد الصادر',
+                    submittingLabel: 'جاري الإلغاء...',
+                    successFallback: 'تم إلغاء الطرد الصادر بنجاح.',
+                    errorFallback: 'تعذر إلغاء الطرد.',
+                };
+            },
+
+            openActionModal(type, parcelData) {
+                this.actionModal.type = type || 'dispatch';
+                this.actionModal.parcel = parcelData || null;
+                this.actionModal.url = parcelData?.url || parcelData?.cancel_url || '#';
+                this.actionModal.submitting = false;
+                this.actionModal.open = true;
+            },
+
+            openCancelModal(parcelData) {
+                this.openActionModal('cancel', parcelData);
+            },
+
+            closeActionModal() {
+                if (this.actionModal.submitting) return;
+                this.actionModal.open = false;
+                this.actionModal.parcel = null;
+                this.actionModal.url = '#';
+            },
+
+            async submitActionModal() {
+                if (this.actionModal.submitting || !this.actionModal.parcel) return;
+
+                const parcelId = this.actionModal.parcel.id;
+                const url = this.actionModal.url;
+                const meta = this.actionModalMeta;
                 const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+                this.actionModal.submitting = true;
+                this.actionLoading[parcelId] = true;
 
                 try {
                     const res = await fetch(url, {
@@ -918,7 +1020,8 @@
 
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok || !data.ok) {
-                        this.notifyToast(data.message || 'تعذر تنفيذ الإجراء.', true);
+                        this.actionModal.submitting = false;
+                        this.notifyToast(data.message || meta.errorFallback, true);
                         return;
                     }
 
@@ -926,52 +1029,15 @@
                         this.counts = data.counts;
                     }
 
+                    this.actionModal.submitting = false;
+                    this.closeActionModal();
                     this.applyCardDomUpdate(parcelId, data.parcel?.status, data.card_html);
-                    this.notifyToast(data.message || 'تم التحديث بنجاح.', false);
+                    this.notifyToast(data.message || meta.successFallback, false);
                 } catch (err) {
+                    this.actionModal.submitting = false;
                     this.notifyToast('تعذر الاتصال بالخادم، يرجى المحاولة مجدداً.', true);
                 } finally {
                     this.actionLoading[parcelId] = false;
-                }
-            },
-
-            async submitCancelModal() {
-                if (this.cancelModal.submitting || !this.cancelModal.parcel) return;
-
-                const parcelId = this.cancelModal.parcel.id;
-                const url = this.cancelModal.url;
-                const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-                this.cancelModal.submitting = true;
-                try {
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': token,
-                        },
-                    });
-
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok || !data.ok) {
-                        this.cancelModal.submitting = false;
-                        this.notifyToast(data.message || 'تعذر إلغاء الطرد.', true);
-                        return;
-                    }
-
-                    if (data.counts) {
-                        this.counts = data.counts;
-                    }
-
-                    this.cancelModal.submitting = false;
-                    this.closeCancelModal();
-                    this.applyCardDomUpdate(parcelId, data.parcel?.status, data.card_html);
-                    this.notifyToast(data.message || 'تم إلغاء الطرد الصادر بنجاح.', false);
-                } catch (err) {
-                    this.cancelModal.submitting = false;
-                    this.notifyToast('تعذر الاتصال بالخادم، يرجى المحاولة مجدداً.', true);
                 }
             },
 
@@ -1108,20 +1174,6 @@
                 this.destType = 'office';
                 this.destinationQuery = '';
                 this.externalOfficeName = '';
-            },
-
-            openCancelModal(parcelData) {
-                this.cancelModal.parcel = parcelData;
-                this.cancelModal.url = parcelData?.cancel_url || '#';
-                this.cancelModal.submitting = false;
-                this.cancelModal.open = true;
-            },
-
-            closeCancelModal() {
-                if (this.cancelModal.submitting) return;
-                this.cancelModal.open = false;
-                this.cancelModal.parcel = null;
-                this.cancelModal.url = '#';
             },
 
             get filteredOffices() {

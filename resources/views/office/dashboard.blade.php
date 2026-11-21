@@ -8,36 +8,120 @@
     <!-- المحتوى والبطاقات الإحصائية -->
     <main class="flex-1 p-4 space-y-4">
 
-        @php
-            $inTransitCount = $inTransitCount ?? (
-                auth('office')->check()
-                    ? \App\Models\OutgoingParcel::where('destination_office_id', auth('office')->id())
-                        ->where('status', \App\Enums\OutgoingParcelStatus::IN_TRANSIT)
-                        ->count()
-                    : 0
-            );
-        @endphp
+      @php
+    $transitCountInt = (int) ($inTransitCount ?? 0);
+    $dashboardTransitUrl = \Illuminate\Support\Facades\Route::has('office.transit-parcels.index')
+        ? route('office.transit-parcels.index')
+        : url('/office/transit-parcels');
+@endphp
 
-        @if($inTransitCount > 0)
-            <a href="{{ route('office.transit-parcels.index') }}"
-               class="bg-gradient-to-l from-sky-600 to-indigo-700 text-white p-4 rounded-2xl shadow-md shadow-sky-600/20 flex items-center justify-between gap-3 transition-transform active:scale-[0.99] block">
-                <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-xl animate-pulse">local_shipping</span>
-                    </span>
-                    <div>
-                        <p class="text-xs font-extrabold leading-snug">
-                            لديك {{ $inTransitCount }} طرد قادم في الطريق — اضغط للاستلام
-                        </p>
-                        <p class="text-[11px] text-sky-100 mt-0.5">
-                            اضغط هنا لمراجعة الطرود المرسلة إليك وتحويلها لطرد وارد فوراً
-                        </p>
-                    </div>
+@if($transitCountInt > 0)
+    <div
+        x-data="{
+            count: {{ $transitCountInt }},
+            officeId: {{ (int) ($office->id ?? auth('office')->id() ?? 0) }},
+            collapsed: false,
+            dismissedKey() { return 'mursal_transit_dismissed_' + this.officeId; },
+            init() {
+                const dismissedCount = parseInt(localStorage.getItem(this.dismissedKey()) || '0', 10) || 0;
+                // إذا زاد العدد عن آخر مرة طوى فيها الموظف التنبيه، يفتح البانر تلقائياً
+                this.collapsed = dismissedCount >= this.count;
+            },
+            remindLater() {
+                localStorage.setItem(this.dismissedKey(), String(this.count));
+                this.collapsed = true;
+            },
+            expand() {
+                this.collapsed = false;
+            },
+            headline() {
+                if (this.count === 1) return 'طرد واحد قادم في الطريق';
+                if (this.count === 2) return 'طردان قادمان في الطريق';
+                if (this.count >= 3 && this.count <= 10) return this.count + ' طرود قادمة في الطريق';
+                return this.count + ' طرداً قادماً في الطريق';
+            }
+        }"
+        class="mb-4"
+    >
+        {{-- الحالة 1: البانر الكامل (عند وصول شحنة جديدة) --}}
+        <div
+            x-show="!collapsed"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 -translate-y-1"
+            x-transition:enter-end="opacity-100 translate-y-0"
+            class="bg-primary text-white rounded-2xl p-4 shadow-md border border-slate-800 relative overflow-hidden"
+        >
+            {{-- شريط لمسة لونية جانبية بهوية التطبيق --}}
+            <div class="absolute top-0 right-0 bottom-0 w-1 bg-secondary"></div>
+
+            <div class="flex items-start gap-3">
+                <div class="w-11 h-11 rounded-xl bg-secondary/15 border border-secondary/30 text-secondary flex items-center justify-center shrink-0 relative">
+                    <span class="material-symbols-outlined text-2xl">local_shipping</span>
+                    <span class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-primary"></span>
                 </div>
-                <span class="material-symbols-outlined text-lg shrink-0">arrow_back</span>
-            </a>
-        @endif
 
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] font-extrabold text-secondary bg-secondary/15 px-2 py-0.5 rounded-md">
+                            شحنات قادمة
+                        </span>
+                    </div>
+                    <h3 class="text-sm font-extrabold text-white mt-1" x-text="headline()"></h3>
+                    <p class="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                        مرسلة إليك من الفروع الشريكة وبانتظار تأكيد الاستلام عند وصولها.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 mt-3.5 pt-3 border-t border-white/10">
+                <a
+                    href="{{ $dashboardTransitUrl }}"
+                    class="flex-1 py-2 px-3 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.98] text-primary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all"
+                >
+                    <span class="material-symbols-outlined text-base">inventory</span>
+                    <span>مراجعة واستلام</span>
+                </a>
+                <button
+                    type="button"
+                    @click="remindLater()"
+                    class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                >
+                    <span class="material-symbols-outlined text-sm">schedule</span>
+                    <span>لاحقاً</span>
+                </button>
+            </div>
+        </div>
+
+        {{-- الحالة 2: الشريط المطوي الرفيع (بعد الضغط على لاحقاً) --}}
+        <div
+            x-show="collapsed"
+            style="display: none;"
+            x-transition:enter="transition ease-out duration-150"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            class="bg-amber-50/90 border border-amber-200/90 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-2xs"
+        >
+            <button
+                type="button"
+                @click="expand()"
+                class="flex items-center gap-2 min-w-0 text-right flex-1"
+            >
+                <span class="w-7 h-7 rounded-lg bg-secondary/20 text-amber-800 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-base">local_shipping</span>
+                </span>
+                <span class="text-xs font-extrabold text-primary truncate" x-text="headline()"></span>
+            </button>
+
+            <a
+                href="{{ $dashboardTransitUrl }}"
+                class="px-2.5 py-1 rounded-lg bg-primary text-secondary text-[11px] font-extrabold shrink-0 hover:bg-slate-800 transition-colors flex items-center gap-0.5"
+            >
+                <span>عرض</span>
+                <span class="material-symbols-outlined text-sm">chevron_left</span>
+            </a>
+        </div>
+    </div>
+@endif
         <h2 class="text-sm font-bold text-slate-800 pr-1">إحصائيات الطرود</h2>
 
         <div class="grid grid-cols-2 gap-3">
