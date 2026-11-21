@@ -21,7 +21,10 @@ class OutgoingParcelController extends Controller
         $office = Auth::guard('office')->user();
 
         $statusFilter = (string) $request->query('status', 'all');
-        $search = trim((string) $request->query('q', ''));
+        $rawSearch = trim((string) $request->query('q', ''));
+        $eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $search = str_replace($eastern, $western, $rawSearch);
 
         $query = $office->outgoingParcels()
             ->with([

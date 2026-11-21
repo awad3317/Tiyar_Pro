@@ -17,6 +17,7 @@
     <main class="flex-1 p-3.5 space-y-3.5"
           x-data="outgoingParcelsPage({
               hasErrors: {{ $errors->any() ? 'true' : 'false' }},
+              initialSearch: @js($search),
               initialDestType: @js(old('destination_type', 'office')),
               initialOfficeId: @js(old('destination_office_id', '')),
               initialExternalName: @js(old('external_office_name', '')),
@@ -74,73 +75,87 @@
             </button>
         </div>
 
-        {{-- 1. شرائح الملخص العلوية --}}
-        <div class="grid grid-cols-3 gap-2">
-            <a href="{{ route('office.outgoing-parcels.index', ['status' => 'pending', 'q' => $search]) }}"
-               class="bg-white p-2.5 rounded-2xl border {{ $statusFilter === 'pending' ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-200/80' }} shadow-2xs text-center block transition-all">
-                <p class="text-[10px] font-bold text-slate-400">في الانتظار</p>
-                <p class="text-lg font-black text-amber-600 mt-0.5">{{ $counts['pending'] }}</p>
-            </a>
+        {{-- 1. بطاقات الملخص العلوية التفاعلية (تعمل كفلاتر بالضغط، والضغط مجدداً يلغي الفلتر ويعرض الكل) --}}
+        <div class="space-y-1.5">
+            <div class="grid grid-cols-3 gap-2">
+                @php
+                    $pendingUrl = route('office.outgoing-parcels.index', array_filter([
+                        'status' => $statusFilter === 'pending' ? null : 'pending',
+                        'q'      => $search !== '' ? $search : null,
+                    ]));
+                    $inTransitUrl = route('office.outgoing-parcels.index', array_filter([
+                        'status' => $statusFilter === 'in_transit' ? null : 'in_transit',
+                        'q'      => $search !== '' ? $search : null,
+                    ]));
+                    $receivedUrl = route('office.outgoing-parcels.index', array_filter([
+                        'status' => $statusFilter === 'received' ? null : 'received',
+                        'q'      => $search !== '' ? $search : null,
+                    ]));
+                @endphp
 
-            <a href="{{ route('office.outgoing-parcels.index', ['status' => 'in_transit', 'q' => $search]) }}"
-               class="bg-white p-2.5 rounded-2xl border {{ $statusFilter === 'in_transit' ? 'border-sky-400 ring-1 ring-sky-200' : 'border-slate-200/80' }} shadow-2xs text-center block transition-all">
-                <p class="text-[10px] font-bold text-slate-400">في الطريق</p>
-                <p class="text-lg font-black text-sky-600 mt-0.5">{{ $counts['in_transit'] }}</p>
-            </a>
+                <a href="{{ $pendingUrl }}"
+                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95 {{ $statusFilter === 'pending' ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-200/80' : 'bg-white border-slate-200/80 hover:border-amber-300' }}">
+                    <p class="text-[10px] font-bold {{ $statusFilter === 'pending' ? 'text-amber-800' : 'text-slate-400' }}">في الانتظار</p>
+                    <p class="text-lg font-black text-amber-600 mt-0.5">{{ $counts['pending'] }}</p>
+                </a>
 
-            <a href="{{ route('office.outgoing-parcels.index', ['status' => 'received', 'q' => $search]) }}"
-               class="bg-white p-2.5 rounded-2xl border {{ $statusFilter === 'received' ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-slate-200/80' }} shadow-2xs text-center block transition-all">
-                <p class="text-[10px] font-bold text-slate-400">وصل الفرع</p>
-                <p class="text-lg font-black text-indigo-600 mt-0.5">{{ $counts['received'] }}</p>
-            </a>
-        </div>
+                <a href="{{ $inTransitUrl }}"
+                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95 {{ $statusFilter === 'in_transit' ? 'bg-sky-50/80 border-sky-400 ring-2 ring-sky-200/80' : 'bg-white border-slate-200/80 hover:border-sky-300' }}">
+                    <p class="text-[10px] font-bold {{ $statusFilter === 'in_transit' ? 'text-sky-800' : 'text-slate-400' }}">في الطريق</p>
+                    <p class="text-lg font-black text-sky-600 mt-0.5">{{ $counts['in_transit'] }}</p>
+                </a>
 
-        {{-- 2. شريط البحث وفلاتر الحالة --}}
-        <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5">
-            <form method="GET" action="{{ route('office.outgoing-parcels.index') }}" class="flex items-center gap-2">
-                @if($statusFilter !== 'all')
-                    <input type="hidden" name="status" value="{{ $statusFilter }}">
-                @endif
-                <div class="relative flex-1">
-                    <input type="text"
-                           name="q"
-                           value="{{ $search }}"
-                           placeholder="بحث بالمرسل، المستلم، الهاتف، رقم السند..."
-                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-8 pl-3 py-2 text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal outline-none focus:bg-white focus:border-secondary transition-all">
-                    <span class="material-symbols-outlined text-base text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">search</span>
-                </div>
-                <button type="submit"
-                        class="px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-slate-800 transition-colors shrink-0">
-                    بحث
-                </button>
-                @if($search !== '' || $statusFilter !== 'all')
-                    <a href="{{ route('office.outgoing-parcels.index') }}"
-                       class="px-2.5 py-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold shrink-0"
-                       title="إعادة تعيين">
-                        ✕
-                    </a>
-                @endif
-            </form>
-
-            @php
-                $filterPills = [
-                    'all'        => 'الكل (' . $counts['all'] . ')',
-                    'pending'    => 'في الانتظار (' . $counts['pending'] . ')',
-                    'in_transit' => 'في الطريق (' . $counts['in_transit'] . ')',
-                    'received'   => 'تم الاستلام بالفرع (' . $counts['received'] . ')',
-                    'delivered'  => 'تم التسليم (' . $counts['delivered'] . ')',
-                    'cancelled'  => 'ملغي (' . $counts['cancelled'] . ')',
-                ];
-            @endphp
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                @foreach ($filterPills as $key => $label)
-                    <a href="{{ route('office.outgoing-parcels.index', array_filter(['status' => $key !== 'all' ? $key : null, 'q' => $search !== '' ? $search : null])) }}"
-                       class="px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 border transition-colors {{ $statusFilter === $key ? 'bg-primary text-white border-primary' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }}">
-                        {{ $label }}
-                    </a>
-                @endforeach
+                <a href="{{ $receivedUrl }}"
+                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95 {{ $statusFilter === 'received' ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-200/80' : 'bg-white border-slate-200/80 hover:border-indigo-300' }}">
+                    <p class="text-[10px] font-bold {{ $statusFilter === 'received' ? 'text-indigo-800' : 'text-slate-400' }}">وصل الفرع</p>
+                    <p class="text-lg font-black text-indigo-600 mt-0.5">{{ $counts['received'] }}</p>
+                </a>
             </div>
+
+            @if($statusFilter !== 'all')
+                <div class="flex items-center justify-between px-1 pt-0.5 text-[11px]">
+                    <span class="text-slate-500 font-bold">
+                        التصفية النشطة:
+                        <span class="text-primary font-extrabold">{{ \App\Enums\OutgoingParcelStatus::tryFrom($statusFilter)?->label() ?? $statusFilter }}</span>
+                    </span>
+                    <a href="{{ route('office.outgoing-parcels.index', array_filter(['q' => $search !== '' ? $search : null])) }}"
+                       class="text-rose-600 hover:text-rose-700 font-extrabold inline-flex items-center gap-0.5">
+                        <span class="material-symbols-outlined text-xs">close</span>
+                        <span>إلغاء الفلتر / عرض الكل ({{ $counts['all'] }})</span>
+                    </a>
+                </div>
+            @endif
         </div>
+
+        {{-- 2. شريط البحث الفوري (مطابق لشريط بحث شاشة الطرود بدون زر منفصل) --}}
+        <form method="GET"
+              action="{{ route('office.outgoing-parcels.index') }}"
+              x-ref="searchForm"
+              @submit.prevent="submitSearchNow()">
+            @if($statusFilter !== 'all')
+                <input type="hidden" name="status" value="{{ $statusFilter }}">
+            @endif
+            <div class="relative">
+                <input type="text"
+                       name="q"
+                       x-model="searchQuery"
+                       @input="onSearchInput()"
+                       dir="rtl"
+                       autocomplete="off"
+                       placeholder="بحث برقم الهاتف، السند، المرسل، المستلم، نوع الطرد..."
+                       class="w-full bg-white text-slate-800 placeholder-slate-400 text-xs font-bold rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-200/90 shadow-2xs focus:border-secondary focus:ring-2 focus:ring-secondary/15 transition-all">
+                <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">search</span>
+
+                <template x-if="searchQuery.length > 0">
+                    <button type="button"
+                            @click="clearSearch()"
+                            title="مسح البحث"
+                            class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold transition-colors">
+                        ✕
+                    </button>
+                </template>
+            </div>
+        </form>
 
         {{-- 3. قائمة كروت الطرود الصادرة --}}
         <div class="space-y-2.5">
@@ -856,6 +871,8 @@
 
         return {
             showModal: Boolean(config.hasErrors),
+            searchQuery: String(config.initialSearch || ''),
+            _searchTimer: null,
             cancelModal: {
                 open: false,
                 submitting: false,
@@ -902,6 +919,39 @@
 
             norm(str) {
                 return String(str || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+            },
+
+            normalizeDigitsText(str) {
+                const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+                return String(str || '')
+                    .replace(/[٠-٩]/g, d => arabicDigits.indexOf(d))
+                    .replace(/[۰-۹]/g, d => persianDigits.indexOf(d))
+                    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+            },
+
+            onSearchInput() {
+                this.searchQuery = this.normalizeDigitsText(this.searchQuery);
+                if (this._searchTimer) {
+                    clearTimeout(this._searchTimer);
+                }
+                this._searchTimer = setTimeout(() => {
+                    this.submitSearchNow();
+                }, 380);
+            },
+
+            submitSearchNow() {
+                if (this._searchTimer) {
+                    clearTimeout(this._searchTimer);
+                }
+                this.$refs.searchForm.submit();
+            },
+
+            clearSearch() {
+                this.searchQuery = '';
+                this.$nextTick(() => {
+                    this.submitSearchNow();
+                });
             },
 
             sanitizePhone(str) {
