@@ -45,7 +45,7 @@
         </div>
 
         <!-- الفورم -->
-        <form @submit.prevent="saveCustomer()" class="p-3.5 sm:p-5 space-y-2.5 sm:space-y-3.5 overflow-y-auto">
+        <form data-offline-capable="true" @submit.prevent="saveCustomer()" class="p-3.5 sm:p-5 space-y-2.5 sm:space-y-3.5 overflow-y-auto">
             <!-- حقل رقم الهاتف -->
             <div>
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم الهاتف (9 أرقام)</label>

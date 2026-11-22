@@ -254,6 +254,14 @@ function whatsappSettings() {
         },
 
         async checkStatus(force = false) {
+            if (force && typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
+            if (!navigator.onLine) {
+                this.waState = 'disconnected';
+                this.waMessage = 'لا يوجد اتصال بالإنترنت';
+                return;
+            }
             this.waState = 'loading';
             this.waMessage = 'جاري فحص الاتصال...';
 
@@ -283,10 +291,16 @@ function whatsappSettings() {
             } catch (e) {
                 this.waState = 'disconnected';
                 this.waMessage = 'تعذر الوصول للخادم';
+                if (force && typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                }
             }
         },
 
         openConnectPanel() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             this.showConnectPanel = true;
             if (this.connectMethod === 'qr' && !this.qrBase64) {
                 this.requestConnect();
@@ -305,6 +319,9 @@ function whatsappSettings() {
         },
 
         async requestConnect() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             this.isConnecting = true;
             try {
                 const res = await fetch('{{ route("office.whatsapp.connect") }}', {
@@ -335,12 +352,19 @@ function whatsappSettings() {
                     this.showFeedback(data.message || 'فشل في طلب الاتصال', true);
                 }
             } catch (e) {
-                this.showFeedback('تعذر الاتصال بالخادم', true);
+                if (typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                } else {
+                    this.showFeedback('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
+                }
             }
             this.isConnecting = false;
         },
 
         async fetchQr() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             this.qrLoading = true;
             this.qrBase64 = null;
 
@@ -377,12 +401,18 @@ function whatsappSettings() {
                 }
             } catch (e) {
                 console.error('QR fetch error:', e);
+                if (typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم لجلب رمز QR، يرجى المحاولة مجدداً.');
+                }
             }
 
             this.qrLoading = false;
         },
 
         async requestPairingCode() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             if (!this.pairingPhone) {
                 this.showFeedback('يرجى إدخال رقم هاتف الواتساب أولاً', true);
                 return;
@@ -422,7 +452,11 @@ function whatsappSettings() {
                     this.showFeedback(data.message || 'تعذر الحصول على كود الربط', true);
                 }
             } catch (e) {
-                this.showFeedback('تعذر الاتصال بالخادم لجلب كود الربط', true);
+                if (typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم لجلب كود الربط، يرجى المحاولة مجدداً.');
+                } else {
+                    this.showFeedback('تعذر الاتصال بالخادم لجلب كود الربط', true);
+                }
             }
 
             this.isPairingLoading = false;
@@ -482,6 +516,9 @@ function whatsappSettings() {
         },
 
         async requestDisconnect() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             if (!confirm('هل أنت متأكد من قطع الاتصال بالواتساب؟')) return;
 
             this.isDisconnecting = true;
@@ -504,12 +541,19 @@ function whatsappSettings() {
                 this.showConnectPanel = false;
                 this.showFeedback(data.message || 'تم قطع الاتصال', false);
             } catch (e) {
-                this.showFeedback('حدث خطأ أثناء قطع الاتصال', true);
+                if (typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                } else {
+                    this.showFeedback('حدث خطأ أثناء قطع الاتصال', true);
+                }
             }
             this.isDisconnecting = false;
         },
 
         async saveSettings() {
+            if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                return;
+            }
             this.isSaving = true;
             try {
                 const res = await fetch('{{ route("office.whatsapp.save") }}', {
@@ -531,7 +575,11 @@ function whatsappSettings() {
                     this.showFeedback(data.message || 'فشل في حفظ الإعدادات', true);
                 }
             } catch (e) {
-                this.showFeedback('حدث خطأ أثناء الحفظ', true);
+                if (typeof window.notifyNetworkError === 'function') {
+                    window.notifyNetworkError('تعذر الاتصال بالخادم أثناء الحفظ، يرجى المحاولة مجدداً.');
+                } else {
+                    this.showFeedback('حدث خطأ أثناء الحفظ', true);
+                }
             }
             this.isSaving = false;
         },

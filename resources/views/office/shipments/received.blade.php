@@ -23,6 +23,7 @@
         <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[68px] z-20 text-xs font-bold text-center">
             @foreach ($receivedTabs as $tabItem)
                 <a href="{{ route('office.shipments.received.index', ['tab' => $tabItem['key']]) }}"
+                   @click="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) $event.preventDefault()"
                    class="flex-1 shrink-0 whitespace-nowrap px-3 py-3 transition-colors {{ $tab === $tabItem['key'] ? 'border-b-2 border-secondary text-secondary' : 'text-slate-500' }}">
                     <span>{{ $tabItem['label'] }}</span>
                     (<span>{{ $receivedCounts[$tabItem['key']] ?? 0 }}</span>)
@@ -43,6 +44,7 @@
                 @endphp
 
                 <a href="{{ route('office.shipments.received.show', $shipment) }}"
+                    @click="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) $event.preventDefault()"
                     style="content-visibility: auto; contain-intrinsic-size: 185px;"
                     class="block bg-white border {{ $pending > 0 ? 'border-secondary/60' : 'border-slate-200/90' }} hover:border-secondary rounded-2xl p-3.5 shadow-xs space-y-2.5 transition-colors">
 

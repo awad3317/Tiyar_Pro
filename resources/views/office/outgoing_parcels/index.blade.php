@@ -158,7 +158,7 @@
                       action="{{ route('office.outgoing-parcels.store') }}"
                       class="flex flex-col flex-1 min-h-0"
                       x-data="{ submitting: false }"
-                      @submit="if (submitting) { $event.preventDefault(); return; } submitting = true">
+                      @submit="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) { $event.preventDefault(); return; } if (submitting) { $event.preventDefault(); return; } submitting = true">
                     @csrf
 
                     <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pt-3 pb-8 space-y-3"
@@ -839,10 +839,14 @@
             },
 
             async fetchFilteredList() {
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                    return;
+                }
                 if (this._abortController) {
                     this._abortController.abort();
                 }
-                this._abortController = new AbortController();
+                const controller = new AbortController();
+                this._abortController = controller;
 
                 const params = new URLSearchParams();
                 if (this.activeStatus && this.activeStatus !== 'all') {
@@ -866,11 +870,13 @@
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
                         },
-                        signal: this._abortController.signal,
+                        signal: controller.signal,
                     });
 
                     if (!res.ok) throw new Error('Network error');
                     const data = await res.json();
+
+                    if (this._abortController !== controller) return;
 
                     if (data && data.ok) {
                         this.updateCounts(data.counts);
@@ -883,11 +889,16 @@
                         window.history.replaceState({}, '', cleanUrl);
                     }
                 } catch (err) {
-                    if (err.name !== 'AbortError') {
+                    if (err.name !== 'AbortError' && this._abortController === controller) {
                         console.warn('Outgoing filter fetch failed:', err);
+                        if (typeof window.notifyNetworkError === 'function') {
+                            window.notifyNetworkError('تعذر الاتصال بالخادم لتحديث قائمة الطرود الصادرة، يرجى المحاولة مجدداً.');
+                        }
                     }
                 } finally {
-                    this.isFetching = false;
+                    if (this._abortController === controller) {
+                        this.isFetching = false;
+                    }
                 }
             },
 
@@ -975,6 +986,7 @@
 
             async submitActionModal() {
                 if (this.actionModal.submitting || !this.actionModal.parcel) return;
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
 
                 const parcelId = this.actionModal.parcel.id;
                 const url = this.actionModal.url;
@@ -1013,7 +1025,11 @@
                     this.notifyToast(data.message || meta.successFallback, false);
                 } catch (err) {
                     this.actionModal.submitting = false;
-                    this.notifyToast('تعذر الاتصال بالخادم، يرجى المحاولة مجدداً.', true);
+                    if (typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                    } else {
+                        this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
+                    }
                 } finally {
                     this.actionLoading[parcelId] = false;
                 }

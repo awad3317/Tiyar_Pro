@@ -526,7 +526,10 @@
                     }
                 } catch (e) {
                     console.error('Save favorite customer failed:', e);
-                    this.modal.error = 'حدث خطأ غير متوقع أثناء الحفظ.';
+                    this.modal.error = 'تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.';
+                    if (typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم أثناء حفظ العميل، يرجى المحاولة مجدداً.');
+                    }
                 } finally {
                     this.modal.loading = false;
                 }
@@ -645,7 +648,11 @@
                     }
                 } catch (e) {
                     console.error('Delete customer error:', e);
-                    this.showFeedback('حدث خطأ أثناء محاولة الحذف.', true);
+                    if (typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم أثناء محاولة الحذف، يرجى المحاولة مجدداً.');
+                    } else {
+                        this.showFeedback('حدث خطأ أثناء محاولة الحذف.', true);
+                    }
                 } finally {
                     this.deleteModal.loading = false;
                 }

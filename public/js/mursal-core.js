@@ -1150,6 +1150,10 @@
             },
 
             async syncData() {
+                if (!navigator.onLine) {
+                    window.requireOnlineAction();
+                    return;
+                }
                 if (this.isSyncing) return;
                 this.isSyncing = true;
                 try {
@@ -1161,11 +1165,12 @@
                     }
                     if (typeof this.refreshFromServer === 'function') {
                         await this.refreshFromServer();
-                    } else {
+                    } else if (navigator.onLine) {
                         window.location.reload();
                     }
                 } catch (e) {
                     console.warn('Sync failed:', e);
+                    window.notifyNetworkError('تعذر مزامنة البيانات مع الخادم، يرجى المحاولة مجدداً.');
                 } finally {
                     this.isSyncing = false;
                     if (window.MursalDB) {
@@ -1182,10 +1187,59 @@
         };
     }
 
+    /* ------------------------------------------------------------------
+     | 4. حارس الاتصال الموحّد والإشعار العائم للعمليات التي تتطلب إنترنت
+     * ----------------------------------------------------------------*/
+    const DEFAULT_OFFLINE_MSG = 'لا يوجد اتصال بالإنترنت، يرجى الاتصال بالإنترنت والمحاولة مجدداً.';
+    const DEFAULT_NETWORK_ERR_MSG = 'تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.';
+
+    function requireOnlineAction(message = DEFAULT_OFFLINE_MSG) {
+        if (!navigator.onLine) {
+            window.dispatchEvent(new CustomEvent('office-toast', {
+                detail: { message: message || DEFAULT_OFFLINE_MSG, type: 'error' }
+            }));
+            return false;
+        }
+        return true;
+    }
+
+    function notifyNetworkError(fallbackMessage = DEFAULT_NETWORK_ERR_MSG) {
+        const msg = !navigator.onLine
+            ? 'لا يوجد اتصال بالإنترنت، يرجى المحاولة مجدداً.'
+            : (fallbackMessage || DEFAULT_NETWORK_ERR_MSG);
+        window.dispatchEvent(new CustomEvent('office-toast', {
+            detail: { message: msg, type: 'error' }
+        }));
+    }
+
+    // حماية عامة لجميع نماذج POST/PUT/PATCH/DELETE القياسية (تتجاهل تلقائياً أي نموذج يدعم الأوفلاين عبر data-offline-capable="true")
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!form || form.tagName !== 'FORM') return;
+        if (form.getAttribute('data-offline-capable') === 'true') return;
+
+        const rawMethod = (form.getAttribute('method') || form.method || 'GET').toUpperCase();
+        const spoofedMethod = (form.querySelector('input[name="_method"]')?.value || '').toUpperCase();
+        const effectiveMethod = spoofedMethod || rawMethod;
+
+        if (effectiveMethod === 'GET') return;
+
+        if (!navigator.onLine) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            }
+            requireOnlineAction();
+        }
+    }, true);
+
     // إتاحة الأدوات والمكون الأساسي للـ Window
     window.MursalDB = MursalDB;
     window.MursalSync = MursalSync;
     window.MursalShipmentStore = MursalShipmentStore;
     window.MURSAL_STORES = STORES;
     window.officeShell = officeShell;
+    window.requireOnlineAction = requireOnlineAction;
+    window.notifyNetworkError = notifyNetworkError;
 })();

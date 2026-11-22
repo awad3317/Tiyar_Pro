@@ -571,6 +571,15 @@
                         return false;
                     }
 
+                    if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                        this.beep('error');
+                        this.scanFeedback = {
+                            type: 'error',
+                            text: 'لا يوجد اتصال بالإنترنت، يرجى الاتصال بالإنترنت والمحاولة مجدداً.'
+                        };
+                        return false;
+                    }
+
                     this.isProcessing = true;
                     const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -631,12 +640,18 @@
                         return true;
                     } catch (err) {
                         this.beep('error');
-                        const netErr = 'تعذر الاتصال بالخادم، حاول مجدداً.';
+                        const netErr = !navigator.onLine
+                            ? 'لا يوجد اتصال بالإنترنت، يرجى المحاولة مجدداً.'
+                            : 'تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.';
                         this.scanFeedback = {
                             type: 'error',
                             text: netErr
                         };
-                        this.notifyToast(netErr, 'error');
+                        if (typeof window.notifyNetworkError === 'function') {
+                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                        } else {
+                            this.notifyToast(netErr, 'error');
+                        }
                         return false;
                     } finally {
                         this.isProcessing = false;

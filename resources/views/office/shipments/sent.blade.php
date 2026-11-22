@@ -299,7 +299,7 @@
                 </div>
 
                 {{-- نموذج إنشاء الشحنة بسلسلة تمرير Flex سليمة (min-h-0) --}}
-                <form @submit.prevent="submitShipment()" class="flex flex-col flex-1 min-h-0">
+                <form data-offline-capable="true" @submit.prevent="submitShipment()" class="flex flex-col flex-1 min-h-0">
 
                     {{-- جسم المودال القابل للتمرير فوق الكيبورد --}}
                     <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pt-3 pb-6 space-y-3"
@@ -663,7 +663,7 @@
                     </span>
                 </div>
 
-                <form method="POST" :action="cancelModal.url" @submit.prevent="confirmCancelShipment()" class="flex flex-col gap-2 pt-1">
+                <form method="POST" :action="cancelModal.url" data-offline-capable="true" @submit.prevent="confirmCancelShipment()" class="flex flex-col gap-2 pt-1">
                     @csrf
                     <button type="submit" :disabled="cancelModal.submitting"
                             class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">

@@ -462,7 +462,9 @@
             async resendSms(parcel) {
                 if (this.sendingSmsId) return;
 
-                if (!this.isOnline) {
+                if (typeof window.requireOnlineAction === 'function') {
+                    if (!window.requireOnlineAction('يتطلب إرسال الـ SMS اتصالاً نشطاً بالإنترنت.')) return;
+                } else if (!this.isOnline) {
                     this.showFeedback('يتطلب إرسال الـ SMS اتصالاً نشطاً بالإنترنت.', true);
                     return;
                 }
@@ -489,7 +491,11 @@
                     if (err.data && err.data.sms_out_of_balance) {
                         this.handleSmsOutOfBalance(err.data.sms_status_data);
                     }
-                    this.showFeedback(err.message || 'تعذر إرسال رسالة SMS.', true);
+                    if (!err.status && typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                    } else {
+                        this.showFeedback(err.message || 'تعذر إرسال رسالة SMS.', true);
+                    }
                 } finally {
                     this.sendingSmsId = null;
                 }
@@ -498,7 +504,9 @@
             async resendWhatsapp(parcel) {
                 if (this.sendingWhatsappId) return;
 
-                if (!this.isOnline) {
+                if (typeof window.requireOnlineAction === 'function') {
+                    if (!window.requireOnlineAction('يتطلب إرسال الواتساب اتصالاً نشطاً بالإنترنت.')) return;
+                } else if (!this.isOnline) {
                     this.showFeedback('يتطلب إرسال الواتساب اتصالاً نشطاً بالإنترنت.', true);
                     return;
                 }
@@ -508,7 +516,11 @@
                     const response = await ParcelApi.resendWhatsapp(parcel.id);
                     this.showFeedback(response.message || 'تم إرسال إشعار الواتساب بنجاح!', false);
                 } catch (err) {
-                    this.showFeedback(err.message || 'تعذر إرسال إشعار الواتساب.', true);
+                    if (!err.status && typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                    } else {
+                        this.showFeedback(err.message || 'تعذر إرسال إشعار الواتساب.', true);
+                    }
                 } finally {
                     this.sendingWhatsappId = null;
                 }
@@ -1136,7 +1148,9 @@
 
             async confirmRecharge() {
                 if (this.smsGateway.isRecharging) return;
-                if (!this.isOnline) {
+                if (typeof window.requireOnlineAction === 'function') {
+                    if (!window.requireOnlineAction('يتطلب إعادة الإرسال وجود اتصال نشط بالإنترنت.')) return;
+                } else if (!this.isOnline) {
                     this.showFeedback('يتطلب إعادة الإرسال وجود اتصال نشط بالإنترنت.', true);
                     return;
                 }
@@ -1180,7 +1194,11 @@
 
                 } catch (err) {
                     this.smsGateway.isRecharging = false;
-                    this.showFeedback(err.message || 'تعذر إعادة إرسال الرسائل.', true);
+                    if (!err.status && typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                    } else {
+                        this.showFeedback(err.message || 'تعذر إعادة إرسال الرسائل.', true);
+                    }
                 }
             },
         });

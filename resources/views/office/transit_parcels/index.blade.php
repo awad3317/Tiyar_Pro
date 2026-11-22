@@ -499,6 +499,7 @@
 
                 async confirmReceiveModal() {
                     if (this.receiveModal.submitting || !this.receiveModal.parcel) return;
+                    if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
 
                     const parcelId = String(this.receiveModal.parcel.id);
                     const url = this.receiveModal.url;
@@ -542,7 +543,11 @@
                         this.notifyToast(data.message || 'تم استلام الطرد وإشعار العميل بنجاح.', false);
                     } catch (err) {
                         this.receiveModal.submitting = false;
-                        this.notifyToast('تعذر الاتصال بالخادم، يرجى المحاولة مجدداً.', true);
+                        if (typeof window.notifyNetworkError === 'function') {
+                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                        } else {
+                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
+                        }
                     } finally {
                         this.receivingIds[parcelId] = false;
                     }

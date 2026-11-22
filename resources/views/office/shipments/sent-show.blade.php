@@ -180,6 +180,7 @@
                 <div class="flex items-center gap-2 pt-2 border-t border-slate-100 no-print">
                     @if ($canDispatch)
                         <form method="POST" action="{{ route('office.shipments.sent.dispatch', $shipment) }}"
+                            @submit="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) { $event.preventDefault(); return; }"
                             class="flex-1">
                             @csrf
                             <button type="submit"
@@ -305,7 +306,7 @@
                         </p>
                     </div>
 
-                    <form method="POST" action="{{ route('office.shipments.sent.cancel', $shipment) }}" @submit="cancelModal.submitting = true" class="flex flex-col gap-2">
+                    <form method="POST" action="{{ route('office.shipments.sent.cancel', $shipment) }}" @submit="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) { $event.preventDefault(); return; } cancelModal.submitting = true" class="flex flex-col gap-2">
                         @csrf
                         <button type="submit" :disabled="cancelModal.submitting"
                                 class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 flex items-center justify-center gap-1.5 disabled:opacity-50">
@@ -356,7 +357,7 @@
                     </div>
                 </div>
 
-                <form method="POST" :action="detachModal.url" @submit="detachModal.submitting = true" class="flex flex-col gap-2">
+                <form method="POST" :action="detachModal.url" @submit="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) { $event.preventDefault(); return; } detachModal.submitting = true" class="flex flex-col gap-2">
                     @csrf
                     <button type="submit" :disabled="detachModal.submitting"
                             class="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-lg shadow-amber-600/25 flex items-center justify-center gap-1.5 disabled:opacity-50">

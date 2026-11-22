@@ -202,8 +202,10 @@ class SentShipmentsOfflineSyncTest extends TestCase
             ->get(route('office.shipments.sent.index'))
             ->assertOk();
 
-        $sentPage->assertSee('shipment-manifest-print.js?v=21', false)
-            ->assertSee('mursal-core.js?v=21', false)
+        $sentPage->assertSee('shipment-manifest-print.js?v=22', false)
+            ->assertSee('mursal-core.js?v=22', false)
+            ->assertSee('z-[80]', false)
+            ->assertSee('data-offline-capable="true"', false)
             ->assertSee('printShipmentOffline', false)
             ->assertSee('MursalShipmentStore', false)
             ->assertSee('تم حفظ الكشف محلياً — ستتم المزامنة تلقائياً عند عودة الإنترنت.');

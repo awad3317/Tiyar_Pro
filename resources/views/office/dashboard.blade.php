@@ -572,6 +572,12 @@
                     return;
                 }
 
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction('لا يوجد اتصال بالإنترنت، يرجى الاتصال بالإنترنت والمحاولة مجدداً.')) {
+                    this.isLoading = false;
+                    window.dispatchEvent(new CustomEvent('dashboard-global-search-loading', { detail: { loading: false } }));
+                    return;
+                }
+
                 if (this._abortController) {
                     this._abortController.abort();
                 }
@@ -612,9 +618,13 @@
                     }
                 } catch (err) {
                     if (err.name !== 'AbortError' && this._abortController === controller) {
-                        window.dispatchEvent(new CustomEvent('office-toast', {
-                            detail: { message: 'تعذر إتمام البحث الشامل، حاول مجدداً.', type: 'error' }
-                        }));
+                        if (typeof window.notifyNetworkError === 'function') {
+                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                        } else {
+                            window.dispatchEvent(new CustomEvent('office-toast', {
+                                detail: { message: 'تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', type: 'error' }
+                            }));
+                        }
                     }
                 } finally {
                     if (this._abortController === controller) {

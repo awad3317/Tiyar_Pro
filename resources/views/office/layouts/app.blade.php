@@ -13,8 +13,8 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
     <script src="{{ asset('js/tailwind.js') }}"></script>
-    <script src="{{ asset('js/mursal-core.js') }}?v=21"></script>
-    <script src="{{ asset('js/shipment-manifest-print.js') }}?v=21"></script>
+    <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
+    <script src="{{ asset('js/shipment-manifest-print.js') }}?v=22"></script>
 
     <script>
         tailwind.config = {
@@ -85,7 +85,7 @@
              x-transition:leave="ease-in duration-200"
              x-transition:leave-start="opacity-100 translate-y-0"
              x-transition:leave-end="opacity-0 -translate-y-4"
-             class="fixed top-4 left-4 right-4 max-w-sm mx-auto z-[60] p-3.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all border print:hidden"
+             class="fixed top-4 left-4 right-4 max-w-sm mx-auto z-[80] p-3.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all border print:hidden"
              :class="{
                 'bg-rose-600 text-white border-rose-500 shadow-rose-600/30': smsFeedback && (smsFeedback.type === 'error' || smsFeedback.isError),
                 'bg-amber-500 text-white border-amber-400 shadow-amber-500/30': smsFeedback && smsFeedback.type === 'warning',
