@@ -16,11 +16,10 @@
             ];
         @endphp
         <article
-            class="relative bg-white border border-slate-200/90 hover:border-secondary rounded-2xl p-3.5 shadow-xs space-y-2.5 transition-colors">
+            class="relative bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
 
             <div class="flex items-start justify-between gap-2">
-                <a href="{{ route('office.shipments.sent.show', $shipment) }}"
-                    class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
                         class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
                         <span class="material-symbols-outlined text-xl">receipt_long</span>
@@ -36,9 +35,9 @@
                         </div>
                         <p class="text-[10px] text-slate-400 font-semibold mt-0.5">{{ $createdAgo }}</p>
                     </div>
-                </a>
+                </div>
 
-                {{-- شارة الحالة + قائمة الثلاث نقاط (⋮) --}}
+                {{-- شارة الحالة + قائمة الثلاث نقاط (⋮) الحصرية لجميع إجراءات الكشف --}}
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span
                         class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold {{ $shipment->status->badgeClass() }}">
@@ -69,12 +68,13 @@
                                 <span>تفاصيل الكشف</span>
                             </a>
 
-                            <a href="{{ route('office.shipments.sent.print', $shipment) }}"
-                                target="_blank"
+                            <button type="button"
+                                data-shipment-action="print"
+                                @click="open = false; printShipment('{{ route('office.shipments.sent.print', $shipment) }}')"
                                 class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
                                 <span class="material-symbols-outlined text-base text-slate-500">print</span>
                                 <span>طباعة الكشف</span>
-                            </a>
+                            </button>
 
                             @if ($canCancelShipment)
                                 <div class="my-1 border-t border-slate-100"></div>
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <a href="{{ route('office.shipments.sent.show', $shipment) }}" class="block space-y-2.5">
+            <div class="space-y-2.5">
                 {{-- السائق والوجهات --}}
                 <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
                     <div class="flex items-center justify-between gap-2">
@@ -142,15 +142,11 @@
                     </div>
                 </div>
 
-                {{-- نسبة الاستلام --}}
+                {{-- مؤشر نسبة الاستلام (عرض فقط بدون رابط قابل للنقر) --}}
                 <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
                     <span>تم استلام {{ $shipment->received_parcels_count }} من {{ $shipment->parcels_count }}</span>
-                    <span class="text-primary font-extrabold inline-flex items-center gap-0.5">
-                        <span>تفاصيل الكشف</span>
-                        <span class="material-symbols-outlined text-sm text-secondary">chevron_left</span>
-                    </span>
                 </div>
-            </a>
+            </div>
         </article>
     @empty
         <div class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">

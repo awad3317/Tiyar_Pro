@@ -96,5 +96,14 @@
         ])
     </div>
 
+    <script>
+        if (new URLSearchParams(window.location.search).get('auto_print') === '1') {
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    window.print();
+                }, 150);
+            });
+        }
+    </script>
 </body>
 </html>

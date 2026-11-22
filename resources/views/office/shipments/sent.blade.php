@@ -694,6 +694,45 @@
                     this.cancelModal.open = false;
                 },
 
+                printShipment(url) {
+                    if (!url) return;
+                    const fallbackUrl = url + (url.includes('?') ? '&' : '?') + 'auto_print=1';
+                    try {
+                        let iframe = document.getElementById('sent-shipment-print-iframe');
+                        if (iframe) {
+                            iframe.remove();
+                        }
+                        iframe = document.createElement('iframe');
+                        iframe.id = 'sent-shipment-print-iframe';
+                        iframe.setAttribute('aria-hidden', 'true');
+                        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+
+                        iframe.onload = () => {
+                            setTimeout(() => {
+                                try {
+                                    if (iframe.contentWindow) {
+                                        iframe.contentWindow.focus();
+                                        iframe.contentWindow.print();
+                                    } else {
+                                        window.open(fallbackUrl, '_blank');
+                                    }
+                                } catch (e) {
+                                    window.open(fallbackUrl, '_blank');
+                                }
+                            }, 150);
+                        };
+
+                        iframe.onerror = () => {
+                            window.open(fallbackUrl, '_blank');
+                        };
+
+                        document.body.appendChild(iframe);
+                        iframe.src = url;
+                    } catch (e) {
+                        window.open(fallbackUrl, '_blank');
+                    }
+                },
+
                 async toggleCamera() {
                     if (this.cameraActive) {
                         await this.stopCamera();
