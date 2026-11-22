@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v19';
+const CACHE_NAME = 'mursal-pwa-v20';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -62,6 +62,7 @@ self.addEventListener('fetch', (event) => {
         url.pathname.startsWith('/office/outgoing-parcels') ||
         url.pathname.startsWith('/office/transit-parcels') ||
         url.pathname.startsWith('/office/shipments') ||
+        url.pathname.startsWith('/office/global-search') ||
         url.pathname.includes('/login') ||
         url.pathname.includes('/logout') ||
         url.pathname.includes('/api/') ||

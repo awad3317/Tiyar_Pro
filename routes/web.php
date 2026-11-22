@@ -10,6 +10,7 @@ use App\Http\Controllers\Office\WhatsAppSettingsController;
 use App\Http\Controllers\Office\FavoriteCustomerController;
 use App\Http\Controllers\Office\Auth\LoginController;
 use App\Http\Controllers\Office\ShipmentController;
+use App\Http\Controllers\Office\GlobalSearchController;
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -129,6 +130,7 @@ Route::prefix('office')->name('office.')->group(function () {
         Route::post('/parcels/quick-send-sms', [ParcelController::class, 'quickSendSms'])->name('parcels.quick_send_sms');
         Route::post('/parcels/quick-send-single', [ParcelController::class, 'quickSendSingle'])->name('parcels.quick_send_single');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/global-search', GlobalSearchController::class)->name('global-search');
 
         // حالة بوابة الرسائل النصية وإعادة الإرسال بعد الشحن
         Route::get('/sms-gateway/status', [ParcelController::class, 'getSmsGatewayStatus'])->name('sms_gateway.status');

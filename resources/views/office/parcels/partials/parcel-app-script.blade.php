@@ -185,7 +185,7 @@
 
             parcels: [],
             syncQueue: [],
-            search: '',
+            search: new URLSearchParams(window.location.search).get('q') || '',
             filter: 'all',
             filters: FILTERS,
             isSyncing: false,
