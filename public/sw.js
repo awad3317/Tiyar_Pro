@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v16';
+const CACHE_NAME = 'mursal-pwa-v17';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -51,15 +51,20 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب
+    // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب وطلبات AJAX/JSON الحية
+    const acceptHeader = event.request.headers.get('Accept') || '';
+    const isAjaxJson = acceptHeader.includes('application/json') ||
+        event.request.headers.get('X-Requested-With') === 'XMLHttpRequest';
+
     if (
         event.request.method !== 'GET' ||
+        isAjaxJson ||
         url.pathname.includes('/login') ||
         url.pathname.includes('/logout') ||
         url.pathname.includes('/api/') ||
         url.pathname.includes('/whatsapp')
     ) {
-        return; // تذهب مباشرة إلى السيرفر
+        return; // تذهب مباشرة إلى السيرفر بدون كاش
     }
 
     // لصفحات التنقل (HTML Navigation): Network-First للحصول دائماً على أحدث هيدر وتحديثات، مع الرجوع للكاش عند انقطاع النت

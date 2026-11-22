@@ -19,9 +19,18 @@
         'recipient_name'  => $parcel->recipient_name,
         'recipient_phone' => $parcel->recipient_phone,
     ];
+    $cancelPayloadJson = json_encode(
+        array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)]),
+        JSON_UNESCAPED_UNICODE
+    );
+    $deliverPayloadJson = json_encode(
+        array_merge($modalPayload, ['url' => route('office.outgoing-parcels.deliver-external', $parcel)]),
+        JSON_UNESCAPED_UNICODE
+    );
 @endphp
 
 <article id="outgoing-card-{{ $parcel->id }}"
+         data-outgoing-parcel-id="{{ $parcel->id }}"
          style="content-visibility: auto; contain-intrinsic-size: 165px;"
          class="bg-white border {{ $parcel->status->cardBorderClass() }} rounded-2xl p-4 shadow-sm transition-colors">
 
@@ -131,7 +140,7 @@
                     </a>
                 @else
                     <button type="button"
-                            @click="notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true)"
+                            data-card-action="locked-shipments"
                             class="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95">
                         <span class="material-symbols-outlined text-sm text-amber-600">lock</span>
                         <span>ضم إلى شحنة</span>
@@ -153,8 +162,8 @@
             @endif
 
             <button type="button"
-                    :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                    @click="openActionModal('cancel', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)])))"
+                    data-card-action="cancel"
+                    data-action-payload="{{ $cancelPayloadJson }}"
                     class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
                 <span class="material-symbols-outlined text-sm">cancel</span>
                 <span>إلغاء</span>
@@ -165,11 +174,11 @@
         <div class="mt-3 flex items-center gap-2">
             @if ($parcel->isExternal())
                 <button type="button"
-                        :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                        @click="openActionModal('deliver', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.deliver-external', $parcel)])))"
+                        data-card-action="deliver"
+                        data-action-payload="{{ $deliverPayloadJson }}"
                         class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
                     <span class="material-symbols-outlined text-sm">check_circle</span>
-                    <span x-text="actionLoading['{{ $parcel->id }}'] ? 'جاري التأكيد...' : 'تم التسليم'"></span>
+                    <span>تم التسليم</span>
                 </button>
             @else
                 <div class="flex-1 py-2 px-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold flex items-center justify-center gap-1">
@@ -179,8 +188,8 @@
             @endif
 
             <button type="button"
-                    :disabled="Boolean(actionLoading['{{ $parcel->id }}'])"
-                    @click="openActionModal('cancel', @js(array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)])))"
+                    data-card-action="cancel"
+                    data-action-payload="{{ $cancelPayloadJson }}"
                     class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
                 <span class="material-symbols-outlined text-sm">cancel</span>
                 <span>إلغاء</span>

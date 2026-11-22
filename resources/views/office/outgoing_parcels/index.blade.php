@@ -195,8 +195,10 @@
             </div>
         </div>
 
-        {{-- 2. قائمة كروت الطرود الصادرة (تُحدث لحظياً عبر AJAX بدون إعادة تحميل الصفحة) --}}
-        <div x-ref="cardsContainer" :class="isFetching ? 'opacity-60 transition-opacity' : ''">
+        {{-- 2. قائمة كروت الطرود الصادرة (تُحدث لحظياً عبر AJAX مع Event Delegation لضمان بقاء التفاعل بعد الاستبدال) --}}
+        <div x-ref="cardsContainer"
+             @click="handleCardContainerClick($event)"
+             :class="isFetching ? 'opacity-60 transition-opacity' : ''">
             @include('office.outgoing_parcels.partials.cards-list', ['parcels' => $parcels])
         </div>
 
@@ -846,6 +848,47 @@
             notifyToast(message, isError = false) {
                 if (typeof this.showFeedback === 'function') {
                     this.showFeedback(message, isError);
+                    return;
+                }
+                const parentShell = this.$el?.parentElement?.closest('[x-data]');
+                const shellData = parentShell && window.Alpine ? window.Alpine.$data(parentShell) : null;
+                if (shellData && typeof shellData.showFeedback === 'function') {
+                    shellData.showFeedback(message, isError);
+                }
+            },
+
+            updateCounts(nextCounts) {
+                if (!nextCounts || typeof nextCounts !== 'object') return;
+                this.counts = {
+                    all: Number(nextCounts.all ?? this.counts.all ?? 0),
+                    pending: Number(nextCounts.pending ?? this.counts.pending ?? 0),
+                    in_transit: Number(nextCounts.in_transit ?? this.counts.in_transit ?? 0),
+                    received: Number(nextCounts.received ?? this.counts.received ?? 0),
+                    delivered: Number(nextCounts.delivered ?? this.counts.delivered ?? 0),
+                    cancelled: Number(nextCounts.cancelled ?? this.counts.cancelled ?? 0),
+                };
+            },
+
+            handleCardContainerClick(event) {
+                const btn = event.target?.closest('[data-card-action]');
+                if (!btn) return;
+
+                const action = btn.getAttribute('data-card-action');
+                if (action === 'locked-shipments') {
+                    this.notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true);
+                    return;
+                }
+
+                if (action === 'cancel' || action === 'deliver') {
+                    const rawPayload = btn.getAttribute('data-action-payload');
+                    if (!rawPayload) return;
+                    try {
+                        const parcelData = JSON.parse(rawPayload);
+                        if (parcelData?.id && this.actionLoading[parcelData.id]) return;
+                        this.openActionModal(action, parcelData);
+                    } catch (e) {
+                        console.warn('Invalid card action payload:', e);
+                    }
                 }
             },
 
@@ -882,6 +925,7 @@
                 this.isFetching = true;
                 try {
                     const res = await fetch(url, {
+                        cache: 'no-store',
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest',
@@ -893,9 +937,7 @@
                     const data = await res.json();
 
                     if (data && data.ok) {
-                        if (data.counts) {
-                            this.counts = data.counts;
-                        }
+                        this.updateCounts(data.counts);
                         if (this.$refs.cardsContainer && typeof data.html === 'string') {
                             this.$refs.cardsContainer.innerHTML = data.html;
                             if (window.Alpine) {
@@ -986,6 +1028,7 @@
                 try {
                     const res = await fetch(url, {
                         method: 'POST',
+                        cache: 'no-store',
                         headers: {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json',
@@ -1001,13 +1044,13 @@
                         return;
                     }
 
-                    if (data.counts) {
-                        this.counts = data.counts;
-                    }
+                    const targetParcelId = data.parcel_id || data.parcel?.id || parcelId;
+                    const nextStatus = data.status || data.parcel?.status || '';
 
+                    this.updateCounts(data.counts);
                     this.actionModal.submitting = false;
                     this.closeActionModal();
-                    this.applyCardDomUpdate(parcelId, data.parcel?.status, data.card_html);
+                    this.applyCardDomUpdate(targetParcelId, nextStatus, data.card_html);
                     this.notifyToast(data.message || meta.successFallback, false);
                 } catch (err) {
                     this.actionModal.submitting = false;
@@ -1018,30 +1061,30 @@
             },
 
             applyCardDomUpdate(parcelId, newStatus, cardHtml) {
-                const cardEl = document.getElementById('outgoing-card-' + parcelId);
+                const safeId = String(parcelId || '').replace(/"/g, '\\"');
+                const cardEl = document.querySelector(`[data-outgoing-parcel-id="${safeId}"]`)
+                    || document.getElementById('outgoing-card-' + parcelId);
+
                 if (!cardEl) {
                     this.fetchFilteredList();
                     return;
                 }
 
-                // إذا كان الفلتر النشط لا يطابق الحالة الجديدة نزيل البطاقة من العرض الحالي
+                // إذا كان الفلتر النشط مختلفاً عن الحالة الجديدة نزيل البطاقة فوراً
                 if (this.activeStatus !== 'all' && newStatus && this.activeStatus !== newStatus) {
                     cardEl.remove();
-                    if (this.$refs.cardsContainer && !this.$refs.cardsContainer.querySelector('article')) {
+                    if (this.$refs.cardsContainer && !this.$refs.cardsContainer.querySelector('[data-outgoing-parcel-id]')) {
                         this.fetchFilteredList();
                     }
                     return;
                 }
 
+                // إذا كان الفلتر 'all' أو يطابق الحالة الجديدة نستبدل البطاقة في مكانها فوراً
                 if (typeof cardHtml === 'string' && cardHtml.trim() !== '') {
-                    const temp = document.createElement('div');
-                    temp.innerHTML = cardHtml.trim();
-                    const newCard = temp.firstElementChild;
-                    if (newCard) {
-                        cardEl.replaceWith(newCard);
-                        if (window.Alpine) {
-                            window.Alpine.initTree(newCard);
-                        }
+                    cardEl.outerHTML = cardHtml.trim();
+                    const replacedEl = document.querySelector(`[data-outgoing-parcel-id="${safeId}"]`);
+                    if (replacedEl && window.Alpine) {
+                        window.Alpine.initTree(replacedEl);
                     }
                 }
             },

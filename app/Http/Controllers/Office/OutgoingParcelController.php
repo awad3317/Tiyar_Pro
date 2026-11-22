@@ -12,6 +12,7 @@ use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class OutgoingParcelController extends Controller
 {
@@ -88,13 +89,15 @@ class OutgoingParcelController extends Controller
 
         // استجابة JSON خفيفة للبحث والتصفية الفورية بدون إعادة تحميل الصفحة أو استعلام الفروع مجدداً
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'ok'            => true,
-                'status_filter' => $statusFilter,
-                'search'        => $search,
-                'counts'        => $counts,
-                'html'          => view('office.outgoing_parcels.partials.cards-list', compact('parcels'))->render(),
-            ]);
+            return response()
+                ->json([
+                    'ok'            => true,
+                    'status_filter' => $statusFilter,
+                    'search'        => $search,
+                    'counts'        => $counts,
+                    'html'          => view('office.outgoing_parcels.partials.cards-list', compact('parcels'))->render(),
+                ])
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
         }
 
         $destinationOffices = $office->partnerOffices()
@@ -129,15 +132,19 @@ class OutgoingParcelController extends Controller
             $created = $service->create($office, $validated);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $created->load(self::EAGER_RELATIONS);
+                $created = $created->fresh(self::EAGER_RELATIONS) ?? $created->load(self::EAGER_RELATIONS);
 
-                return response()->json([
-                    'ok'        => true,
-                    'message'   => 'تم تسجيل الطرد الصادر بنجاح.',
-                    'counts'    => $this->getStatusCounts($office),
-                    'parcel'    => $this->formatParcelJson($created),
-                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $created])->render(),
-                ], 201);
+                return response()
+                    ->json([
+                        'ok'        => true,
+                        'message'   => 'تم تسجيل الطرد الصادر بنجاح.',
+                        'parcel_id' => $created->id,
+                        'status'    => $created->status->value,
+                        'counts'    => $this->getStatusCounts($office),
+                        'parcel'    => $this->formatParcelJson($created),
+                        'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $created])->render(),
+                    ], 201)
+                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
             }
 
             return redirect()
@@ -212,15 +219,19 @@ class OutgoingParcelController extends Controller
             $updated = $service->markExternalDelivered($outgoingParcel, $office);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $updated->load(self::EAGER_RELATIONS);
+                $updated = $updated->fresh(self::EAGER_RELATIONS) ?? $updated->load(self::EAGER_RELATIONS);
 
-                return response()->json([
-                    'ok'        => true,
-                    'message'   => 'تم تأكيد تسليم الطرد للمكتب الخارجي بنجاح.',
-                    'counts'    => $this->getStatusCounts($office),
-                    'parcel'    => $this->formatParcelJson($updated),
-                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
-                ]);
+                return response()
+                    ->json([
+                        'ok'        => true,
+                        'message'   => 'تم تأكيد تسليم الطرد للمكتب الخارجي بنجاح.',
+                        'parcel_id' => $updated->id,
+                        'status'    => $updated->status->value,
+                        'counts'    => $this->getStatusCounts($office),
+                        'parcel'    => $this->formatParcelJson($updated),
+                        'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                    ])
+                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
             }
 
             return redirect()
@@ -253,15 +264,19 @@ class OutgoingParcelController extends Controller
             $updated = $service->cancel($outgoingParcel, $office);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $updated->load(self::EAGER_RELATIONS);
+                $updated = $updated->fresh(self::EAGER_RELATIONS) ?? $updated->load(self::EAGER_RELATIONS);
 
-                return response()->json([
-                    'ok'        => true,
-                    'message'   => 'تم إلغاء الطرد الصادر بنجاح.',
-                    'counts'    => $this->getStatusCounts($office),
-                    'parcel'    => $this->formatParcelJson($updated),
-                    'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
-                ]);
+                return response()
+                    ->json([
+                        'ok'        => true,
+                        'message'   => 'تم إلغاء الطرد الصادر بنجاح.',
+                        'parcel_id' => $updated->id,
+                        'status'    => $updated->status->value,
+                        'counts'    => $this->getStatusCounts($office),
+                        'parcel'    => $this->formatParcelJson($updated),
+                        'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                    ])
+                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
             }
 
             return redirect()
@@ -282,13 +297,14 @@ class OutgoingParcelController extends Controller
     }
 
     /**
-     * استعلام موحد واحد لحساب عدادات الحالات للمكتب.
+     * استعلام موحد واحد غير مفلتر لحساب عدادات الحالات للمكتب.
      *
      * @return array{all:int, pending:int, in_transit:int, received:int, delivered:int, cancelled:int}
      */
     private function getStatusCounts(Office $office): array
     {
-        $rawCounts = OutgoingParcel::where('office_id', $office->id)
+        $rawCounts = DB::table('outgoing_parcels')
+            ->where('office_id', $office->id)
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');

@@ -632,4 +632,110 @@ class OutgoingParcelUiTest extends TestCase
 
         $this->assertSame(OutgoingParcelStatus::RECEIVED, $p1->fresh()->status);
     }
+
+    public function test_filtered_ajax_index_keeps_unfiltered_kpi_counts_and_cancel_returns_fresh_card_html(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $pendingParcel = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل منتظر',
+            'sender_phone'          => '771111111',
+            'recipient_name'        => 'مستلم منتظر',
+            'recipient_phone'       => '772222222',
+            'package_type'          => 'كرتون منتظر',
+            'receipt_number'        => '10',
+            'cod_amount'            => 3000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $inTransitParcel = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => null,
+            'external_office_name'  => 'مكتب مأرب الخارجي',
+            'sender_name'           => 'مرسل في الطريق',
+            'sender_phone'          => '773333333',
+            'recipient_name'        => 'مستلم في الطريق',
+            'recipient_phone'       => '774444444',
+            'package_type'          => 'كيس في الطريق',
+            'receipt_number'        => '11',
+            'cod_amount'            => 5000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::IN_TRANSIT,
+            'dispatched_at'         => now(),
+        ]);
+
+        // 1. التصفية على in_transit تُرجع فقط طرد in_transit لكن عدادات KPI تبقى غير مفلترة (pending = 1 و in_transit = 1)
+        $filterRes = $this->actingAs($this->senderOffice, 'office')
+            ->getJson(route('office.outgoing-parcels.index', ['status' => 'in_transit']))
+            ->assertOk()
+            ->assertJson([
+                'ok'            => true,
+                'status_filter' => 'in_transit',
+                'counts'        => [
+                    'all'        => 2,
+                    'pending'    => 1,
+                    'in_transit' => 1,
+                    'received'   => 0,
+                    'delivered'  => 0,
+                    'cancelled'  => 0,
+                ],
+            ]);
+
+        $filterHtml = (string) $filterRes->json('html');
+        $this->assertStringContainsString('مستلم في الطريق', $filterHtml);
+        $this->assertStringNotContainsString('مستلم منتظر', $filterHtml);
+        $this->assertStringContainsString('data-outgoing-parcel-id="' . $inTransitParcel->id . '"', $filterHtml);
+
+        // 2. إلغاء الطرد المنتظر عبر AJAX يُرجع card_html محدثة بحالة (ملغي) و data-outgoing-parcel-id ويُنقِص pending بواحد
+        $cancelRes = $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $pendingParcel))
+            ->assertOk()
+            ->assertJson([
+                'ok'        => true,
+                'parcel_id' => $pendingParcel->id,
+                'status'    => 'cancelled',
+                'counts'    => [
+                    'all'        => 2,
+                    'pending'    => 0,
+                    'in_transit' => 1,
+                    'received'   => 0,
+                    'delivered'  => 0,
+                    'cancelled'  => 1,
+                ],
+            ]);
+
+        $cancelledCardHtml = (string) $cancelRes->json('card_html');
+        $this->assertStringContainsString('data-outgoing-parcel-id="' . $pendingParcel->id . '"', $cancelledCardHtml);
+        $this->assertStringContainsString('ملغي', $cancelledCardHtml);
+        $this->assertStringContainsString('border-rose-300', $cancelledCardHtml);
+        $this->assertStringNotContainsString('data-card-action="cancel"', $cancelledCardHtml);
+
+        // 3. تسليم الطرد الخارجي عبر AJAX يُرجع card_html محدثة بحالة (تم التسليم) وعدادات محدثة
+        $deliverRes = $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.deliver-external', $inTransitParcel))
+            ->assertOk()
+            ->assertJson([
+                'ok'        => true,
+                'parcel_id' => $inTransitParcel->id,
+                'status'    => 'delivered',
+                'counts'    => [
+                    'all'        => 2,
+                    'pending'    => 0,
+                    'in_transit' => 0,
+                    'received'   => 0,
+                    'delivered'  => 1,
+                    'cancelled'  => 1,
+                ],
+            ]);
+
+        $deliveredCardHtml = (string) $deliverRes->json('card_html');
+        $this->assertStringContainsString('data-outgoing-parcel-id="' . $inTransitParcel->id . '"', $deliveredCardHtml);
+        $this->assertStringContainsString('تم التسليم', $deliveredCardHtml);
+        $this->assertStringContainsString('border-emerald-300', $deliveredCardHtml);
+        $this->assertStringNotContainsString('data-card-action="cancel"', $deliveredCardHtml);
+    }
 }
