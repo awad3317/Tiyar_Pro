@@ -45,10 +45,13 @@ class ShipmentController extends Controller
         ];
 
         $query = Shipment::withCount([
-            'parcels as received_parcels_count' => fn($q) => $q->whereIn('status', [
-                OutgoingParcelStatus::RECEIVED->value,
-                OutgoingParcelStatus::DELIVERED->value,
-            ]),
+            'parcels as received_parcels_count' => fn ($q) => $q->where(function ($sub) {
+                $sub->whereNotNull('linked_incoming_parcel_id')
+                    ->orWhereIn('status', [
+                        OutgoingParcelStatus::RECEIVED->value,
+                        OutgoingParcelStatus::DELIVERED->value,
+                    ]);
+            }),
         ])->where('office_id', $office->id);
 
         if ($statusFilter !== 'all' && ShipmentStatus::tryFrom($statusFilter) !== null) {
@@ -223,21 +226,23 @@ class ShipmentController extends Controller
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
+        abort_unless((int) $shipment->office_id === (int) $office->id, 403);
 
         try {
             $updated = $this->shipmentService->cancel($shipment, $office);
+            $successMsg = "تم إلغاء الكشف #{$updated->shipment_number} وإرجاع جميع طروده إلى حالة (في الانتظار) بنجاح.";
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'ok'       => true,
-                    'message'  => "تم إلغاء الشحنة #{$updated->shipment_number} وإعادة طرودها إلى (في الانتظار).",
+                    'message'  => $successMsg,
                     'shipment' => $updated,
                 ]);
             }
 
             return redirect()
                 ->route('office.shipments.sent.index')
-                ->with('success', "تم إلغاء الشحنة #{$updated->shipment_number} بنجاح.");
+                ->with('success', $successMsg);
         } catch (DomainException $e) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);

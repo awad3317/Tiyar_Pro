@@ -22,21 +22,24 @@
             true,
         );
 
+        $hasAnyReceived = $shipment->parcels->contains(
+            fn ($p) => $p->linked_incoming_parcel_id !== null
+                || in_array(
+                    $p->status,
+                    [\App\Enums\OutgoingParcelStatus::RECEIVED, \App\Enums\OutgoingParcelStatus::DELIVERED],
+                    true,
+                ),
+        );
+
         $canDispatch = $shipment->status === \App\Enums\ShipmentStatus::DRAFT && $activeParcels->isNotEmpty();
         $canCancel =
-            in_array(
+            $shipment->status !== \App\Enums\ShipmentStatus::CANCELLED
+            && in_array(
                 $shipment->status,
                 [\App\Enums\ShipmentStatus::DRAFT, \App\Enums\ShipmentStatus::IN_TRANSIT],
                 true,
-            ) &&
-            $shipment->parcels->every(
-                fn($p) => $p->linked_incoming_parcel_id === null &&
-                    !in_array(
-                        $p->status,
-                        [\App\Enums\OutgoingParcelStatus::RECEIVED, \App\Enums\OutgoingParcelStatus::DELIVERED],
-                        true,
-                    ),
-            );
+            )
+            && ! $hasAnyReceived;
     @endphp
 
     @push('styles')
@@ -77,6 +80,7 @@
 
     <main class="flex-1 p-3.5 space-y-3.5 print:hidden"
           x-data="{
+              cancelModal: { open: false, submitting: false },
               detachModal: { open: false, url: '#', receipt: '', packageType: '', destination: '', submitting: false },
               openDetachModal(data) {
                   this.detachModal = {
@@ -91,9 +95,13 @@
               closeDetachModal() {
                   if (this.detachModal.submitting) return;
                   this.detachModal.open = false;
+              },
+              closeCancelModal() {
+                  if (this.cancelModal.submitting) return;
+                  this.cancelModal.open = false;
               }
           }"
-          @keydown.escape.window="closeDetachModal()">
+          @keydown.escape.window="closeDetachModal(); closeCancelModal()">
 
         {{-- شريط علوي للرجوع والطباعة المباشرة (مطابق لتطبيق المحاسب) --}}
         <div class="flex items-center justify-between gap-2 no-print">
@@ -182,15 +190,12 @@
                         </form>
                     @endif
                     @if ($canCancel)
-                        <form method="POST" action="{{ route('office.shipments.sent.cancel', $shipment) }}"
-                            class="{{ $canDispatch ? '' : 'flex-1' }}">
-                            @csrf
-                            <button type="submit"
-                                class="w-full py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-extrabold flex items-center justify-center gap-1">
-                                <span class="material-symbols-outlined text-base">cancel</span>
-                                <span>إلغاء الكشف</span>
-                            </button>
-                        </form>
+                        <button type="button"
+                            @click="cancelModal.open = true"
+                            class="{{ $canDispatch ? '' : 'flex-1' }} py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-extrabold flex items-center justify-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-base">cancel</span>
+                            <span>إلغاء الكشف</span>
+                        </button>
                     @endif
                 </div>
             @endif
@@ -276,6 +281,45 @@
                 </div>
             @endforelse
         </div>
+
+        {{-- مودال تأكيد إلغاء الكشف بالكامل --}}
+        @if ($canCancel)
+            <div x-show="cancelModal.open"
+                 x-cloak
+                 class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 no-print">
+                <div class="fixed inset-0 bg-slate-950/60" @click="closeCancelModal()"></div>
+
+                <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 flex flex-col gap-4 text-right">
+                    <button type="button" @click="closeCancelModal()" :disabled="cancelModal.submitting"
+                            class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+
+                    <div class="text-center pt-1">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-3xl">cancel</span>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-800">إلغاء كشف الشحنة</h3>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                            سيتم إلغاء الكشف #{{ $shipment->shipment_number }} وتنزيل جميع الطرود بداخله وإرجاعها إلى حالة (في الانتظار).
+                        </p>
+                    </div>
+
+                    <form method="POST" action="{{ route('office.shipments.sent.cancel', $shipment) }}" @submit="cancelModal.submitting = true" class="flex flex-col gap-2">
+                        @csrf
+                        <button type="submit" :disabled="cancelModal.submitting"
+                                class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 flex items-center justify-center gap-1.5 disabled:opacity-50">
+                            <span class="material-symbols-outlined text-base">cancel</span>
+                            <span x-text="cancelModal.submitting ? 'جاري إلغاء الكشف...' : 'تأكيد إلغاء الكشف'"></span>
+                        </button>
+                        <button type="button" @click="closeCancelModal()" :disabled="cancelModal.submitting"
+                                class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">
+                            تراجع
+                        </button>
+                    </form>
+                </div>
+            </div>
+        @endif
 
         {{-- مودال تأكيد إخراج طرد من الشحنة --}}
         <div x-show="detachModal.open"

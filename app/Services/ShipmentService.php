@@ -161,34 +161,40 @@ class ShipmentService
     }
 
     /**
-     * إلغاء الشحنة قبل استلام أي طرد منها، مع إعادة طرودها إلى حالة (في الانتظار) وفك ارتباطها.
+     * إلغاء الشحنة قبل استلام أي طرد منها، مع إعادة جميع طرودها إلى حالة (في الانتظار) وفك ارتباطها.
      */
     public function cancel(Shipment $shipment, Office $office): Shipment
     {
         return DB::transaction(function () use ($shipment, $office): Shipment {
+            // قفل الطرود المرتبطة بالشحنة أولاً ثم قفل الشحنة (نفس ترتيب القفل في receiveAtDestination لمنع أي Deadlock)
+            $lockedParcels = OutgoingParcel::query()
+                ->where('shipment_id', $shipment->id)
+                ->lockForUpdate()
+                ->get(['id', 'status', 'linked_incoming_parcel_id']);
+
             $locked = Shipment::query()->whereKey($shipment->id)->lockForUpdate()->firstOrFail();
 
             if ((int) $locked->office_id !== (int) $office->id) {
                 throw new DomainException('غير مصرح لك بإلغاء هذا الكشف.');
             }
 
-            if (! in_array($locked->status, [ShipmentStatus::DRAFT, ShipmentStatus::IN_TRANSIT], true)) {
-                throw new DomainException('لا يمكن إلغاء شحنة تم البدء في استلام طرودها أو تم إلغاؤها مسبقاً.');
+            if ($locked->status === ShipmentStatus::CANCELLED) {
+                throw new DomainException('هذا الكشف ملغي مسبقاً.');
             }
 
-            $hasReceived = OutgoingParcel::query()
-                ->where('shipment_id', $locked->id)
-                ->where(function ($q) {
-                    $q->whereNotNull('linked_incoming_parcel_id')
-                        ->orWhereIn('status', [
-                            OutgoingParcelStatus::RECEIVED->value,
-                            OutgoingParcelStatus::DELIVERED->value,
-                        ]);
-                })
-                ->exists();
+            $hasReceivedParcel = $lockedParcels->contains(function (OutgoingParcel $p): bool {
+                return $p->linked_incoming_parcel_id !== null
+                    || in_array($p->status, [
+                        OutgoingParcelStatus::RECEIVED,
+                        OutgoingParcelStatus::DELIVERED,
+                    ], true);
+            });
 
-            if ($hasReceived) {
-                throw new DomainException('لا يمكن إلغاء الشحنة بعد استلام أحد طرودها في الفرع المستلم.');
+            if (
+                $hasReceivedParcel
+                || in_array($locked->status, [ShipmentStatus::PARTIALLY_RECEIVED, ShipmentStatus::RECEIVED], true)
+            ) {
+                throw new DomainException('لا يمكن إلغاء الكشف لوجود طرود تم استلامها بالفعل من الفرع المستلم.');
             }
 
             OutgoingParcel::query()
