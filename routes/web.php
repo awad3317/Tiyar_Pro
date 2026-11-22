@@ -158,8 +158,8 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::post('/{outgoingParcel}/receive', [IncomingTransitParcelController::class, 'receive'])->name('receive');
             });
 
-        // الشحنات المرسلة (محمية بميزة outgoing_parcels)
-        Route::middleware('office.feature:outgoing_parcels')
+        // الشحنات المرسلة (محمية بميزة sent_shipments)
+        Route::middleware('office.feature:sent_shipments')
             ->prefix('shipments/sent')
             ->name('shipments.sent.')
             ->group(function () {

@@ -2,6 +2,7 @@
     $officeUser = auth('office')->user();
     $officeId = (int) ($officeUser?->id ?? 0);
     $hasOutgoing = $officeUser && $officeUser->hasFeature('outgoing_parcels');
+    $hasSentShipments = $officeUser && $officeUser->hasFeature('sent_shipments');
     $hasVip = $officeUser && $officeUser->hasFeature('vip_customers_tab');
 
     $isDashboard = request()->routeIs('office.dashboard');
@@ -351,7 +352,7 @@
 
             <div class="p-2 space-y-1.5">
                 <!-- 1. شحنات مرسلة -->
-                @if($hasOutgoing)
+                @if($hasSentShipments)
                     <a href="{{ route('office.shipments.sent.index') }}"
                        class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isShipmentsSent ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                         <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isShipmentsSent ? 'bg-white/15 text-secondary' : 'bg-amber-50 text-amber-600' }}">
@@ -377,7 +378,7 @@
                                     <span class="material-symbols-outlined text-[11px]">lock</span> مقفلة
                                 </span>
                             </div>
-                            <div class="text-[10px] text-slate-400">تتطلب تفعيل ميزة الصادر من الإدارة</div>
+                            <div class="text-[10px] text-slate-400">تتطلب تفعيل الميزة من الإدارة</div>
                         </div>
                         <span class="material-symbols-outlined text-lg text-slate-400">lock</span>
                     </button>

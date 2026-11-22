@@ -193,6 +193,29 @@
                 </a>
             @endif
 
+            @if(auth('office')->check() && auth('office')->user()->hasFeature('sent_shipments'))
+                <!-- خدمة الشحنات المرسلة (تظهر فقط عند تفعيل الميزة للمكتب) -->
+                <a href="{{ route('office.shipments.sent.index') }}"
+                   class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-secondary flex items-center justify-between shadow-xs transition-all group block">
+                    <div class="flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-xl bg-amber-50 text-secondary flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <span class="material-symbols-outlined text-xl">outbound</span>
+                        </span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-xs text-slate-800 group-hover:text-primary transition-colors">الشحنات المرسلة (الكشوفات)</h3>
+                                <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-extrabold px-2 py-0.5 rounded-md">مفعّل</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-0.5">إنشاء كشوفات الشحنات بمسح الباركود وإرسالها مع السائق ومتابعة استلامها</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 text-slate-400 group-hover:text-secondary transition-colors">
+                        <span class="text-[11px] font-bold hidden sm:inline">فتح الشحنات</span>
+                        <span class="material-symbols-outlined text-base">arrow_back</span>
+                    </div>
+                </a>
+            @endif
+
             <!-- الخدمة الأولى: إشعارات الواتساب (تم تفعيلها) -->
             <a href="{{ route('office.whatsapp.index') }}" 
                class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-emerald-300 flex items-center justify-between shadow-xs transition-all group block">

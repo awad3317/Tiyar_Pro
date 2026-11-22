@@ -60,6 +60,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'تفعيل قسم الطرود الصادرة لإرسال الشحنات إلى الفروع والمكاتب الأخرى ومتابعة حالتها',
             ],
+            [
+                'code' => 'sent_shipments',
+                'name' => 'الشحنات المرسلة',
+                'category' => 'general',
+                'description' => 'تفعيل قسم الشحنات المرسلة لإنشاء كشوفات الشحنات بمسح الباركود وإرسالها مع السائق ومتابعة استلامها',
+            ],
         ];
 
         $features = collect();
