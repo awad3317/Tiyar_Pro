@@ -5,61 +5,34 @@
 @section('shell-class', 'bg-slate-50')
 
 @section('content')
-    <main class="flex-1 p-3.5 space-y-3.5" x-data="{
+    <div class="flex-1 flex flex-col" x-data="{
         init() {
             window.dispatchEvent(new CustomEvent('shipments-pending-updated', {
                 detail: { count: {{ (int) $pendingReceivedShipmentsCount }} }
             }));
         }
     }">
-
-        {{-- رأس الصفحة --}}
-        <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <a href="{{ route('office.dashboard') }}"
-                    class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-primary transition-colors shadow-2xs shrink-0">
-                    <span class="material-symbols-outlined text-lg">arrow_forward</span>
+        {{-- شريط تبويبات التصفية العلوي الموحّد (مطابق تماماً لشاشة الطرود الواردة) --}}
+        @php
+            $receivedTabs = [
+                ['key' => 'all',       'label' => 'الكل'],
+                ['key' => 'pending',   'label' => 'بانتظار الاستلام'],
+                ['key' => 'completed', 'label' => 'مكتملة'],
+            ];
+        @endphp
+        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[68px] z-20 text-xs font-bold text-center">
+            @foreach ($receivedTabs as $tabItem)
+                <a href="{{ route('office.shipments.received.index', ['tab' => $tabItem['key']]) }}"
+                   class="flex-1 shrink-0 whitespace-nowrap px-3 py-3 transition-colors {{ $tab === $tabItem['key'] ? 'border-b-2 border-secondary text-secondary' : 'text-slate-500' }}">
+                    <span>{{ $tabItem['label'] }}</span>
+                    (<span>{{ $receivedCounts[$tabItem['key']] ?? 0 }}</span>)
                 </a>
-                <div class="min-w-0">
-                    <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-lg text-secondary">move_to_inbox</span>
-                        <span class="truncate">الشحنات المستلمة</span>
-                    </h2>
-                    <p class="text-[11px] text-slate-400 truncate">فحص طرود الشحنات بالباركود لكشف النقص وإشعار العملاء</p>
-                </div>
-            </div>
+            @endforeach
+        </nav>
 
-            @if ($pendingReceivedShipmentsCount > 0)
-                <span class="px-2.5 py-1 rounded-xl bg-primary text-secondary text-[11px] font-extrabold shrink-0">
-                    {{ $pendingReceivedShipmentsCount === 1 ? 'شحنة بانتظارك' : ($pendingReceivedShipmentsCount === 2 ? 'شحنتان بانتظارك' : $pendingReceivedShipmentsCount . ' شحنات') }}
-                </span>
-            @endif
-        </div>
-
-        {{-- تبويبات الفلترة --}}
-        <div class="grid grid-cols-3 gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-2xs">
-            <a href="{{ route('office.shipments.received.index', ['tab' => 'pending']) }}"
-                class="py-2 rounded-xl text-center text-xs font-extrabold transition-all {{ $tab === 'pending' ? 'bg-primary text-secondary shadow-xs' : 'text-slate-500 hover:text-primary' }}">
-                بانتظار الاستلام
-                @if ($pendingReceivedShipmentsCount > 0)
-                    <span
-                        class="mr-1 px-1.5 py-0.5 rounded-full text-[10px] {{ $tab === 'pending' ? 'bg-secondary text-primary' : 'bg-amber-100 text-amber-800' }}">
-                        {{ $pendingReceivedShipmentsCount }}
-                    </span>
-                @endif
-            </a>
-            <a href="{{ route('office.shipments.received.index', ['tab' => 'completed']) }}"
-                class="py-2 rounded-xl text-center text-xs font-extrabold transition-all {{ $tab === 'completed' ? 'bg-primary text-secondary shadow-xs' : 'text-slate-500 hover:text-primary' }}">
-                مكتملة
-            </a>
-            <a href="{{ route('office.shipments.received.index', ['tab' => 'all']) }}"
-                class="py-2 rounded-xl text-center text-xs font-extrabold transition-all {{ $tab === 'all' ? 'bg-primary text-secondary shadow-xs' : 'text-slate-500 hover:text-primary' }}">
-                الكل
-            </a>
-        </div>
-
-        {{-- قائمة الشحنات القادمة --}}
-        <div class="space-y-3">
+        <main class="flex-1 p-3 space-y-2.5">
+            {{-- قائمة الشحنات القادمة --}}
+            <div class="space-y-2.5">
             @forelse ($filteredShipments as $shipment)
                 @php
                     $total = (int) $shipment->office_parcels_total;
@@ -173,6 +146,7 @@
                     </p>
                 </div>
             @endforelse
-        </div>
-    </main>
+            </div>
+        </main>
+    </div>
 @endsection

@@ -14,35 +14,38 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
 {
+    private const NO_CACHE_HEADERS = [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma'        => 'no-cache',
+        'Vary'          => 'Accept, X-Requested-With',
+    ];
+
     public function __construct(
         protected ShipmentService $shipmentService
     ) {}
 
     /**
-     * شاشة الشحنات المرسلة (الصادرة) للمكتب + تجهيز الطرود المتاحة للضم.
+     * شاشة الشحنات المرسلة (الصادرة) للمكتب + تجهيز الطرود المتاحة للضم + التصفية الفورية AJAX.
      */
-    public function sentIndex(Request $request): View
+    public function sentIndex(Request $request): Response|JsonResponse
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
 
         $statusFilter = (string) $request->query('status', 'all');
-        $search = trim((string) $request->query('q', ''));
+        $rawSearch = trim((string) $request->query('q', ''));
+        $eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $search = str_replace($eastern, $western, $rawSearch);
 
-        $baseQuery = Shipment::query()->where('office_id', $office->id);
-
-        $counts = [
-            'all'                => (clone $baseQuery)->count(),
-            'draft'              => (clone $baseQuery)->where('status', ShipmentStatus::DRAFT->value)->count(),
-            'in_transit'         => (clone $baseQuery)->where('status', ShipmentStatus::IN_TRANSIT->value)->count(),
-            'partially_received' => (clone $baseQuery)->where('status', ShipmentStatus::PARTIALLY_RECEIVED->value)->count(),
-            'received'           => (clone $baseQuery)->where('status', ShipmentStatus::RECEIVED->value)->count(),
-        ];
+        $counts = $this->getSentStatusCounts($office);
 
         $query = Shipment::withCount([
             'parcels as received_parcels_count' => fn ($q) => $q->where(function ($sub) {
@@ -56,6 +59,8 @@ class ShipmentController extends Controller
 
         if ($statusFilter !== 'all' && ShipmentStatus::tryFrom($statusFilter) !== null) {
             $query->where('status', $statusFilter);
+        } else {
+            $statusFilter = 'all';
         }
 
         if ($search !== '') {
@@ -66,7 +71,19 @@ class ShipmentController extends Controller
             });
         }
 
-        $shipments = $query->latest()->paginate(20)->withQueryString();
+        $shipments = $query->latest()->paginate(20)->appends($request->except(['_t', 'page']));
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()
+                ->json([
+                    'ok'            => true,
+                    'status_filter' => $statusFilter,
+                    'search'        => $search,
+                    'counts'        => $counts,
+                    'html'          => view('office.shipments.partials.sent-cards-list', compact('shipments'))->render(),
+                ])
+                ->withHeaders(self::NO_CACHE_HEADERS);
+        }
 
         // الطرود الصادرة الجاهزة (pending وغير مضمومة لشحنة) لضمها بالمسح أو الاختيار اليدوي
         $availableParcels = OutgoingParcel::with('destinationOffice:id,name,branch_name')
@@ -76,17 +93,48 @@ class ShipmentController extends Controller
             ->latest()
             ->limit(200)
             ->get()
-            ->map(fn(OutgoingParcel $p) => $this->serializeParcelForShipmentJs($p))
+            ->map(fn (OutgoingParcel $p) => $this->serializeParcelForShipmentJs($p))
             ->values();
 
-        return view('office.shipments.sent', compact(
-            'office',
-            'shipments',
-            'counts',
-            'statusFilter',
-            'search',
-            'availableParcels'
-        ));
+        return response()
+            ->view('office.shipments.sent', compact(
+                'office',
+                'shipments',
+                'counts',
+                'statusFilter',
+                'search',
+                'availableParcels'
+            ))
+            ->withHeaders(self::NO_CACHE_HEADERS);
+    }
+
+    /**
+     * استعلام موحد واحد غير مفلتر لحساب عدادات تبويبات الشحنات المرسلة.
+     *
+     * @return array{all:int, draft:int, in_transit:int, partially_received:int, received:int, cancelled:int}
+     */
+    protected function getSentStatusCounts(Office $office): array
+    {
+        $rawCounts = DB::table('shipments')
+            ->where('office_id', $office->id)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $draft = (int) ($rawCounts[ShipmentStatus::DRAFT->value] ?? 0);
+        $inTransit = (int) ($rawCounts[ShipmentStatus::IN_TRANSIT->value] ?? 0);
+        $partiallyReceived = (int) ($rawCounts[ShipmentStatus::PARTIALLY_RECEIVED->value] ?? 0);
+        $received = (int) ($rawCounts[ShipmentStatus::RECEIVED->value] ?? 0);
+        $cancelled = (int) ($rawCounts[ShipmentStatus::CANCELLED->value] ?? 0);
+
+        return [
+            'all'                => $draft + $inTransit + $partiallyReceived + $received + $cancelled,
+            'draft'              => $draft,
+            'in_transit'         => $inTransit,
+            'partially_received' => $partiallyReceived,
+            'received'           => $received,
+            'cancelled'          => $cancelled,
+        ];
     }
 
     /**
@@ -287,12 +335,15 @@ class ShipmentController extends Controller
     /**
      * شاشة الشحنات المستلمة (القادمة لهذا المكتب من فروع شريكة — يعرض فقط طرود هذا المكتب داخل كل شحنة).
      */
-    public function receivedIndex(Request $request): View
+    public function receivedIndex(Request $request): Response
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
 
-        $tab = (string) $request->query('tab', 'pending'); // pending | completed | all
+        $tab = (string) $request->query('tab', 'all'); // all | pending | completed
+        if (! in_array($tab, ['all', 'pending', 'completed'], true)) {
+            $tab = 'all';
+        }
 
         $shipments = Shipment::with([
             'office:id,name,branch_name',
@@ -330,20 +381,29 @@ class ShipmentController extends Controller
                 return $shipment;
             });
 
-        $pendingReceivedShipmentsCount = $shipments->filter(fn($s) => $s->office_parcels_pending > 0)->count();
+        $pendingReceivedShipmentsCount = $shipments->filter(fn ($s) => $s->office_parcels_pending > 0)->count();
+        $completedReceivedShipmentsCount = $shipments->count() - $pendingReceivedShipmentsCount;
+        $receivedCounts = [
+            'all'       => $shipments->count(),
+            'pending'   => $pendingReceivedShipmentsCount,
+            'completed' => $completedReceivedShipmentsCount,
+        ];
 
         $filteredShipments = match ($tab) {
-            'completed' => $shipments->filter(fn($s) => $s->office_parcels_pending === 0)->values(),
-            'all'       => $shipments->values(),
-            default     => $shipments->filter(fn($s) => $s->office_parcels_pending > 0)->values(),
+            'pending'   => $shipments->filter(fn ($s) => $s->office_parcels_pending > 0)->values(),
+            'completed' => $shipments->filter(fn ($s) => $s->office_parcels_pending === 0)->values(),
+            default     => $shipments->values(),
         };
 
-        return view('office.shipments.received', compact(
-            'office',
-            'filteredShipments',
-            'tab',
-            'pendingReceivedShipmentsCount'
-        ));
+        return response()
+            ->view('office.shipments.received', compact(
+                'office',
+                'filteredShipments',
+                'tab',
+                'pendingReceivedShipmentsCount',
+                'receivedCounts'
+            ))
+            ->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     /**

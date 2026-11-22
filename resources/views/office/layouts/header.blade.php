@@ -65,6 +65,19 @@
                         class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
                 </button>
+            @elseif (request()->routeIs('office.shipments.sent.index'))
+                <button type="button"
+                        @click="window.dispatchEvent(new CustomEvent('open-create-shipment-modal'))"
+                        title="إنشاء كشف شحنة جديد"
+                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </button>
+            @elseif (request()->routeIs('office.shipments.sent.*'))
+                <a href="{{ route('office.shipments.sent.index', ['create' => 1]) }}"
+                   title="إنشاء كشف شحنة جديد"
+                   class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </a>
             @elseif (request()->routeIs('office.favorite_customers.*'))
                 <button type="button"
                         @click="window.dispatchEvent(new CustomEvent('open-vip-customer-modal'))"

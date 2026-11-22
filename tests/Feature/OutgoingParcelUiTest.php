@@ -98,12 +98,17 @@ class OutgoingParcelUiTest extends TestCase
         $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
         $this->senderOffice->refreshFeaturesCache();
 
-        // 1. استعراض صفحة الصادر
+        // 1. استعراض صفحة الصادر بشريط التبويبات العلوي الموحّد وزر الإضافة السريع بالهيدر
         $this->actingAs($this->senderOffice, 'office')
             ->get(route('office.outgoing-parcels.index'))
             ->assertOk()
             ->assertSee('الطرود الصادرة')
-            ->assertSee('+ إضافة طرد صادر');
+            ->assertSee('الكل')
+            ->assertSee('في الانتظار')
+            ->assertSee('في الطريق')
+            ->assertSee('وصل الفرع')
+            ->assertSee('ملغي')
+            ->assertSee('open-outgoing-parcel-modal');
 
         // التحقق من إلزامية المبلغ وحالة الدفع (محاسب / آجل)
         $this->actingAs($this->senderOffice, 'office')

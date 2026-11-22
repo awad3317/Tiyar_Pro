@@ -5,238 +5,101 @@
 @section('shell-class', 'bg-slate-50')
 
 @section('header-search')
-    <form method="GET" action="{{ route('office.shipments.sent.index') }}" class="mt-3 relative">
+    <form method="GET"
+          action="{{ route('office.shipments.sent.index') }}"
+          x-data="{
+              q: @js($search),
+              _t: null,
+              normDigits(str) {
+                  const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                  const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+                  return String(str || '')
+                      .replace(/[٠-٩]/g, d => ar.indexOf(d))
+                      .replace(/[۰-۹]/g, d => fa.indexOf(d))
+                      .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+              },
+              onInput() {
+                  this.q = this.normDigits(this.q);
+                  if (this._t) clearTimeout(this._t);
+                  this._t = setTimeout(() => this.emitSearch(), 320);
+              },
+              emitSearch() {
+                  if (this._t) clearTimeout(this._t);
+                  window.dispatchEvent(new CustomEvent('sent-search-change', { detail: { q: this.q } }));
+              },
+              clear() {
+                  this.q = '';
+                  this.emitSearch();
+              }
+          }"
+          @submit.prevent="emitSearch()"
+          class="mt-3 relative">
         @if ($statusFilter !== 'all')
             <input type="hidden" name="status" value="{{ $statusFilter }}">
         @endif
-        <input type="text" name="q" value="{{ $search }}" dir="rtl" autocomplete="off"
-            placeholder="بحث برقم الكشف، اسم السائق، أو رقم السائق..."
-            class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
+        <input type="text"
+               name="q"
+               x-model="q"
+               @input="onInput()"
+               dir="rtl"
+               autocomplete="off"
+               placeholder="بحث برقم الكشف، اسم السائق، أو رقم السائق..."
+               class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
         <span
             class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg pointer-events-none">search</span>
-        @if ($search !== '')
-            <a href="{{ route('office.shipments.sent.index', array_filter(['status' => $statusFilter !== 'all' ? $statusFilter : null])) }}"
-                title="مسح البحث"
-                class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-700 text-slate-300 hover:text-rose-400 flex items-center justify-center text-xs font-bold">
+        <template x-if="q.length > 0">
+            <button type="button"
+                    @click="clear()"
+                    title="مسح البحث"
+                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-700 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 flex items-center justify-center text-xs font-bold transition-colors">
                 ✕
-            </a>
-        @endif
+            </button>
+        </template>
     </form>
 @endsection
 
 @section('content')
-    <main class="flex-1 p-3.5 space-y-3.5" x-data="sentShipmentsPage({
-        availableParcels: @js($availableParcels),
-        lookupUrl: @js(route('office.shipments.sent.lookup')),
-        storeUrl: @js(route('office.shipments.sent.store')),
-        senderOfficeLabel: @js($office->branch_name ? $office->name . ' - ' . $office->branch_name : $office->name)
-    })">
+    <div class="flex-1 flex flex-col"
+         @open-create-shipment-modal.window="openCreateModal()"
+         @sent-search-change.window="handleSearchEvent($event.detail.q)"
+         x-data="sentShipmentsPage({
+             baseUrl: @js(route('office.shipments.sent.index')),
+             initialStatus: @js($statusFilter),
+             initialSearch: @js($search),
+             initialCounts: @js($counts),
+             availableParcels: @js($availableParcels),
+             lookupUrl: @js(route('office.shipments.sent.lookup')),
+             storeUrl: @js(route('office.shipments.sent.store')),
+             senderOfficeLabel: @js($office->branch_name ? $office->name . ' - ' . $office->branch_name : $office->name)
+         })">
 
-        {{-- رأس الصفحة --}}
-        <div class="flex items-center justify-between gap-2">
-            <div>
-                <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-lg text-secondary">local_shipping</span>
-                    <span>الشحنات المرسلة</span>
-                </h2>
-                <p class="text-[11px] text-slate-400">تجميع الطرود في كشوفات سائقين بمسح الباركود</p>
+        {{-- شريط تبويبات التصفية العلوي الموحّد (مطابق تماماً لشاشة الطرود الواردة) --}}
+        @php
+            $sentTabs = [
+                ['key' => 'all',                'label' => 'الكل'],
+                ['key' => 'draft',              'label' => 'في الانتظار'],
+                ['key' => 'in_transit',         'label' => 'في الطريق'],
+                ['key' => 'partially_received', 'label' => 'تسليم جزئي'],
+                ['key' => 'received',           'label' => 'مكتملة'],
+            ];
+        @endphp
+        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
+            @foreach ($sentTabs as $tabItem)
+                <button type="button"
+                        @click="setStatusFilter('{{ $tabItem['key'] }}')"
+                        :class="activeStatus === '{{ $tabItem['key'] }}' ? 'border-b-2 border-secondary text-secondary' : 'text-slate-500'"
+                        class="flex-1 shrink-0 whitespace-nowrap px-3 py-3 transition-colors">
+                    <span>{{ $tabItem['label'] }}</span>
+                    (<span x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>)
+                </button>
+            @endforeach
+        </nav>
+
+        <main class="flex-1 p-3 space-y-2.5">
+            {{-- قائمة الشحنات المرسلة (تُحدث لحظياً عبر AJAX) --}}
+            <div x-ref="cardsContainer" :class="isFetching ? 'opacity-60 transition-opacity' : ''">
+                @include('office.shipments.partials.sent-cards-list', ['shipments' => $shipments])
             </div>
-
-            <button type="button" @click="openCreateModal()"
-                class="py-2 px-3.5 rounded-xl bg-secondary hover:bg-amber-500 active:scale-95 text-primary text-xs font-extrabold shadow-sm shadow-secondary/25 flex items-center gap-1 transition-all shrink-0">
-                <span class="material-symbols-outlined text-base">qr_code_scanner</span>
-                <span>كشف شحنة جديد</span>
-            </button>
-        </div>
-
-        {{-- بطاقات الملخص والتصفية --}}
-        <div class="grid grid-cols-3 gap-2">
-            <a href="{{ route('office.shipments.sent.index', array_filter(['status' => $statusFilter === 'in_transit' ? null : 'in_transit', 'q' => $search ?: null])) }}"
-                class="p-2.5 rounded-2xl border text-center transition-all {{ $statusFilter === 'in_transit' ? 'bg-sky-50 border-sky-400 ring-2 ring-sky-200' : 'bg-white border-slate-200/80' }}">
-                <p class="text-[10px] font-bold text-slate-400">في الطريق</p>
-                <p class="text-lg font-black text-sky-600 mt-0.5">{{ $counts['in_transit'] }}</p>
-            </a>
-            <a href="{{ route('office.shipments.sent.index', array_filter(['status' => $statusFilter === 'partially_received' ? null : 'partially_received', 'q' => $search ?: null])) }}"
-                class="p-2.5 rounded-2xl border text-center transition-all {{ $statusFilter === 'partially_received' ? 'bg-indigo-50 border-indigo-400 ring-2 ring-indigo-200' : 'bg-white border-slate-200/80' }}">
-                <p class="text-[10px] font-bold text-slate-400">استلام جزئي</p>
-                <p class="text-lg font-black text-indigo-600 mt-0.5">{{ $counts['partially_received'] }}</p>
-            </a>
-            <a href="{{ route('office.shipments.sent.index', array_filter(['status' => $statusFilter === 'received' ? null : 'received', 'q' => $search ?: null])) }}"
-                class="p-2.5 rounded-2xl border text-center transition-all {{ $statusFilter === 'received' ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-200' : 'bg-white border-slate-200/80' }}">
-                <p class="text-[10px] font-bold text-slate-400">مكتملة</p>
-                <p class="text-lg font-black text-emerald-600 mt-0.5">{{ $counts['received'] }}</p>
-            </a>
-        </div>
-
-        {{-- قائمة الشحنات المرسلة --}}
-        <div class="space-y-3">
-            @forelse ($shipments as $shipment)
-                @php
-                    $destList = is_array($shipment->destinations_summary) ? $shipment->destinations_summary : [];
-                    $createdAgo = $shipment->created_at?->copy()->locale('ar')->diffForHumans();
-                    $canCancelShipment =
-                        $shipment->status !== \App\Enums\ShipmentStatus::CANCELLED
-                        && in_array($shipment->status, [\App\Enums\ShipmentStatus::DRAFT, \App\Enums\ShipmentStatus::IN_TRANSIT], true)
-                        && (int) $shipment->received_parcels_count === 0;
-                    $cancelCardPayload = [
-                        'id'            => (string) $shipment->id,
-                        'number'        => (string) $shipment->shipment_number,
-                        'driver_name'   => (string) $shipment->driver_name,
-                        'parcels_count' => (int) $shipment->parcels_count,
-                        'url'           => route('office.shipments.sent.cancel', $shipment),
-                    ];
-                @endphp
-                <article
-                    class="relative bg-white border border-slate-200/90 hover:border-secondary rounded-2xl p-3.5 shadow-xs space-y-2.5 transition-colors">
-
-                    <div class="flex items-start justify-between gap-2">
-                        <a href="{{ route('office.shipments.sent.show', $shipment) }}"
-                            class="flex items-center gap-2.5 min-w-0 flex-1">
-                            <span
-                                class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
-                                <span class="material-symbols-outlined text-xl">receipt_long</span>
-                            </span>
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="font-mono font-black text-sm text-primary">كشف
-                                        #{{ $shipment->shipment_number }}</span>
-                                    <span
-                                        class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                        {{ $shipment->parcels_count }} طرد
-                                    </span>
-                                </div>
-                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5">{{ $createdAgo }}</p>
-                            </div>
-                        </a>
-
-                        {{-- شارة الحالة + قائمة الثلاث نقاط (⋮) --}}
-                        <div class="flex items-center gap-1.5 shrink-0">
-                            <span
-                                class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold {{ $shipment->status->badgeClass() }}">
-                                {{ $shipment->status->label() }}
-                            </span>
-
-                            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                                <button type="button"
-                                    @click="open = !open"
-                                    title="خيارات الكشف"
-                                    aria-label="خيارات الكشف"
-                                    class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
-                                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                                </button>
-
-                                <div x-show="open"
-                                    x-cloak
-                                    x-transition:enter="ease-out duration-150"
-                                    x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
-                                    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                                    x-transition:leave="ease-in duration-100"
-                                    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                                    x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                                    class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-lg border border-slate-200/90 py-1.5 z-30 text-right">
-                                    <a href="{{ route('office.shipments.sent.show', $shipment) }}"
-                                        class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                        <span class="material-symbols-outlined text-base text-primary">description</span>
-                                        <span>تفاصيل الكشف</span>
-                                    </a>
-
-                                    <a href="{{ route('office.shipments.sent.print', $shipment) }}"
-                                        target="_blank"
-                                        class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                        <span class="material-symbols-outlined text-base text-slate-500">print</span>
-                                        <span>طباعة الكشف</span>
-                                    </a>
-
-                                    @if ($canCancelShipment)
-                                        <div class="my-1 border-t border-slate-100"></div>
-                                        <button type="button"
-                                            data-shipment-action="cancel"
-                                            @click="open = false; openCancelModal(@js($cancelCardPayload))"
-                                            class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
-                                            <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
-                                            <span>إلغاء الكشف</span>
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <a href="{{ route('office.shipments.sent.show', $shipment) }}" class="block space-y-2.5">
-                        {{-- السائق والوجهات --}}
-                        <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-slate-400 text-[11px] font-bold flex items-center gap-1">
-                                    <span class="material-symbols-outlined text-sm text-primary">person</span>
-                                    السائق:
-                                </span>
-                                <span class="font-extrabold text-slate-800 truncate">
-                                    {{ $shipment->driver_name }}
-                                    <span class="font-mono text-[11px] text-slate-500 mr-1"
-                                        dir="ltr">({{ $shipment->driver_phone }})</span>
-                                </span>
-                            </div>
-
-                            @if (count($destList) > 0)
-                                <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
-                                    <span class="text-slate-400 text-[11px] font-bold shrink-0">الوجهات:</span>
-                                    <div class="flex flex-wrap justify-end gap-1">
-                                        @foreach (array_slice($destList, 0, 3) as $dest)
-                                            <span
-                                                class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-700">{{ $dest }}</span>
-                                        @endforeach
-                                        @if (count($destList) > 3)
-                                            <span
-                                                class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold">+{{ count($destList) - 3 }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- المجاميع المالية (آجل / محاسب / إجمالي) --}}
-                        <div class="grid grid-cols-3 gap-1.5 text-center">
-                            <div class="bg-amber-50/70 border border-amber-200/70 rounded-xl py-1.5 px-1">
-                                <p class="text-[9px] font-bold text-amber-700">الآجل</p>
-                                <p class="text-xs font-mono font-black text-amber-800">
-                                    {{ number_format((float) $shipment->total_deferred_amount) }}</p>
-                            </div>
-                            <div class="bg-emerald-50/70 border border-emerald-200/70 rounded-xl py-1.5 px-1">
-                                <p class="text-[9px] font-bold text-emerald-700">المحاسب</p>
-                                <p class="text-xs font-mono font-black text-emerald-800">
-                                    {{ number_format((float) $shipment->total_paid_amount) }}</p>
-                            </div>
-                            <div class="bg-primary text-white rounded-xl py-1.5 px-1">
-                                <p class="text-[9px] font-bold text-slate-300">الإجمالي</p>
-                                <p class="text-xs font-mono font-black text-secondary">
-                                    {{ number_format((float) $shipment->total_amount) }}</p>
-                            </div>
-                        </div>
-
-                        {{-- نسبة الاستلام --}}
-                        <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
-                            <span>تم استلام {{ $shipment->received_parcels_count }} من {{ $shipment->parcels_count }}</span>
-                            <span class="text-primary font-extrabold inline-flex items-center gap-0.5">
-                                <span>تفاصيل الكشف</span>
-                                <span class="material-symbols-outlined text-sm text-secondary">chevron_left</span>
-                            </span>
-                        </div>
-                    </a>
-                </article>
-            @empty
-                <div class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-3xl">local_shipping</span>
-                    </div>
-                    <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة بعد</p>
-                    <p class="text-[11px] text-slate-400">اضغط «كشف شحنة جديد» لمسح باركود الطرود وضمها في كشف واحد.</p>
-                </div>
-            @endforelse
-        </div>
-
-        @if ($shipments->hasPages())
-            <div class="pt-1">{{ $shipments->links() }}</div>
-        @endif
 
         {{-- مودال إنشاء كشف شحنة جديد بالمسح بالباركود (محسّن لكيبورد الموبايل بـ visualViewport وبدون backdrop-blur للأداء) --}}
         <div x-show="createModalOpen"
@@ -537,6 +400,7 @@
             </div>
         </div>
     </main>
+    </div>
 @endsection
 
 @push('scripts')
@@ -544,12 +408,19 @@
     <script>
         function sentShipmentsPage(config) {
             return {
+                baseUrl: config.baseUrl || '/office/shipments/sent',
+                activeStatus: String(config.initialStatus || 'all'),
+                searchQuery: String(config.initialSearch || ''),
+                counts: config.initialCounts || { all: 0, draft: 0, in_transit: 0, partially_received: 0, received: 0, cancelled: 0 },
+                isFetching: false,
+                _abortController: null,
+
                 availableParcels: Array.isArray(config.availableParcels) ? config.availableParcels : [],
                 lookupUrl: config.lookupUrl,
                 storeUrl: config.storeUrl,
                 senderOfficeLabel: config.senderOfficeLabel || '',
 
-                createModalOpen: false,
+                createModalOpen: new URLSearchParams(window.location.search).get('create') === '1',
                 cancelModal: {
                     open: false,
                     submitting: false,
@@ -602,6 +473,81 @@
 
                     if (this.createModalOpen) {
                         this.attachViewportListeners();
+                    }
+                },
+
+                updateCounts(nextCounts) {
+                    if (!nextCounts || typeof nextCounts !== 'object') return;
+                    this.counts = {
+                        all: Number(nextCounts.all ?? this.counts.all ?? 0),
+                        draft: Number(nextCounts.draft ?? this.counts.draft ?? 0),
+                        in_transit: Number(nextCounts.in_transit ?? this.counts.in_transit ?? 0),
+                        partially_received: Number(nextCounts.partially_received ?? this.counts.partially_received ?? 0),
+                        received: Number(nextCounts.received ?? this.counts.received ?? 0),
+                        cancelled: Number(nextCounts.cancelled ?? this.counts.cancelled ?? 0),
+                    };
+                },
+
+                setStatusFilter(targetStatus) {
+                    this.activeStatus = String(targetStatus || 'all');
+                    this.fetchFilteredList();
+                },
+
+                handleSearchEvent(q) {
+                    this.searchQuery = String(q || '').trim();
+                    this.fetchFilteredList();
+                },
+
+                async fetchFilteredList() {
+                    if (this._abortController) {
+                        this._abortController.abort();
+                    }
+                    this._abortController = new AbortController();
+
+                    const params = new URLSearchParams();
+                    if (this.activeStatus && this.activeStatus !== 'all') {
+                        params.set('status', this.activeStatus);
+                    }
+                    if (this.searchQuery) {
+                        params.set('q', this.searchQuery);
+                    }
+
+                    const qs = params.toString();
+                    const cleanUrl = qs ? `${this.baseUrl}?${qs}` : this.baseUrl;
+                    const fetchParams = new URLSearchParams(params);
+                    fetchParams.set('_t', String(Date.now()));
+                    const fetchUrl = `${this.baseUrl}?${fetchParams.toString()}`;
+
+                    this.isFetching = true;
+                    try {
+                        const res = await fetch(fetchUrl, {
+                            cache: 'no-store',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            signal: this._abortController.signal,
+                        });
+
+                        if (!res.ok) throw new Error('Network error');
+                        const data = await res.json();
+
+                        if (data && data.ok) {
+                            this.updateCounts(data.counts);
+                            if (this.$refs.cardsContainer && typeof data.html === 'string') {
+                                this.$refs.cardsContainer.innerHTML = data.html;
+                                if (window.Alpine) {
+                                    window.Alpine.initTree(this.$refs.cardsContainer);
+                                }
+                            }
+                            window.history.replaceState({}, '', cleanUrl);
+                        }
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.warn('Sent shipments filter fetch failed:', err);
+                        }
+                    } finally {
+                        this.isFetching = false;
                     }
                 },
 

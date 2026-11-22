@@ -69,123 +69,69 @@
         ])->values();
     @endphp
 
-    <main class="flex-1 p-3.5 space-y-3.5"
-          @open-outgoing-parcel-modal.window="openModal()"
-          @outgoing-search-change.window="handleSearchEvent($event.detail.q)"
-          x-data="outgoingParcelsPage({
-              baseUrl: @js(route('office.outgoing-parcels.index')),
-              hasErrors: {{ $errors->any() ? 'true' : 'false' }},
-              initialStatus: @js($statusFilter),
-              initialSearch: @js($search),
-              initialCounts: @js($counts),
-              initialDestType: @js(old('destination_type', 'office')),
-              initialOfficeId: @js(old('destination_office_id', '')),
-              initialExternalName: @js(old('external_office_name', '')),
-              initialSenderPhone: @js(old('sender_phone', '')),
-              initialRecipientPhone: @js(old('recipient_phone', '')),
-              initialPackageType: @js(old('package_type', '')),
-              initialPaymentType: @js(old('payment_type', 'paid')),
-              offices: @js($officesForJs)
-          })">
+    <div class="flex-1 flex flex-col"
+         @open-outgoing-parcel-modal.window="openModal()"
+         @outgoing-search-change.window="handleSearchEvent($event.detail.q)"
+         x-data="outgoingParcelsPage({
+             baseUrl: @js(route('office.outgoing-parcels.index')),
+             hasErrors: {{ $errors->any() ? 'true' : 'false' }},
+             initialStatus: @js($statusFilter),
+             initialSearch: @js($search),
+             initialCounts: @js($counts),
+             initialDestType: @js(old('destination_type', 'office')),
+             initialOfficeId: @js(old('destination_office_id', '')),
+             initialExternalName: @js(old('external_office_name', '')),
+             initialSenderPhone: @js(old('sender_phone', '')),
+             initialRecipientPhone: @js(old('recipient_phone', '')),
+             initialPackageType: @js(old('package_type', '')),
+             initialPaymentType: @js(old('payment_type', 'paid')),
+             offices: @js($officesForJs)
+         })">
 
-        @if ($errors->any())
-            <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-1 shadow-2xs">
-                <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-base text-rose-600">warning</span>
-                    <span>يرجى مراجعة الحقول التالية:</span>
+        {{-- شريط تبويبات التصفية العلوي الموحّد (مطابق تماماً لشاشة الطرود الواردة) --}}
+        @php
+            $outgoingTabs = [
+                ['key' => 'all',        'label' => 'الكل'],
+                ['key' => 'pending',    'label' => 'في الانتظار'],
+                ['key' => 'in_transit', 'label' => 'في الطريق'],
+                ['key' => 'received',   'label' => 'وصل الفرع'],
+                ['key' => 'cancelled',  'label' => 'ملغي'],
+            ];
+        @endphp
+        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
+            @foreach ($outgoingTabs as $tabItem)
+                <button type="button"
+                        @click="setStatusFilter('{{ $tabItem['key'] }}')"
+                        :class="activeStatus === '{{ $tabItem['key'] }}' ? 'border-b-2 border-secondary text-secondary' : 'text-slate-500'"
+                        class="flex-1 shrink-0 whitespace-nowrap px-3 py-3 transition-colors">
+                    <span>{{ $tabItem['label'] }}</span>
+                    (<span x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>)
+                </button>
+            @endforeach
+        </nav>
+
+        <main class="flex-1 p-3 space-y-2.5">
+
+            @if ($errors->any())
+                <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-1 shadow-2xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-rose-600">warning</span>
+                        <span>يرجى مراجعة الحقول التالية:</span>
+                    </div>
+                    <ul class="list-disc list-inside text-[11px] font-semibold pr-2 space-y-0.5">
+                        @foreach ($errors->all() as $err)
+                            <li>{{ $err }}</li>
+                        @endforeach
+                    </ul>
                 </div>
-                <ul class="list-disc list-inside text-[11px] font-semibold pr-2 space-y-0.5">
-                    @foreach ($errors->all() as $err)
-                        <li>{{ $err }}</li>
-                    @endforeach
-                </ul>
+            @endif
+
+            {{-- قائمة كروت الطرود الصادرة (تُحدث لحظياً عبر AJAX مع Event Delegation لضمان بقاء التفاعل بعد الاستبدال) --}}
+            <div x-ref="cardsContainer"
+                 @click="handleCardContainerClick($event)"
+                 :class="isFetching ? 'opacity-60 transition-opacity' : ''">
+                @include('office.outgoing_parcels.partials.cards-list', ['parcels' => $parcels])
             </div>
-        @endif
-
-        {{-- رأس الصفحة وزر إضافة طرد صادر --}}
-        <div class="flex items-center justify-between gap-2">
-            <div>
-                <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-lg text-secondary">outbox</span>
-                    <span>الطرود الصادرة</span>
-                    <template x-if="isFetching">
-                        <span class="w-3.5 h-3.5 border-2 border-secondary border-t-transparent rounded-full animate-spin inline-block"></span>
-                    </template>
-                </h2>
-                <p class="text-[11px] text-slate-400">إرسال ومتابعة الشحنات الموجهة للفروع والمكاتب</p>
-            </div>
-
-            <button type="button"
-                    @click="openModal()"
-                    class="py-2 px-3.5 rounded-xl bg-secondary hover:bg-amber-500 active:scale-95 text-white text-xs font-extrabold shadow-sm shadow-secondary/25 flex items-center gap-1 transition-all shrink-0">
-                <span class="material-symbols-outlined text-base">add_circle</span>
-                <span>+ إضافة طرد صادر</span>
-            </button>
-        </div>
-
-        {{-- 1. بطاقات الملخص العلوية التفاعلية (فلاتر فورية بدون إعادة تحميل الصفحة) --}}
-        <div class="space-y-1.5">
-            <div class="grid grid-cols-3 gap-2">
-                @php
-                    $pendingUrl = route('office.outgoing-parcels.index', array_filter([
-                        'status' => $statusFilter === 'pending' ? null : 'pending',
-                        'q'      => $search !== '' ? $search : null,
-                    ]));
-                    $inTransitUrl = route('office.outgoing-parcels.index', array_filter([
-                        'status' => $statusFilter === 'in_transit' ? null : 'in_transit',
-                        'q'      => $search !== '' ? $search : null,
-                    ]));
-                    $receivedUrl = route('office.outgoing-parcels.index', array_filter([
-                        'status' => $statusFilter === 'received' ? null : 'received',
-                        'q'      => $search !== '' ? $search : null,
-                    ]));
-                @endphp
-
-                <a href="{{ $pendingUrl }}"
-                   @click.prevent="toggleStatusFilter('pending')"
-                   :class="activeStatus === 'pending' ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-200/80' : 'bg-white border-slate-200/80 hover:border-amber-300'"
-                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95">
-                    <p class="text-[10px] font-bold" :class="activeStatus === 'pending' ? 'text-amber-800' : 'text-slate-400'">في الانتظار</p>
-                    <p class="text-lg font-black text-amber-600 mt-0.5" x-text="counts.pending">{{ $counts['pending'] }}</p>
-                </a>
-
-                <a href="{{ $inTransitUrl }}"
-                   @click.prevent="toggleStatusFilter('in_transit')"
-                   :class="activeStatus === 'in_transit' ? 'bg-sky-50/80 border-sky-400 ring-2 ring-sky-200/80' : 'bg-white border-slate-200/80 hover:border-sky-300'"
-                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95">
-                    <p class="text-[10px] font-bold" :class="activeStatus === 'in_transit' ? 'text-sky-800' : 'text-slate-400'">في الطريق</p>
-                    <p class="text-lg font-black text-sky-600 mt-0.5" x-text="counts.in_transit">{{ $counts['in_transit'] }}</p>
-                </a>
-
-                <a href="{{ $receivedUrl }}"
-                   @click.prevent="toggleStatusFilter('received')"
-                   :class="activeStatus === 'received' ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-200/80' : 'bg-white border-slate-200/80 hover:border-indigo-300'"
-                   class="p-2.5 rounded-2xl border shadow-2xs text-center block transition-all active:scale-95">
-                    <p class="text-[10px] font-bold" :class="activeStatus === 'received' ? 'text-indigo-800' : 'text-slate-400'">وصل الفرع</p>
-                    <p class="text-lg font-black text-indigo-600 mt-0.5" x-text="counts.received">{{ $counts['received'] }}</p>
-                </a>
-            </div>
-
-            <div x-show="activeStatus !== 'all'" x-cloak class="flex items-center justify-between px-1 pt-0.5 text-[11px]">
-                <span class="text-slate-500 font-bold">
-                    التصفية النشطة:
-                    <span class="text-primary font-extrabold" x-text="statusLabel(activeStatus)"></span>
-                </span>
-                <a href="{{ route('office.outgoing-parcels.index', array_filter(['q' => $search !== '' ? $search : null])) }}"
-                   @click.prevent="toggleStatusFilter('all')"
-                   class="text-rose-600 hover:text-rose-700 font-extrabold inline-flex items-center gap-0.5">
-                    <span class="material-symbols-outlined text-xs">close</span>
-                    <span>إلغاء الفلتر / عرض الكل (<span x-text="counts.all">{{ $counts['all'] }}</span>)</span>
-                </a>
-            </div>
-        </div>
-
-        {{-- 2. قائمة كروت الطرود الصادرة (تُحدث لحظياً عبر AJAX مع Event Delegation لضمان بقاء التفاعل بعد الاستبدال) --}}
-        <div x-ref="cardsContainer"
-             @click="handleCardContainerClick($event)"
-             :class="isFetching ? 'opacity-60 transition-opacity' : ''">
-            @include('office.outgoing_parcels.partials.cards-list', ['parcels' => $parcels])
-        </div>
 
         {{-- 4. مودال إضافة طرد صادر جديد (خلفية صلبة سريعة بدون backdrop-blur لمنع التقطيع على أجهزة أندرويد الاقتصادية) --}}
         <div x-show="showModal"
@@ -720,7 +666,8 @@
             </div>
         </div>
 
-    </main>
+        </main>
+    </div>
 @endsection
 
 @push('scripts')
@@ -874,12 +821,16 @@
                 }
             },
 
+            setStatusFilter(targetStatus) {
+                this.activeStatus = String(targetStatus || 'all');
+                this.fetchFilteredList();
+            },
+
             toggleStatusFilter(targetStatus) {
                 const next = (targetStatus === 'all' || this.activeStatus === targetStatus)
                     ? 'all'
                     : targetStatus;
-                this.activeStatus = next;
-                this.fetchFilteredList();
+                this.setStatusFilter(next);
             },
 
             handleSearchEvent(q) {

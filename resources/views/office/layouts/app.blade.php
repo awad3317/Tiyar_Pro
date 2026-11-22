@@ -32,6 +32,8 @@
         [x-cloak] { display: none !important; }
         body { font-family: 'Almarai', sans-serif; -webkit-tap-highlight-color: transparent; }
         .dir-ltr { direction: ltr; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 
     @stack('styles')
