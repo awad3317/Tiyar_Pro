@@ -5,19 +5,37 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 8; // ترقية لإضافة جدول العملاء المميزين
+    const DB_VERSION = 9; // ترقية لإضافة جداول الشحنات الأوفلاين وطابور مزامنتها
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
-        queue: 'syncQueue',       // طابور عام لكل الموديولات
-        parcels: 'parcels',       // طرود
-        favorites: 'favoriteCustomers', // العملاء المميزون (لكل مكتب)
-        // vouchers: 'vouchers',     // سندات مستقبلاً
-        // shipments: 'shipments'    // شحنات مستقبلاً
+        queue: 'syncQueue',                          // طابور عام لكل الموديولات
+        parcels: 'parcels',                          // طرود واردة
+        favorites: 'favoriteCustomers',              // العملاء المميزون (لكل مكتب)
+        sentShipments: 'sent_shipments',             // الشحنات المرسلة (أوفلاين + أونلاين)
+        scannableParcels: 'outgoing_scannable_parcels', // الطرود الصادرة الجاهزة للمسح أوفلاين
+        shipmentQueue: 'shipment_sync_queue',        // طابور عمليات الشحنات الأوفلاين
     };
 
     const plain = (val) => JSON.parse(JSON.stringify(val));
     const nextSeq = () => performance.timeOrigin + performance.now();
+
+    const normalizeDigitsAndScanCode = (raw) => {
+        if (!raw) return '';
+        const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        const fa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        const cleaned = String(raw)
+            .replace(/[٠-٩]/g, (d) => ar.indexOf(d))
+            .replace(/[۰-۹]/g, (d) => fa.indexOf(d))
+            .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '')
+            .trim();
+
+        const uuidMatch = cleaned.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        if (uuidMatch) {
+            return uuidMatch[0].toLowerCase();
+        }
+        return cleaned.replace(/^#+/, '').trim();
+    };
 
     /* ------------------------------------------------------------------
      | 1. قاعدة البيانات المحلية العامة (IndexedDB)
@@ -31,16 +49,35 @@
 
                 req.onupgradeneeded = (e) => {
                     const db = req.result;
-                    // إنشاء طابور المزامنة الموحد
+                    // 1. الجداول الحالية (دون أي مساس ببنيتها أو بياناتها)
                     if (!db.objectStoreNames.contains(STORES.queue)) {
                         db.createObjectStore(STORES.queue, { keyPath: 'seq' });
                     }
-                    // إنشاء باقي الجداول ديناميكياً
-                    Object.values(STORES).forEach((store) => {
-                        if (store !== STORES.queue && !db.objectStoreNames.contains(store)) {
-                            db.createObjectStore(store, { keyPath: 'id' });
-                        }
-                    });
+                    if (!db.objectStoreNames.contains(STORES.parcels)) {
+                        db.createObjectStore(STORES.parcels, { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains(STORES.favorites)) {
+                        db.createObjectStore(STORES.favorites, { keyPath: 'id' });
+                    }
+
+                    // 2. جداول الشحنات الأوفلاين الجديدة (إضافية فقط)
+                    if (!db.objectStoreNames.contains(STORES.sentShipments)) {
+                        const shipmentsStore = db.createObjectStore(STORES.sentShipments, { keyPath: 'local_key' });
+                        shipmentsStore.createIndex('office_id', 'office_id', { unique: false });
+                        shipmentsStore.createIndex('status', 'status', { unique: false });
+                        shipmentsStore.createIndex('created_at', 'created_at', { unique: false });
+                    }
+
+                    if (!db.objectStoreNames.contains(STORES.scannableParcels)) {
+                        const scannableStore = db.createObjectStore(STORES.scannableParcels, { keyPath: 'id' });
+                        scannableStore.createIndex('office_id', 'office_id', { unique: false });
+                        scannableStore.createIndex('receipt_number', 'receipt_number', { unique: false });
+                    }
+
+                    if (!db.objectStoreNames.contains(STORES.shipmentQueue)) {
+                        const shipmentQueueStore = db.createObjectStore(STORES.shipmentQueue, { keyPath: 'op_id' });
+                        shipmentQueueStore.createIndex('created_at', 'created_at', { unique: false });
+                    }
                 };
 
                 req.onsuccess = () => {
@@ -87,7 +124,442 @@
 
         clear(storeName) {
             return this.tx(storeName, 'readwrite', (s) => s.clear());
+        },
+
+        async saveBootstrapData(officeId, payload = {}) {
+            await this.open();
+            const numericOfficeId = Number(officeId || payload?.office?.id || 0);
+            const serverShipments = Array.isArray(payload.shipments) ? payload.shipments : [];
+            const serverScannable = Array.isArray(payload.scannable_parcels) ? payload.scannable_parcels : [];
+
+            const existingShipments = await this.getAll(STORES.sentShipments);
+            const queuedOps = await this.getAll(STORES.shipmentQueue);
+
+            const serverKeys = new Set();
+            const serverClientUuids = new Set();
+            const pendingCancelRefs = new Set();
+
+            queuedOps.forEach((op) => {
+                if (op?.type === 'cancel_shipment') {
+                    if (op.client_uuid) pendingCancelRefs.add(String(op.client_uuid).toLowerCase());
+                    if (op.shipment_id) pendingCancelRefs.add(String(op.shipment_id));
+                }
+            });
+
+            const normalizedServerShipments = serverShipments.map((s) => {
+                const clientUuid = s.client_uuid ? String(s.client_uuid).toLowerCase() : null;
+                const localKey = clientUuid || s.local_key || ('srv_' + s.id);
+                serverKeys.add(localKey);
+                if (clientUuid) serverClientUuids.add(clientUuid);
+
+                const isPendingLocalCancel =
+                    (clientUuid && pendingCancelRefs.has(clientUuid)) ||
+                    (s.id && pendingCancelRefs.has(String(s.id)));
+
+                return {
+                    ...plain(s),
+                    local_key: localKey,
+                    office_id: Number(s.office_id || numericOfficeId),
+                    status: isPendingLocalCancel ? 'cancelled' : s.status,
+                    status_label: isPendingLocalCancel ? 'ملغاة' : s.status_label,
+                    can_cancel: isPendingLocalCancel ? false : Boolean(s.can_cancel),
+                    pending_sync: Boolean(isPendingLocalCancel),
+                    sync_status: isPendingLocalCancel ? 'pending_sync' : 'synced',
+                };
+            });
+
+            // الحفاظ على الشحنات المحلية التي أُنشئت أوفلاين ولم تتم مزامنتها مع السيرفر بعد
+            const keysToDelete = [];
+            existingShipments.forEach((localItem) => {
+                if (numericOfficeId && Number(localItem.office_id) !== numericOfficeId) {
+                    return;
+                }
+                const localUuid = localItem.client_uuid ? String(localItem.client_uuid).toLowerCase() : null;
+                const isAlreadyOnServer = serverKeys.has(localItem.local_key) || (localUuid && serverClientUuids.has(localUuid));
+
+                if (!localItem.pending_sync || isAlreadyOnServer) {
+                    keysToDelete.push(localItem.local_key);
+                }
+            });
+
+            if (keysToDelete.length > 0) {
+                await this.deleteMany(STORES.sentShipments, keysToDelete);
+            }
+            if (normalizedServerShipments.length > 0) {
+                await this.putMany(STORES.sentShipments, normalizedServerShipments);
+            }
+
+            // تحديث الطرود الجاهزة للمسح مع استبعاد أي طرد محجوز في شحنة أوفلاين معلقة
+            const reservedOfflineParcelIds = new Set();
+            queuedOps.forEach((op) => {
+                if (op?.type === 'create_shipment') {
+                    const ids = op?.payload?.parcel_ids || op?.parcel_ids || [];
+                    if (Array.isArray(ids)) {
+                        ids.forEach((id) => reservedOfflineParcelIds.add(String(id)));
+                    }
+                }
+            });
+
+            const existingScannable = await this.getAll(STORES.scannableParcels);
+            const scannableToDelete = existingScannable
+                .filter((p) => !numericOfficeId || Number(p.office_id) === numericOfficeId)
+                .map((p) => p.id);
+
+            if (scannableToDelete.length > 0) {
+                await this.deleteMany(STORES.scannableParcels, scannableToDelete);
+            }
+
+            const filteredScannable = serverScannable
+                .filter((p) => !reservedOfflineParcelIds.has(String(p.id)))
+                .map((p) => ({
+                    ...plain(p),
+                    office_id: Number(p.office_id || numericOfficeId),
+                }));
+
+            if (filteredScannable.length > 0) {
+                await this.putMany(STORES.scannableParcels, filteredScannable);
+            }
+
+            return this.getLocalShipments(numericOfficeId);
+        },
+
+        async getLocalShipments(officeId) {
+            await this.open();
+            const numericOfficeId = Number(officeId || 0);
+            const all = await this.getAll(STORES.sentShipments);
+            return all
+                .filter((s) => !numericOfficeId || Number(s.office_id) === numericOfficeId)
+                .sort((a, b) => {
+                    if (Boolean(a.pending_sync) !== Boolean(b.pending_sync)) {
+                        return a.pending_sync ? -1 : 1;
+                    }
+                    const tA = new Date(a.created_at || 0).getTime() || 0;
+                    const tB = new Date(b.created_at || 0).getTime() || 0;
+                    return tB - tA;
+                });
+        },
+
+        async getScannableParcels(officeId) {
+            await this.open();
+            const numericOfficeId = Number(officeId || 0);
+            const all = await this.getAll(STORES.scannableParcels);
+            return all.filter((p) => !numericOfficeId || Number(p.office_id) === numericOfficeId);
+        },
+
+        async saveSyncedShipment(officeId, serverShipment, removedParcelIds = []) {
+            await this.open();
+            if (!serverShipment) return null;
+            const numericOfficeId = Number(officeId || serverShipment.office_id || 0);
+            const clientUuid = serverShipment.client_uuid ? String(serverShipment.client_uuid).toLowerCase() : null;
+            const localKey = clientUuid || serverShipment.local_key || ('srv_' + serverShipment.id);
+
+            const record = {
+                ...plain(serverShipment),
+                local_key: localKey,
+                office_id: numericOfficeId,
+                pending_sync: false,
+                sync_status: 'synced',
+            };
+            await this.put(STORES.sentShipments, record);
+
+            if (Array.isArray(removedParcelIds) && removedParcelIds.length > 0) {
+                await this.deleteMany(STORES.scannableParcels, removedParcelIds.map(String));
+            }
+
+            return record;
+        },
+
+        async createOfflineShipment(officeId, data = {}) {
+            await this.open();
+            const numericOfficeId = Number(officeId || 0);
+            const clientUuid = String(data.client_uuid || '').toLowerCase();
+            const dispatchNow = data.dispatch_now !== false;
+            const nowIso = new Date().toISOString();
+            const rawParcels = Array.isArray(data.parcels) ? data.parcels : [];
+
+            let totalPaid = 0;
+            let totalDeferred = 0;
+            const destinationsSet = new Set();
+
+            const parcelsSnapshot = rawParcels.map((p) => {
+                const amt = Number(p.cod_amount || 0);
+                if (p.payment_type === 'deferred') {
+                    totalDeferred += amt;
+                } else {
+                    totalPaid += amt;
+                }
+                const dest = String(p.destination_label || p.destination || '').trim();
+                if (dest) destinationsSet.add(dest);
+
+                return {
+                    ...plain(p),
+                    office_id: numericOfficeId,
+                    destination: dest,
+                    destination_label: dest,
+                    status: dispatchNow ? 'in_transit' : 'pending',
+                    status_label: dispatchNow ? 'في الطريق' : 'في الانتظار',
+                    is_received: false,
+                };
+            });
+
+            const shortSuffix = clientUuid.replace(/[^0-9a-f]/gi, '').slice(-4).toUpperCase() || String(Date.now()).slice(-4);
+            const localShipment = {
+                id: null,
+                client_uuid: clientUuid,
+                local_key: clientUuid,
+                office_id: numericOfficeId,
+                shipment_number: 'محلي-' + shortSuffix,
+                driver_name: String(data.driver_name || '').trim(),
+                driver_phone: String(data.driver_phone || '').trim(),
+                parcels_count: parcelsSnapshot.length,
+                received_parcels_count: 0,
+                total_paid_amount: totalPaid,
+                total_deferred_amount: totalDeferred,
+                total_amount: totalPaid + totalDeferred,
+                destinations_summary: Array.from(destinationsSet),
+                status: dispatchNow ? 'in_transit' : 'draft',
+                status_label: dispatchNow ? 'في الطريق' : 'في الانتظار',
+                notes: data.notes ? String(data.notes).trim() : null,
+                dispatched_at: dispatchNow ? nowIso : null,
+                completed_at: null,
+                cancelled_at: null,
+                created_at: nowIso,
+                pending_sync: true,
+                sync_status: 'pending_sync',
+                can_cancel: true,
+                show_url: null,
+                print_url: null,
+                parcels: parcelsSnapshot,
+            };
+
+            await this.put(STORES.sentShipments, localShipment);
+
+            const parcelIds = parcelsSnapshot.map((p) => String(p.id));
+            if (parcelIds.length > 0) {
+                await this.deleteMany(STORES.scannableParcels, parcelIds);
+            }
+
+            await this.enqueueShipmentOp({
+                op_id: 'create_' + clientUuid,
+                type: 'create_shipment',
+                client_uuid: clientUuid,
+                office_id: numericOfficeId,
+                payload: {
+                    client_uuid: clientUuid,
+                    driver_name: localShipment.driver_name,
+                    driver_phone: localShipment.driver_phone,
+                    parcel_ids: parcelIds,
+                    dispatch_now: dispatchNow,
+                    notes: localShipment.notes,
+                },
+            });
+
+            return localShipment;
+        },
+
+        async cancelOfflineShipment(officeId, shipment, enqueueSync = true) {
+            await this.open();
+            if (!shipment) return null;
+            const numericOfficeId = Number(officeId || shipment.office_id || 0);
+            const clientUuid = shipment.client_uuid ? String(shipment.client_uuid).toLowerCase() : null;
+            const localKey = shipment.local_key || clientUuid || ('srv_' + shipment.id);
+            const nowIso = new Date().toISOString();
+
+            const restoredParcels = (Array.isArray(shipment.parcels) ? shipment.parcels : [])
+                .filter((p) => p && String(p.status || '') !== 'cancelled')
+                .map((p) => ({
+                    ...plain(p),
+                    office_id: numericOfficeId,
+                    status: 'pending',
+                    status_label: 'في الانتظار',
+                    is_received: false,
+                }));
+
+            const updatedShipment = {
+                ...plain(shipment),
+                local_key: localKey,
+                office_id: numericOfficeId,
+                status: 'cancelled',
+                status_label: 'ملغاة',
+                cancelled_at: nowIso,
+                can_cancel: false,
+                pending_sync: Boolean(enqueueSync),
+                sync_status: enqueueSync ? 'pending_sync' : 'synced',
+                parcels: restoredParcels,
+            };
+
+            await this.put(STORES.sentShipments, updatedShipment);
+
+            if (restoredParcels.length > 0) {
+                await this.putMany(STORES.scannableParcels, restoredParcels);
+            }
+
+            if (enqueueSync) {
+                await this.enqueueShipmentOp({
+                    op_id: 'cancel_' + (clientUuid || shipment.id) + '_' + Date.now(),
+                    type: 'cancel_shipment',
+                    client_uuid: clientUuid,
+                    shipment_id: shipment.id ? String(shipment.id) : null,
+                    office_id: numericOfficeId,
+                    payload: {
+                        shipment_id: shipment.id ? String(shipment.id) : null,
+                        client_uuid: clientUuid,
+                    },
+                });
+            }
+
+            return {
+                shipment: updatedShipment,
+                restoredParcels,
+            };
+        },
+
+        async findScannableParcel(officeId, codeOrReceipt) {
+            await this.open();
+            const normalized = normalizeDigitsAndScanCode(codeOrReceipt);
+            if (!normalized) return null;
+
+            const numericOfficeId = Number(officeId || 0);
+            const all = await this.getAll(STORES.scannableParcels);
+
+            for (let i = 0; i < all.length; i++) {
+                const p = all[i];
+                if (numericOfficeId && Number(p.office_id) !== numericOfficeId) continue;
+
+                if (String(p.id || '').toLowerCase() === normalized.toLowerCase()) {
+                    return p;
+                }
+                const receipt = normalizeDigitsAndScanCode(p.receipt_number);
+                if (receipt && receipt === normalized) {
+                    return p;
+                }
+            }
+
+            return null;
+        },
+
+        async enqueueShipmentOp(op) {
+            await this.open();
+            const entry = {
+                op_id: String(op?.op_id || ('ship_op_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8))),
+                type: String(op?.type || op?.action || ''),
+                client_uuid: op?.client_uuid ? String(op.client_uuid).toLowerCase() : null,
+                shipment_id: op?.shipment_id ? String(op.shipment_id) : null,
+                parcel_id: op?.parcel_id ? String(op.parcel_id) : null,
+                office_id: op?.office_id ? Number(op.office_id) : null,
+                payload: op?.payload ? plain(op.payload) : null,
+                created_at: op?.created_at || new Date().toISOString(),
+            };
+            await this.put(STORES.shipmentQueue, entry);
+            return entry;
+        },
+
+        _isFlushingShipments: false,
+
+        async flushShipmentQueue(onSessionExpired) {
+            await this.open();
+            if (this._isFlushingShipments || !navigator.onLine) {
+                return { ok: false, skipped: true };
+            }
+
+            const queue = (await this.getAll(STORES.shipmentQueue))
+                .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+
+            if (!queue.length) {
+                return { ok: true, synced: 0, results: [] };
+            }
+
+            this._isFlushingShipments = true;
+
+            try {
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const res = await fetch('/office/shipments/sent/sync', {
+                    method: 'POST',
+                    cache: 'no-store',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': token || '',
+                    },
+                    body: JSON.stringify({ operations: queue }),
+                });
+
+                if (res.status === 401 || res.status === 419) {
+                    if (typeof onSessionExpired === 'function') onSessionExpired();
+                    return { ok: false, authExpired: true };
+                }
+
+                if (!res.ok) {
+                    return { ok: false, status: res.status };
+                }
+
+                const data = await res.json();
+                const results = Array.isArray(data?.results) ? data.results : [];
+
+                for (const item of results) {
+                    if (item.status === 'synced' || item.status === 'conflict') {
+                        await this.delete(STORES.shipmentQueue, item.op_id);
+                    }
+
+                    if (item.shipment) {
+                        const s = item.shipment;
+                        const clientUuid = s.client_uuid ? String(s.client_uuid).toLowerCase() : (item.client_uuid ? String(item.client_uuid).toLowerCase() : null);
+                        const localKey = clientUuid || s.local_key || ('srv_' + s.id);
+
+                        // حذف أي مفتاح قديم مؤقت إن اختلف عن localKey النهائي
+                        if (item.client_uuid && item.client_uuid !== localKey) {
+                            await this.delete(STORES.sentShipments, item.client_uuid);
+                        }
+
+                        await this.put(STORES.sentShipments, {
+                            ...plain(s),
+                            local_key: localKey,
+                            pending_sync: false,
+                        });
+                    } else if (item.status === 'conflict' && item.type === 'create_shipment' && item.client_uuid) {
+                        await this.delete(STORES.sentShipments, String(item.client_uuid).toLowerCase());
+                    }
+                }
+
+                if (Array.isArray(data?.scannable_parcels)) {
+                    const remainingOps = await this.getAll(STORES.shipmentQueue);
+                    const reservedIds = new Set();
+                    remainingOps.forEach((op) => {
+                        if (op?.type === 'create_shipment') {
+                            const ids = op?.payload?.parcel_ids || [];
+                            ids.forEach((id) => reservedIds.add(String(id)));
+                        }
+                    });
+
+                    await this.clear(STORES.scannableParcels);
+                    const nextScannable = data.scannable_parcels.filter((p) => !reservedIds.has(String(p.id)));
+                    if (nextScannable.length > 0) {
+                        await this.putMany(STORES.scannableParcels, nextScannable);
+                    }
+                }
+
+                window.dispatchEvent(new CustomEvent('shipments-synced', { detail: data }));
+                return data;
+            } catch (err) {
+                console.warn('MursalDB.flushShipmentQueue paused:', err);
+                return { ok: false, error: err };
+            } finally {
+                this._isFlushingShipments = false;
+            }
         }
+    };
+
+    const MursalShipmentStore = {
+        saveBootstrapData: (officeId, payload) => MursalDB.saveBootstrapData(officeId, payload),
+        getLocalShipments: (officeId) => MursalDB.getLocalShipments(officeId),
+        getScannableParcels: (officeId) => MursalDB.getScannableParcels(officeId),
+        findScannableParcel: (officeId, codeOrReceipt) => MursalDB.findScannableParcel(officeId, codeOrReceipt),
+        saveSyncedShipment: (officeId, serverShipment, removedIds) => MursalDB.saveSyncedShipment(officeId, serverShipment, removedIds),
+        createOfflineShipment: (officeId, data) => MursalDB.createOfflineShipment(officeId, data),
+        cancelOfflineShipment: (officeId, shipment, enqueueSync) => MursalDB.cancelOfflineShipment(officeId, shipment, enqueueSync),
+        enqueueShipmentOp: (op) => MursalDB.enqueueShipmentOp(op),
+        flushShipmentQueue: (onSessionExpired) => MursalDB.flushShipmentQueue(onSessionExpired),
     };
 
     /* ------------------------------------------------------------------
@@ -684,6 +1156,7 @@
                     // مزامنة الطابور وتحديث العداد في أي صفحة
                     if (window.MursalSync && window.MursalDB) {
                         await window.MursalSync.process(() => this.handleSessionExpired());
+                        await window.MursalDB.flushShipmentQueue(() => this.handleSessionExpired());
                         this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
                     }
                     if (typeof this.refreshFromServer === 'function') {
@@ -712,6 +1185,7 @@
     // إتاحة الأدوات والمكون الأساسي للـ Window
     window.MursalDB = MursalDB;
     window.MursalSync = MursalSync;
+    window.MursalShipmentStore = MursalShipmentStore;
     window.MURSAL_STORES = STORES;
     window.officeShell = officeShell;
 })();

@@ -168,6 +168,8 @@ Route::prefix('office')->name('office.')->group(function () {
             ->group(function () {
                 Route::get('/', [ShipmentController::class, 'sentIndex'])->name('index');
                 Route::post('/', [ShipmentController::class, 'store'])->name('store');
+                Route::get('/bootstrap', [ShipmentController::class, 'bootstrapSent'])->name('bootstrap');
+                Route::post('/sync', [ShipmentController::class, 'syncSent'])->name('sync');
                 Route::post('/lookup-parcel', [ShipmentController::class, 'lookupParcel'])->name('lookup');
                 Route::get('/{shipment}', [ShipmentController::class, 'showSent'])->name('show');
                 Route::get('/{shipment}/print', [ShipmentController::class, 'printSent'])->name('print');

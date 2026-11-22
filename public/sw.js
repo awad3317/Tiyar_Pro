@@ -1,12 +1,14 @@
-const CACHE_NAME = 'mursal-pwa-v20';
+const CACHE_NAME = 'mursal-pwa-v21';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
     '/office/parcels',
     '/office/favorite-customers',
+    '/office/shipments/sent',
     '/manifest.json',
     '/js/tailwind.js',
-    '/js/mursal-core.js?v=19',
+    '/js/mursal-core.js?v=21',
+    '/js/shipment-manifest-print.js?v=21',
     'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap',
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js'
 ];
@@ -56,12 +58,19 @@ self.addEventListener('fetch', (event) => {
     const isAjaxJson = acceptHeader.includes('application/json') ||
         event.request.headers.get('X-Requested-With') === 'XMLHttpRequest';
 
+    // السماح بكاش App Shell لصفحة الشحنات المرسلة (/office/shipments/sent) فقط عند طلب تنقل HTML (Network-First + Cache Fallback)
+    const isSentShipmentsAppShell =
+        event.request.method === 'GET' &&
+        !isAjaxJson &&
+        event.request.mode === 'navigate' &&
+        url.pathname === '/office/shipments/sent';
+
     if (
         event.request.method !== 'GET' ||
         isAjaxJson ||
         url.pathname.startsWith('/office/outgoing-parcels') ||
         url.pathname.startsWith('/office/transit-parcels') ||
-        url.pathname.startsWith('/office/shipments') ||
+        (url.pathname.startsWith('/office/shipments') && !isSentShipmentsAppShell) ||
         url.pathname.startsWith('/office/global-search') ||
         url.pathname.includes('/login') ||
         url.pathname.includes('/logout') ||
@@ -78,13 +87,22 @@ self.addEventListener('fetch', (event) => {
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         const responseClone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseClone.clone());
+                            if (url.pathname === '/office/shipments/sent') {
+                                cache.put('/office/shipments/sent', responseClone);
+                            }
+                        });
                     }
                     return networkResponse;
                 })
                 .catch(() => {
                     return caches.match(event.request).then((cached) => {
-                        return cached || caches.match('/office/parcels');
+                        if (cached) return cached;
+                        if (url.pathname === '/office/shipments/sent') {
+                            return caches.match('/office/shipments/sent');
+                        }
+                        return caches.match('/office/parcels');
                     });
                 })
         );

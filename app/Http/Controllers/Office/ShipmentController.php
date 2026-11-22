@@ -86,15 +86,23 @@ class ShipmentController extends Controller
         }
 
         // الطرود الصادرة الجاهزة (pending وغير مضمومة لشحنة) لضمها بالمسح أو الاختيار اليدوي
-        $availableParcels = OutgoingParcel::with('destinationOffice:id,name,branch_name')
+        $availableParcels = $this->getScannableParcelsPayload($office);
+
+        // لقطة الشحنات الأولية لبذر IndexedDB في أول زيارة وتشغيل التصفية والطباعة الأوفلاين بـ 0ms
+        $initialOfflineShipments = Shipment::with([
+            'office:id,name,branch_name',
+            'parcels' => fn ($q) => $q->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                ->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')
+                ->orderBy('created_at'),
+            'parcels.destinationOffice:id,name,branch_name',
+        ])
             ->where('office_id', $office->id)
-            ->where('status', OutgoingParcelStatus::PENDING->value)
-            ->whereNull('shipment_id')
-            ->latest()
-            ->limit(200)
+            ->latest('created_at')
+            ->limit(100)
             ->get()
-            ->map(fn (OutgoingParcel $p) => $this->serializeParcelForShipmentJs($p))
-            ->values();
+            ->map(fn (Shipment $s) => $this->serializeShipmentForOffline($s))
+            ->values()
+            ->all();
 
         return response()
             ->view('office.shipments.sent', compact(
@@ -103,7 +111,8 @@ class ShipmentController extends Controller
                 'counts',
                 'statusFilter',
                 'search',
-                'availableParcels'
+                'availableParcels',
+                'initialOfflineShipments'
             ))
             ->withHeaders(self::NO_CACHE_HEADERS);
     }
@@ -170,6 +179,7 @@ class ShipmentController extends Controller
         $office = Auth::guard('office')->user();
 
         $validated = $request->validate([
+            'client_uuid'  => ['nullable', 'uuid'],
             'driver_name'  => ['required', 'string', 'max:120'],
             'driver_phone' => ['required', 'string', 'max:25'],
             'parcel_ids'   => ['required', 'array', 'min:1', 'max:300'],
@@ -185,14 +195,16 @@ class ShipmentController extends Controller
 
         try {
             $shipment = $this->shipmentService->create($office, $validated);
+            $statusCode = $shipment->wasRecentlyCreated ? 201 : 200;
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
-                    'ok'           => true,
-                    'message'      => "تم إنشاء كشف الشحنة رقم #{$shipment->shipment_number} بنجاح.",
-                    'shipment'     => $shipment,
-                    'redirect_url' => route('office.shipments.sent.show', $shipment),
-                ], 201);
+                    'ok'                => true,
+                    'idempotent_replay' => ! $shipment->wasRecentlyCreated,
+                    'message'           => "تم إنشاء كشف الشحنة رقم #{$shipment->shipment_number} بنجاح.",
+                    'shipment'          => $this->serializeShipmentForOffline($shipment),
+                    'redirect_url'      => route('office.shipments.sent.show', $shipment),
+                ], $statusCode);
             }
 
             return redirect()
@@ -205,6 +217,265 @@ class ShipmentController extends Controller
 
             return back()->withInput()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * نقطة نهاية التمهيد السريع (Offline Bootstrap):
+     * تعيد آخر الشحنات المرسلة مع لقطة طرودها الجاهزة للعرض والطباعة A4 أوفلاين + الطرود القابلة للمسح الضوئي.
+     */
+    public function bootstrapSent(Request $request): JsonResponse
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+
+        $shipments = Shipment::with([
+            'office:id,name,branch_name',
+            'parcels' => fn ($q) => $q->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                ->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')
+                ->orderBy('created_at'),
+            'parcels.destinationOffice:id,name,branch_name',
+        ])
+            ->where('office_id', $office->id)
+            ->latest('created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (Shipment $shipment) => $this->serializeShipmentForOffline($shipment))
+            ->values()
+            ->all();
+
+        $scannableParcels = $this->getScannableParcelsPayload($office);
+
+        return response()
+            ->json([
+                'ok'                => true,
+                'office'            => [
+                    'id'          => (int) $office->id,
+                    'name'        => (string) $office->name,
+                    'branch_name' => (string) ($office->branch_name ?? ''),
+                ],
+                'shipments'         => $shipments,
+                'scannable_parcels' => $scannableParcels,
+                'counts'            => $this->getSentStatusCounts($office),
+                'server_time'       => now()->toIso8601String(),
+            ])
+            ->withHeaders(self::NO_CACHE_HEADERS);
+    }
+
+    /**
+     * مزامنة طابور عمليات الشحنات الأوفلاين (create_shipment, detach_parcel, cancel_shipment) بالترتيب مع حماية عدم التكرار.
+     */
+    public function syncSent(Request $request): JsonResponse
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+
+        $validated = $request->validate([
+            'operations'   => ['present', 'array', 'max:100'],
+            'operations.*' => ['required', 'array'],
+        ]);
+
+        $results = [];
+
+        foreach ($validated['operations'] as $index => $op) {
+            $opId = trim((string) ($op['op_id'] ?? ('op_' . $index)));
+            $type = trim((string) ($op['type'] ?? $op['action'] ?? ''));
+            $payload = is_array($op['payload'] ?? null) ? $op['payload'] : $op;
+            $clientUuid = strtolower(trim((string) ($op['client_uuid'] ?? $payload['client_uuid'] ?? '')));
+
+            try {
+                if ($type === 'create_shipment') {
+                    $createData = [
+                        'client_uuid'  => $clientUuid !== '' ? $clientUuid : null,
+                        'driver_name'  => $payload['driver_name'] ?? '',
+                        'driver_phone' => $payload['driver_phone'] ?? '',
+                        'parcel_ids'   => $payload['parcel_ids'] ?? [],
+                        'dispatch_now' => $payload['dispatch_now'] ?? true,
+                        'notes'        => $payload['notes'] ?? null,
+                    ];
+
+                    $shipment = $this->shipmentService->create($office, $createData);
+                    $shipment->load([
+                        'office:id,name,branch_name',
+                        'parcels' => fn ($q) => $q->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                            ->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')
+                            ->orderBy('created_at'),
+                        'parcels.destinationOffice:id,name,branch_name',
+                    ]);
+
+                    $results[] = [
+                        'op_id'             => $opId,
+                        'type'              => $type,
+                        'client_uuid'       => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                        'status'            => 'synced',
+                        'idempotent_replay' => ! $shipment->wasRecentlyCreated,
+                        'message'           => "تمت مزامنة كشف الشحنة #{$shipment->shipment_number} بنجاح.",
+                        'shipment'          => $this->serializeShipmentForOffline($shipment),
+                    ];
+                } elseif ($type === 'detach_parcel') {
+                    $shipmentRef = trim((string) ($op['shipment_id'] ?? $payload['shipment_id'] ?? $clientUuid));
+                    $parcelId = trim((string) ($op['parcel_id'] ?? $payload['parcel_id'] ?? ''));
+
+                    $shipment = $this->resolveOfficeShipment($office, $shipmentRef, $clientUuid);
+                    if (! $shipment) {
+                        $results[] = [
+                            'op_id'       => $opId,
+                            'type'        => $type,
+                            'client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                            'status'      => 'conflict',
+                            'message'     => 'لم يتم العثور على الشحنة المطلوبة.',
+                            'shipment'    => null,
+                        ];
+                        continue;
+                    }
+
+                    $parcel = OutgoingParcel::query()
+                        ->where('office_id', $office->id)
+                        ->whereKey($parcelId)
+                        ->first();
+
+                    if (! $parcel) {
+                        $results[] = [
+                            'op_id'       => $opId,
+                            'type'        => $type,
+                            'client_uuid' => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'      => 'conflict',
+                            'message'     => 'لم يتم العثور على الطرد المطلوب.',
+                            'shipment'    => $this->loadAndSerializeShipment($shipment),
+                        ];
+                        continue;
+                    }
+
+                    // حماية عدم التكرار (Idempotent Replay): إذا كان الطرد مفصولاً بالفعل وفي حالة الانتظار
+                    if ($parcel->shipment_id === null && $parcel->status === OutgoingParcelStatus::PENDING) {
+                        $results[] = [
+                            'op_id'             => $opId,
+                            'type'              => $type,
+                            'client_uuid'       => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'            => 'synced',
+                            'idempotent_replay' => true,
+                            'parcel_id'         => (string) $parcel->id,
+                            'message'           => "الطرد (سند #{$parcel->receipt_number}) مفصول مسبقاً.",
+                            'shipment'          => $this->loadAndSerializeShipment($shipment),
+                        ];
+                        continue;
+                    }
+
+                    try {
+                        $updatedParcel = $this->shipmentService->detachParcel($shipment, $parcel, $office);
+
+                        $results[] = [
+                            'op_id'             => $opId,
+                            'type'              => $type,
+                            'client_uuid'       => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'            => 'synced',
+                            'idempotent_replay' => false,
+                            'parcel_id'         => (string) $updatedParcel->id,
+                            'message'           => "تم إخراج الطرد (سند #{$updatedParcel->receipt_number}) من الشحنة.",
+                            'shipment'          => $this->loadAndSerializeShipment($shipment),
+                        ];
+                    } catch (DomainException $e) {
+                        $results[] = [
+                            'op_id'       => $opId,
+                            'type'        => $type,
+                            'client_uuid' => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'      => 'conflict',
+                            'parcel_id'   => (string) $parcel->id,
+                            'message'     => $e->getMessage(),
+                            'shipment'    => $this->loadAndSerializeShipment($shipment),
+                        ];
+                    }
+                } elseif ($type === 'cancel_shipment') {
+                    $shipmentRef = trim((string) ($op['shipment_id'] ?? $payload['shipment_id'] ?? $clientUuid));
+                    $shipment = $this->resolveOfficeShipment($office, $shipmentRef, $clientUuid);
+
+                    if (! $shipment) {
+                        $results[] = [
+                            'op_id'       => $opId,
+                            'type'        => $type,
+                            'client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                            'status'      => 'conflict',
+                            'message'     => 'لم يتم العثور على الشحنة المطلوبة للإلغاء.',
+                            'shipment'    => null,
+                        ];
+                        continue;
+                    }
+
+                    // حماية عدم التكرار: إذا كانت الشحنة ملغاة مسبقاً نُرجع نجاحاً بدون خطأ
+                    if ($shipment->status === ShipmentStatus::CANCELLED) {
+                        $results[] = [
+                            'op_id'             => $opId,
+                            'type'              => $type,
+                            'client_uuid'       => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'            => 'synced',
+                            'idempotent_replay' => true,
+                            'message'           => "الكشف #{$shipment->shipment_number} ملغي مسبقاً.",
+                            'shipment'          => $this->loadAndSerializeShipment($shipment),
+                        ];
+                        continue;
+                    }
+
+                    try {
+                        $updated = $this->shipmentService->cancel($shipment, $office);
+
+                        $results[] = [
+                            'op_id'             => $opId,
+                            'type'              => $type,
+                            'client_uuid'       => $updated->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'            => 'synced',
+                            'idempotent_replay' => false,
+                            'message'           => "تم إلغاء الكشف #{$updated->shipment_number} وإرجاع طروده للانتظار.",
+                            'shipment'          => $this->loadAndSerializeShipment($updated),
+                        ];
+                    } catch (DomainException $e) {
+                        $results[] = [
+                            'op_id'       => $opId,
+                            'type'        => $type,
+                            'client_uuid' => $shipment->client_uuid ?? ($clientUuid !== '' ? $clientUuid : null),
+                            'status'      => 'conflict',
+                            'message'     => $e->getMessage(),
+                            'shipment'    => $this->loadAndSerializeShipment($shipment),
+                        ];
+                    }
+                } else {
+                    $results[] = [
+                        'op_id'       => $opId,
+                        'type'        => $type,
+                        'client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                        'status'      => 'error',
+                        'message'     => 'نوع عملية المزامنة غير مدعوم.',
+                        'shipment'    => null,
+                    ];
+                }
+            } catch (DomainException $e) {
+                $results[] = [
+                    'op_id'       => $opId,
+                    'type'        => $type,
+                    'client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                    'status'      => 'conflict',
+                    'message'     => $e->getMessage(),
+                    'shipment'    => null,
+                ];
+            } catch (\Throwable $e) {
+                $results[] = [
+                    'op_id'       => $opId,
+                    'type'        => $type,
+                    'client_uuid' => $clientUuid !== '' ? $clientUuid : null,
+                    'status'      => 'error',
+                    'message'     => 'حدث خطأ غير متوقع أثناء معالجة العملية.',
+                    'shipment'    => null,
+                ];
+            }
+        }
+
+        return response()
+            ->json([
+                'ok'                => true,
+                'results'           => $results,
+                'counts'            => $this->getSentStatusCounts($office),
+                'scannable_parcels' => $this->getScannableParcelsPayload($office),
+                'server_time'       => now()->toIso8601String(),
+            ])
+            ->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     /**
@@ -498,25 +769,151 @@ class ShipmentController extends Controller
         return view('office.outgoing_parcels.receipt', compact('office', 'outgoingParcel'));
     }
 
+    protected function resolveOfficeShipment(Office $office, string $shipmentRef, string $clientUuid = ''): ?Shipment
+    {
+        $cleanRef = preg_replace('/^srv_/i', '', trim($shipmentRef)) ?? trim($shipmentRef);
+        $cleanUuid = trim($clientUuid);
+
+        if ($cleanRef === '' && $cleanUuid === '') {
+            return null;
+        }
+
+        return Shipment::query()
+            ->where('office_id', $office->id)
+            ->where(function ($q) use ($cleanRef, $cleanUuid) {
+                if ($cleanRef !== '') {
+                    $q->where('id', $cleanRef)->orWhere('client_uuid', $cleanRef);
+                }
+                if ($cleanUuid !== '') {
+                    $q->orWhere('client_uuid', $cleanUuid);
+                }
+            })
+            ->first();
+    }
+
+    protected function loadAndSerializeShipment(Shipment $shipment): array
+    {
+        $fresh = Shipment::with([
+            'office:id,name,branch_name',
+            'parcels' => fn ($q) => $q->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                ->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')
+                ->orderBy('created_at'),
+            'parcels.destinationOffice:id,name,branch_name',
+        ])->findOrFail($shipment->id);
+
+        return $this->serializeShipmentForOffline($fresh);
+    }
+
+    protected function getScannableParcelsPayload(Office $office): array
+    {
+        return OutgoingParcel::with('destinationOffice:id,name,branch_name')
+            ->where('office_id', $office->id)
+            ->where('status', OutgoingParcelStatus::PENDING->value)
+            ->whereNull('shipment_id')
+            ->latest('created_at')
+            ->limit(300)
+            ->get()
+            ->map(fn (OutgoingParcel $p) => $this->serializeParcelForShipmentJs($p))
+            ->values()
+            ->all();
+    }
+
+    protected function serializeShipmentForOffline(Shipment $shipment): array
+    {
+        $statusEnum = $shipment->status instanceof ShipmentStatus
+            ? $shipment->status
+            : (ShipmentStatus::tryFrom((string) $shipment->status) ?? ShipmentStatus::IN_TRANSIT);
+
+        $rawParcels = $shipment->relationLoaded('parcels')
+            ? $shipment->parcels
+            : $shipment->parcels()
+                ->with('destinationOffice:id,name,branch_name')
+                ->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                ->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')
+                ->orderBy('created_at')
+                ->get();
+
+        $activeParcels = $rawParcels->filter(function (OutgoingParcel $p): bool {
+            $pStatus = $p->status instanceof OutgoingParcelStatus ? $p->status->value : (string) $p->status;
+            return $pStatus !== OutgoingParcelStatus::CANCELLED->value;
+        })->values();
+
+        $receivedCount = $activeParcels->filter(function (OutgoingParcel $p): bool {
+            $pStatus = $p->status instanceof OutgoingParcelStatus
+                ? $p->status
+                : OutgoingParcelStatus::tryFrom((string) $p->status);
+
+            return $p->linked_incoming_parcel_id !== null
+                || in_array($pStatus, [OutgoingParcelStatus::RECEIVED, OutgoingParcelStatus::DELIVERED], true);
+        })->count();
+
+        $serializedParcels = $activeParcels
+            ->map(fn (OutgoingParcel $p) => $this->serializeParcelForShipmentJs($p))
+            ->values()
+            ->all();
+
+        $clientUuid = $shipment->client_uuid ? (string) $shipment->client_uuid : null;
+
+        return [
+            'id'                     => (string) $shipment->id,
+            'client_uuid'            => $clientUuid,
+            'local_key'              => $clientUuid ?: ('srv_' . $shipment->id),
+            'office_id'              => (int) $shipment->office_id,
+            'shipment_number'        => (string) $shipment->shipment_number,
+            'driver_name'            => (string) $shipment->driver_name,
+            'driver_phone'           => (string) $shipment->driver_phone,
+            'parcels_count'          => (int) $shipment->parcels_count,
+            'received_parcels_count' => $receivedCount,
+            'total_paid_amount'      => (float) $shipment->total_paid_amount,
+            'total_deferred_amount'  => (float) $shipment->total_deferred_amount,
+            'total_amount'           => (float) $shipment->total_amount,
+            'destinations_summary'   => array_values((array) ($shipment->destinations_summary ?? [])),
+            'status'                 => $statusEnum->value,
+            'status_label'           => $statusEnum->label(),
+            'notes'                  => $shipment->notes ? (string) $shipment->notes : null,
+            'dispatched_at'          => $shipment->dispatched_at?->toIso8601String(),
+            'completed_at'           => $shipment->completed_at?->toIso8601String(),
+            'cancelled_at'           => $shipment->cancelled_at?->toIso8601String(),
+            'created_at'             => $shipment->created_at?->toIso8601String(),
+            'pending_sync'           => false,
+            'can_cancel'             => $statusEnum !== ShipmentStatus::CANCELLED && $receivedCount === 0,
+            'show_url'               => route('office.shipments.sent.show', $shipment),
+            'print_url'              => route('office.shipments.sent.print', $shipment),
+            'parcels'                => $serializedParcels,
+        ];
+    }
+
     protected function serializeParcelForShipmentJs(OutgoingParcel $p): array
     {
         $paymentEnum = $p->payment_type instanceof OutgoingPaymentType
             ? $p->payment_type
             : (OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? OutgoingPaymentType::PAID);
 
+        $statusEnum = $p->status instanceof OutgoingParcelStatus
+            ? $p->status
+            : (OutgoingParcelStatus::tryFrom((string) $p->status) ?? OutgoingParcelStatus::PENDING);
+
+        $destinationLabel = $p->destinationLabel();
+
         return [
-            'id'              => (string) $p->id,
-            'receipt_number'  => (string) ($p->receipt_number ?? ''),
-            'package_type'    => (string) $p->package_type,
-            'destination'     => $p->destinationLabel(),
-            'is_external'     => $p->isExternal(),
-            'sender_name'     => (string) $p->sender_name,
-            'sender_phone'    => (string) $p->sender_phone,
-            'recipient_name'  => (string) ($p->recipient_name ?: 'بدون اسم'),
-            'recipient_phone' => (string) $p->recipient_phone,
-            'payment_type'    => $paymentEnum->value,
-            'payment_label'   => $paymentEnum->label(),
-            'cod_amount'      => (float) ($p->cod_amount ?? 0),
+            'id'                => (string) $p->id,
+            'office_id'         => (int) $p->office_id,
+            'receipt_number'    => (string) ($p->receipt_number ?? ''),
+            'package_type'      => (string) ($p->package_type ?: 'طرد'),
+            'destination'       => $destinationLabel,
+            'destination_label' => $destinationLabel,
+            'is_external'       => $p->isExternal(),
+            'sender_name'       => (string) ($p->sender_name ?? ''),
+            'sender_phone'      => (string) ($p->sender_phone ?? ''),
+            'recipient_name'    => (string) ($p->recipient_name ?: 'بدون اسم'),
+            'recipient_phone'   => (string) ($p->recipient_phone ?? ''),
+            'payment_type'      => $paymentEnum->value,
+            'payment_label'     => $paymentEnum->label(),
+            'cod_amount'        => (float) ($p->cod_amount ?? 0),
+            'status'            => $statusEnum->value,
+            'status_label'      => $statusEnum->label(),
+            'is_received'       => $p->linked_incoming_parcel_id !== null
+                || in_array($statusEnum, [OutgoingParcelStatus::RECEIVED, OutgoingParcelStatus::DELIVERED], true),
         ];
     }
 }

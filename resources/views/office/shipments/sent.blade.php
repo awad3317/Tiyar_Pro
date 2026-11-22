@@ -9,7 +9,6 @@
           action="{{ route('office.shipments.sent.index') }}"
           x-data="{
               q: @js($search),
-              _t: null,
               normDigits(str) {
                   const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
                   const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
@@ -20,11 +19,9 @@
               },
               onInput() {
                   this.q = this.normDigits(this.q);
-                  if (this._t) clearTimeout(this._t);
-                  this._t = setTimeout(() => this.emitSearch(), 320);
+                  this.emitSearch();
               },
               emitSearch() {
-                  if (this._t) clearTimeout(this._t);
                   window.dispatchEvent(new CustomEvent('sent-search-change', { detail: { q: this.q } }));
               },
               clear() {
@@ -62,18 +59,28 @@
     <div class="flex-1 flex flex-col"
          @open-create-shipment-modal.window="openCreateModal()"
          @sent-search-change.window="handleSearchEvent($event.detail.q)"
+         @shipments-synced.window="onShipmentsSynced($event.detail)"
          x-data="sentShipmentsPage({
+             officeId: @js((int) $office->id),
+             officeInfo: @js([
+                 'id'          => (int) $office->id,
+                 'name'        => (string) $office->name,
+                 'branch_name' => (string) ($office->branch_name ?? ''),
+             ]),
              baseUrl: @js(route('office.shipments.sent.index')),
+             bootstrapUrl: @js(route('office.shipments.sent.bootstrap')),
+             syncUrl: @js(route('office.shipments.sent.sync')),
              initialStatus: @js($statusFilter),
              initialSearch: @js($search),
              initialCounts: @js($counts),
+             initialShipments: @js($initialOfflineShipments ?? []),
              availableParcels: @js($availableParcels),
              lookupUrl: @js(route('office.shipments.sent.lookup')),
              storeUrl: @js(route('office.shipments.sent.store')),
              senderOfficeLabel: @js($office->branch_name ? $office->name . ' - ' . $office->branch_name : $office->name)
          })">
 
-        {{-- شريط تبويبات التصفية العلوي الموحّد (مطابق تماماً لشاشة الطرود الواردة) --}}
+        {{-- شريط تبويبات التصفية العلوي الموحّد (تصفية محلية 0ms بدون أي طلب شبكة) --}}
         @php
             $sentTabs = [
                 ['key' => 'all',                'label' => 'الكل'],
@@ -96,9 +103,174 @@
         </nav>
 
         <main class="flex-1 p-3 space-y-2.5">
-            {{-- قائمة الشحنات المرسلة (تُحدث لحظياً عبر AJAX) --}}
-            <div x-ref="cardsContainer" :class="isFetching ? 'opacity-60 transition-opacity' : ''">
+            {{-- 1. العرض الأولي من السيرفر قبل تهيئة Alpine / IndexedDB --}}
+            <div x-show="!clientReady" x-ref="cardsContainer">
                 @include('office.shipments.partials.sent-cards-list', ['shipments' => $shipments])
+            </div>
+
+            {{-- 2. قائمة الشحنات الحية من IndexedDB (0ms تصفية وبحث وطباعة أوفلاين) --}}
+            <div x-show="clientReady" x-cloak class="space-y-2.5">
+                <template x-for="shipment in filteredShipments" :key="shipment.local_key">
+                    <article
+                        style="content-visibility: auto; contain-intrinsic-size: 180px;"
+                        class="relative bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
+
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                                <span class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
+                                    <span class="material-symbols-outlined text-xl">receipt_long</span>
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="font-mono font-black text-sm text-primary"
+                                              x-text="'كشف #' + shipment.shipment_number"></span>
+                                        <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold"
+                                              x-text="Number(shipment.parcels_count || 0) + ' طرد'"></span>
+                                        <template x-if="shipment.pending_sync || shipment.sync_status === 'pending_sync'">
+                                            <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-[12px]">cloud_upload</span>
+                                                <span>بانتظار المزامنة</span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 font-semibold mt-0.5"
+                                       x-text="formatShipmentTime(shipment.created_at)"></p>
+                                </div>
+                            </div>
+
+                            {{-- شارة الحالة + قائمة الثلاث نقاط (⋮) الحصرية لجميع إجراءات الكشف --}}
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold"
+                                      :class="statusBadgeClass(shipment.status)"
+                                      x-text="statusLabel(shipment)"></span>
+
+                                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                                    <button type="button"
+                                        @click="open = !open"
+                                        title="خيارات الكشف"
+                                        aria-label="خيارات الكشف"
+                                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                    </button>
+
+                                    <div x-show="open"
+                                        x-cloak
+                                        x-transition:enter="ease-out duration-150"
+                                        x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                        x-transition:leave="ease-in duration-100"
+                                        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                        x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+                                        class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-lg border border-slate-200/90 py-1.5 z-30 text-right">
+                                        <button type="button"
+                                            @click="open = false; openShipmentDetails(shipment)"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                            <span class="material-symbols-outlined text-base text-primary">description</span>
+                                            <span>تفاصيل الكشف</span>
+                                        </button>
+
+                                        <button type="button"
+                                            :data-shipment-action="'print'"
+                                            @click="open = false; printShipmentOffline(shipment)"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                            <span class="material-symbols-outlined text-base text-slate-500">print</span>
+                                            <span>طباعة الكشف</span>
+                                        </button>
+
+                                        <template x-if="canCancelShipment(shipment)">
+                                            <div>
+                                                <div class="my-1 border-t border-slate-100"></div>
+                                                <button type="button"
+                                                    :data-shipment-action="'cancel'"
+                                                    @click="open = false; openCancelModal(shipment)"
+                                                    class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                                    <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                                    <span>إلغاء الكشف</span>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2.5">
+                            {{-- السائق والوجهات --}}
+                            <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-slate-400 text-[11px] font-bold flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-sm text-primary">person</span>
+                                        السائق:
+                                    </span>
+                                    <span class="font-extrabold text-slate-800 truncate">
+                                        <span x-text="shipment.driver_name"></span>
+                                        <span class="font-mono text-[11px] text-slate-500 mr-1"
+                                              dir="ltr"
+                                              x-text="'(' + (shipment.driver_phone || '') + ')'"></span>
+                                    </span>
+                                </div>
+
+                                <template x-if="Array.isArray(shipment.destinations_summary) && shipment.destinations_summary.length > 0">
+                                    <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
+                                        <span class="text-slate-400 text-[11px] font-bold shrink-0">الوجهات:</span>
+                                        <div class="flex flex-wrap justify-end gap-1">
+                                            <template x-for="dest in shipment.destinations_summary.slice(0, 3)" :key="dest">
+                                                <span class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-700"
+                                                      x-text="dest"></span>
+                                            </template>
+                                            <template x-if="shipment.destinations_summary.length > 3">
+                                                <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold"
+                                                      x-text="'+' + (shipment.destinations_summary.length - 3)"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {{-- المجاميع المالية (آجل / محاسب / إجمالي) --}}
+                            <div class="grid grid-cols-3 gap-1.5 text-center">
+                                <div class="bg-amber-50/70 border border-amber-200/70 rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-amber-700">الآجل</p>
+                                    <p class="text-xs font-mono font-black text-amber-800"
+                                       x-text="formatMoney(shipment.total_deferred_amount)"></p>
+                                </div>
+                                <div class="bg-emerald-50/70 border border-emerald-200/70 rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-emerald-700">المحاسب</p>
+                                    <p class="text-xs font-mono font-black text-emerald-800"
+                                       x-text="formatMoney(shipment.total_paid_amount)"></p>
+                                </div>
+                                <div class="bg-primary text-white rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-slate-300">الإجمالي</p>
+                                    <p class="text-xs font-mono font-black text-secondary"
+                                       x-text="formatMoney(shipment.total_amount)"></p>
+                                </div>
+                            </div>
+
+                            {{-- مؤشر نسبة الاستلام (عرض فقط بدون رابط قابل للنقر) --}}
+                            <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
+                                <span x-text="'تم استلام ' + Number(shipment.received_parcels_count || 0) + ' من ' + Number(shipment.parcels_count || 0)"></span>
+                            </div>
+                        </div>
+                    </article>
+                </template>
+
+                {{-- حالة عدم وجود نتائج مطابقة في الذاكرة المحلية --}}
+                <div x-show="filteredShipments.length === 0"
+                     class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl">local_shipping</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة مطابقة</p>
+                    <p class="text-[11px] text-slate-400">اضغط على زر (+) أعلى الشاشة لإنشاء كشف شحنة جديد بمسح الباركود.</p>
+                    <div class="pt-1">
+                        <button type="button"
+                            @click="openCreateModal()"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-xs active:scale-95 transition-all">
+                            <span class="material-symbols-outlined text-base">qr_code_scanner</span>
+                            <span>كشف شحنة جديد</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
         {{-- مودال إنشاء كشف شحنة جديد بالمسح بالباركود (محسّن لكيبورد الموبايل بـ visualViewport وبدون backdrop-blur للأداء) --}}
@@ -153,7 +325,7 @@
                         </div>
                     </div>
 
-                    {{-- 2. منطقة مسح الباركود (كاميرا + قارئ خارجي / إدخال يدوي) --}}
+                    {{-- 2. منطقة مسح الباركود (كاميرا + قارئ خارجي / إدخال يدوي — يعمل 100% أوفلاين من IndexedDB) --}}
                     <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-xs font-extrabold text-primary flex items-center gap-1">
@@ -265,7 +437,7 @@
                                             x-text="'#' + p.receipt_number"></span>
                                         <span class="font-bold text-slate-700 mr-1" x-text="p.package_type"></span>
                                         <span class="text-slate-400 block truncate text-[10px]"
-                                            x-text="p.destination + ' • ' + p.recipient_name"></span>
+                                            x-text="(p.destination_label || p.destination) + ' • ' + p.recipient_name"></span>
                                     </div>
                                     <span class="px-2 py-0.5 rounded-md bg-sky-600 text-white font-extrabold shrink-0">+
                                         ضم</span>
@@ -298,7 +470,7 @@
                                                 x-text="p.payment_label + ': ' + formatMoney(p.cod_amount)"></span>
                                         </div>
                                         <p class="text-[10px] text-slate-400 truncate mt-0.5"
-                                            x-text="p.destination + ' • ' + p.recipient_name + ' (' + p.recipient_phone + ')'">
+                                            x-text="(p.destination_label || p.destination) + ' • ' + p.recipient_name + ' (' + p.recipient_phone + ')'">
                                         </p>
                                     </div>
                                     <button type="button" @click="removeParcel(p.id)" title="إزالة من الشحنة"
@@ -340,7 +512,113 @@
             </div>
         </div>
 
-        {{-- مودال تأكيد إلغاء كشف الشحنة (بدون backdrop-blur للأداء) --}}
+        {{-- مودال تفاصيل الكشف المحلي (يعمل 100% أوفلاين وللشحنات المحلية قبل المزامنة بدون backdrop-blur) --}}
+        <div x-show="detailsModal.open"
+             x-cloak
+             @keydown.escape.window="closeDetailsModal()"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="closeDetailsModal()"></div>
+
+            <div class="relative w-full max-w-lg max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200 z-10 flex flex-col overflow-hidden text-right">
+                <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <h3 class="text-sm font-extrabold" x-text="'تفاصيل كشف #' + (detailsModal.shipment?.shipment_number || '')"></h3>
+                            <template x-if="detailsModal.shipment?.pending_sync">
+                                <span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-extrabold">
+                                    بانتظار المزامنة
+                                </span>
+                            </template>
+                        </div>
+                        <p class="text-[10px] text-slate-300 mt-0.5"
+                           x-text="'السائق: ' + (detailsModal.shipment?.driver_name || '—') + ' (' + (detailsModal.shipment?.driver_phone || '') + ')'"></p>
+                    </div>
+                    <button type="button" @click="closeDetailsModal()" class="text-slate-300 hover:text-white p-1">
+                        <span class="material-symbols-outlined text-lg">close</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+                    {{-- ملخص مالي وحالة الكشف --}}
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl py-2 px-1">
+                            <p class="text-[10px] font-bold text-amber-700">الآجل</p>
+                            <p class="text-xs font-mono font-black text-amber-800"
+                               x-text="formatMoney(detailsModal.shipment?.total_deferred_amount) + ' ر.ي'"></p>
+                        </div>
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl py-2 px-1">
+                            <p class="text-[10px] font-bold text-emerald-700">المحاسب</p>
+                            <p class="text-xs font-mono font-black text-emerald-800"
+                               x-text="formatMoney(detailsModal.shipment?.total_paid_amount) + ' ر.ي'"></p>
+                        </div>
+                        <div class="bg-primary text-white rounded-xl py-2 px-1">
+                            <p class="text-[10px] font-bold text-slate-300">الإجمالي</p>
+                            <p class="text-xs font-mono font-black text-secondary"
+                               x-text="formatMoney(detailsModal.shipment?.total_amount) + ' ر.ي'"></p>
+                        </div>
+                    </div>
+
+                    <template x-if="detailsModal.shipment?.notes">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                            <span class="font-extrabold text-slate-700">ملاحظات: </span>
+                            <span class="text-slate-600" x-text="detailsModal.shipment.notes"></span>
+                        </div>
+                    </template>
+
+                    {{-- جدول الطرود المضمّنة في الكشف --}}
+                    <div class="space-y-1.5">
+                        <h4 class="text-xs font-extrabold text-slate-800">
+                            بيان الطرود في الكشف (<span x-text="(detailsModal.shipment?.parcels || []).length"></span>)
+                        </h4>
+
+                        <div class="space-y-1.5">
+                            <template x-for="(p, idx) in (detailsModal.shipment?.parcels || [])" :key="p.id || idx">
+                                <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs space-y-1">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px] font-black text-primary"
+                                                  x-text="'سند #' + (p.receipt_number || '—')"></span>
+                                            <span class="font-extrabold text-slate-800" x-text="p.package_type || 'طرد'"></span>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold"
+                                              :class="p.payment_type === 'deferred' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'"
+                                              x-text="(p.payment_label || (p.payment_type === 'deferred' ? 'آجل' : 'محاسب')) + ': ' + formatMoney(p.cod_amount) + ' ر.ي'"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px] text-slate-600">
+                                        <span class="font-bold truncate" x-text="(p.recipient_name || 'بدون اسم') + ' (' + (p.recipient_phone || '') + ')'"></span>
+                                        <span class="text-[10px] text-slate-500 font-bold shrink-0" x-text="p.destination_label || p.destination || ''"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrink-0 border-t border-slate-100 px-4 py-3 bg-white flex items-center gap-2">
+                    <button type="button"
+                            @click="printShipmentOffline(detailsModal.shipment)"
+                            class="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-secondary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors">
+                        <span class="material-symbols-outlined text-base">print</span>
+                        <span>طباعة الكشف (A4)</span>
+                    </button>
+                    <template x-if="detailsModal.shipment && canCancelShipment(detailsModal.shipment)">
+                        <button type="button"
+                                @click="const s = detailsModal.shipment; closeDetailsModal(); openCancelModal(s);"
+                                class="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold flex items-center justify-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-base">cancel</span>
+                            <span>إلغاء الكشف</span>
+                        </button>
+                    </template>
+                    <button type="button"
+                            @click="closeDetailsModal()"
+                            class="py-2.5 px-3 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                        إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{-- مودال تأكيد إلغاء كشف الشحنة (يعمل أونلاين وأوفلاين، بدون backdrop-blur للأداء) --}}
         <div x-show="cancelModal.open"
              x-cloak
              @keydown.escape.window="closeCancelModal()"
@@ -385,7 +663,7 @@
                     </span>
                 </div>
 
-                <form method="POST" :action="cancelModal.url" @submit="cancelModal.submitting = true" class="flex flex-col gap-2 pt-1">
+                <form method="POST" :action="cancelModal.url" @submit.prevent="confirmCancelShipment()" class="flex flex-col gap-2 pt-1">
                     @csrf
                     <button type="submit" :disabled="cancelModal.submitting"
                             class="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
@@ -408,12 +686,18 @@
     <script>
         function sentShipmentsPage(config) {
             return {
+                officeId: Number(config.officeId || 0),
+                officeInfo: config.officeInfo || {},
                 baseUrl: config.baseUrl || '/office/shipments/sent',
+                bootstrapUrl: config.bootstrapUrl || '/office/shipments/sent/bootstrap',
+                syncUrl: config.syncUrl || '/office/shipments/sent/sync',
+
+                clientReady: false,
+                shipments: Array.isArray(config.initialShipments) ? config.initialShipments : [],
                 activeStatus: String(config.initialStatus || 'all'),
                 searchQuery: String(config.initialSearch || ''),
                 counts: config.initialCounts || { all: 0, draft: 0, in_transit: 0, partially_received: 0, received: 0, cancelled: 0 },
                 isFetching: false,
-                _abortController: null,
 
                 availableParcels: Array.isArray(config.availableParcels) ? config.availableParcels : [],
                 lookupUrl: config.lookupUrl,
@@ -421,9 +705,15 @@
                 senderOfficeLabel: config.senderOfficeLabel || '',
 
                 createModalOpen: new URLSearchParams(window.location.search).get('create') === '1',
+                detailsModal: {
+                    open: false,
+                    shipment: null,
+                },
                 cancelModal: {
                     open: false,
                     submitting: false,
+                    shipment: null,
+                    id: '',
                     number: '',
                     driver_name: '',
                     parcels_count: 0,
@@ -454,7 +744,7 @@
                 _vpRafId: null,
                 _vpHandler: null,
 
-                init() {
+                async init() {
                     this._vpHandler = () => {
                         if (!this.createModalOpen) return;
                         if (this._vpRafId) return;
@@ -474,80 +764,281 @@
                     if (this.createModalOpen) {
                         this.attachViewportListeners();
                     }
-                },
 
-                updateCounts(nextCounts) {
-                    if (!nextCounts || typeof nextCounts !== 'object') return;
-                    this.counts = {
-                        all: Number(nextCounts.all ?? this.counts.all ?? 0),
-                        draft: Number(nextCounts.draft ?? this.counts.draft ?? 0),
-                        in_transit: Number(nextCounts.in_transit ?? this.counts.in_transit ?? 0),
-                        partially_received: Number(nextCounts.partially_received ?? this.counts.partially_received ?? 0),
-                        received: Number(nextCounts.received ?? this.counts.received ?? 0),
-                        cancelled: Number(nextCounts.cancelled ?? this.counts.cancelled ?? 0),
-                    };
-                },
-
-                setStatusFilter(targetStatus) {
-                    this.activeStatus = String(targetStatus || 'all');
-                    this.fetchFilteredList();
-                },
-
-                handleSearchEvent(q) {
-                    this.searchQuery = String(q || '').trim();
-                    this.fetchFilteredList();
-                },
-
-                async fetchFilteredList() {
-                    if (this._abortController) {
-                        this._abortController.abort();
+                    // 1. تفعيل العرض المحلي بـ 0ms فوراً
+                    if (this.shipments.length > 0) {
+                        this.recomputeCounts();
                     }
-                    this._abortController = new AbortController();
+                    this.clientReady = true;
 
-                    const params = new URLSearchParams();
-                    if (this.activeStatus && this.activeStatus !== 'all') {
-                        params.set('status', this.activeStatus);
-                    }
-                    if (this.searchQuery) {
-                        params.set('q', this.searchQuery);
+                    // 2. قراءة البيانات من IndexedDB أو بذر البيانات الأولية
+                    await this.hydrateFromIndexedDB();
+
+                    // 3. مزامنة خلفية صامتة عند توفر الإنترنت
+                    if (navigator.onLine) {
+                        this.syncWithServer();
                     }
 
-                    const qs = params.toString();
-                    const cleanUrl = qs ? `${this.baseUrl}?${qs}` : this.baseUrl;
-                    const fetchParams = new URLSearchParams(params);
-                    fetchParams.set('_t', String(Date.now()));
-                    const fetchUrl = `${this.baseUrl}?${fetchParams.toString()}`;
+                    window.addEventListener('online', () => {
+                        this.syncWithServer();
+                    });
+                },
 
-                    this.isFetching = true;
+                async hydrateFromIndexedDB() {
+                    if (!window.MursalShipmentStore) return;
                     try {
-                        const res = await fetch(fetchUrl, {
+                        const cachedShipments = await window.MursalShipmentStore.getLocalShipments(this.officeId);
+                        const cachedScannable = await window.MursalShipmentStore.getScannableParcels(this.officeId);
+
+                        if (cachedShipments.length > 0) {
+                            this.shipments = cachedShipments;
+                            this.recomputeCounts();
+                        } else if (this.shipments.length > 0 || this.availableParcels.length > 0) {
+                            this.shipments = await window.MursalShipmentStore.saveBootstrapData(this.officeId, {
+                                office: this.officeInfo,
+                                shipments: this.shipments,
+                                scannable_parcels: this.availableParcels,
+                            });
+                            this.recomputeCounts();
+                        }
+
+                        if (cachedScannable.length > 0) {
+                            this.availableParcels = cachedScannable;
+                        }
+                    } catch (err) {
+                        console.warn('IndexedDB hydration error:', err);
+                    }
+                },
+
+                async syncWithServer() {
+                    if (!navigator.onLine || !window.MursalShipmentStore) return;
+                    try {
+                        await window.MursalShipmentStore.flushShipmentQueue();
+
+                        const res = await fetch(`${this.bootstrapUrl}?_t=${Date.now()}`, {
                             cache: 'no-store',
                             headers: {
                                 'Accept': 'application/json',
                                 'X-Requested-With': 'XMLHttpRequest',
                             },
-                            signal: this._abortController.signal,
                         });
 
-                        if (!res.ok) throw new Error('Network error');
+                        if (!res.ok) return;
                         const data = await res.json();
-
                         if (data && data.ok) {
-                            this.updateCounts(data.counts);
-                            if (this.$refs.cardsContainer && typeof data.html === 'string') {
-                                this.$refs.cardsContainer.innerHTML = data.html;
-                                if (window.Alpine) {
-                                    window.Alpine.initTree(this.$refs.cardsContainer);
-                                }
+                            if (data.office) {
+                                this.officeInfo = data.office;
                             }
-                            window.history.replaceState({}, '', cleanUrl);
+                            this.shipments = await window.MursalShipmentStore.saveBootstrapData(this.officeId, data);
+                            this.availableParcels = await window.MursalShipmentStore.getScannableParcels(this.officeId);
+                            this.recomputeCounts();
                         }
                     } catch (err) {
-                        if (err.name !== 'AbortError') {
-                            console.warn('Sent shipments filter fetch failed:', err);
+                        // العمل يستمر أوفلاين من IndexedDB بدون أي انقطاع
+                    }
+                },
+
+                async onShipmentsSynced(data) {
+                    if (!window.MursalShipmentStore) return;
+                    this.shipments = await window.MursalShipmentStore.getLocalShipments(this.officeId);
+                    this.availableParcels = await window.MursalShipmentStore.getScannableParcels(this.officeId);
+                    this.recomputeCounts();
+                },
+
+                get filteredShipments() {
+                    const status = this.activeStatus || 'all';
+                    const q = this.normalizeDigits(this.searchQuery).toLowerCase().trim();
+
+                    return this.shipments.filter((s) => {
+                        if (status !== 'all' && String(s.status) !== status) {
+                            return false;
                         }
-                    } finally {
-                        this.isFetching = false;
+                        if (!q) return true;
+
+                        const num = this.normalizeDigits(s.shipment_number).toLowerCase();
+                        const dName = this.normalizeDigits(s.driver_name).toLowerCase();
+                        const dPhone = this.normalizeDigits(s.driver_phone).toLowerCase();
+                        const dests = Array.isArray(s.destinations_summary)
+                            ? this.normalizeDigits(s.destinations_summary.join(' ')).toLowerCase()
+                            : '';
+
+                        if (num.includes(q) || dName.includes(q) || dPhone.includes(q) || dests.includes(q)) {
+                            return true;
+                        }
+
+                        if (Array.isArray(s.parcels)) {
+                            return s.parcels.some((p) => {
+                                const rNum = this.normalizeDigits(p.receipt_number).toLowerCase();
+                                const rName = this.normalizeDigits(p.recipient_name).toLowerCase();
+                                const rPhone = this.normalizeDigits(p.recipient_phone).toLowerCase();
+                                return rNum.includes(q) || rName.includes(q) || rPhone.includes(q);
+                            });
+                        }
+
+                        return false;
+                    });
+                },
+
+                recomputeCounts() {
+                    const next = {
+                        all: 0,
+                        draft: 0,
+                        in_transit: 0,
+                        partially_received: 0,
+                        received: 0,
+                        cancelled: 0,
+                    };
+
+                    this.shipments.forEach((s) => {
+                        const st = String(s?.status || '');
+                        if (Object.prototype.hasOwnProperty.call(next, st)) {
+                            next[st]++;
+                        }
+                        next.all++;
+                    });
+
+                    this.counts = next;
+                },
+
+                setStatusFilter(targetStatus) {
+                    this.activeStatus = String(targetStatus || 'all');
+                    this.syncUrlHistory();
+                },
+
+                handleSearchEvent(q) {
+                    this.searchQuery = String(q || '').trim();
+                    this.syncUrlHistory();
+                },
+
+                syncUrlHistory() {
+                    try {
+                        const params = new URLSearchParams();
+                        if (this.activeStatus && this.activeStatus !== 'all') {
+                            params.set('status', this.activeStatus);
+                        }
+                        if (this.searchQuery) {
+                            params.set('q', this.searchQuery);
+                        }
+                        const qs = params.toString();
+                        const cleanUrl = qs ? `${this.baseUrl}?${qs}` : this.baseUrl;
+                        window.history.replaceState({}, '', cleanUrl);
+                    } catch (e) {}
+                },
+
+                statusLabel(shipment) {
+                    if (shipment?.status_label) return shipment.status_label;
+                    const map = {
+                        draft: 'قيد التجهيز',
+                        in_transit: 'في الطريق',
+                        partially_received: 'استلام جزئي',
+                        received: 'تم الاستلام بالكامل',
+                        cancelled: 'ملغاة',
+                    };
+                    return map[shipment?.status] || shipment?.status || '';
+                },
+
+                statusBadgeClass(status) {
+                    const map = {
+                        draft: 'bg-slate-100 text-slate-700 border-slate-300',
+                        in_transit: 'bg-sky-100 text-sky-800 border-sky-200',
+                        partially_received: 'bg-amber-100 text-amber-800 border-amber-200',
+                        received: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                        cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
+                    };
+                    return map[status] || 'bg-slate-100 text-slate-700 border-slate-300';
+                },
+
+                canCancelShipment(shipment) {
+                    if (!shipment) return false;
+                    if (shipment.status === 'cancelled') return false;
+                    if (!['draft', 'in_transit'].includes(String(shipment.status))) return false;
+                    return Number(shipment.received_parcels_count || 0) === 0;
+                },
+
+                formatShipmentTime(isoStr) {
+                    if (!isoStr) return 'الآن';
+                    const d = new Date(isoStr);
+                    if (isNaN(d.getTime())) return String(isoStr);
+                    const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+                    if (diffSec < 60) return 'الآن';
+                    if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
+                    if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                },
+
+                openShipmentDetails(shipment) {
+                    if (!shipment) return;
+                    if (navigator.onLine && shipment.id && !shipment.pending_sync && shipment.show_url) {
+                        window.location.href = shipment.show_url;
+                        return;
+                    }
+                    this.detailsModal = {
+                        open: true,
+                        shipment: shipment,
+                    };
+                },
+
+                closeDetailsModal() {
+                    this.detailsModal.open = false;
+                },
+
+                printShipmentOffline(shipment) {
+                    if (!shipment) return;
+                    if (window.MursalManifestPrint) {
+                        window.MursalManifestPrint.print(shipment, this.officeInfo);
+                        return;
+                    }
+                    if (shipment.print_url) {
+                        this.printShipment(shipment.print_url);
+                    }
+                },
+
+                printShipment(url) {
+                    if (!url) return;
+                    if (typeof url === 'object') {
+                        this.printShipmentOffline(url);
+                        return;
+                    }
+                    const matched = this.shipments.find((s) => s.print_url === url || (s.id && url.includes(String(s.id))));
+                    if (matched && Array.isArray(matched.parcels) && window.MursalManifestPrint) {
+                        window.MursalManifestPrint.print(matched, this.officeInfo);
+                        return;
+                    }
+
+                    const fallbackUrl = url + (url.includes('?') ? '&' : '?') + 'auto_print=1';
+                    try {
+                        let iframe = document.getElementById('sent-shipment-print-iframe');
+                        if (iframe) {
+                            iframe.remove();
+                        }
+                        iframe = document.createElement('iframe');
+                        iframe.id = 'sent-shipment-print-iframe';
+                        iframe.setAttribute('aria-hidden', 'true');
+                        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+
+                        iframe.onload = () => {
+                            setTimeout(() => {
+                                try {
+                                    if (iframe.contentWindow) {
+                                        iframe.contentWindow.focus();
+                                        iframe.contentWindow.print();
+                                    } else {
+                                        window.open(fallbackUrl, '_blank');
+                                    }
+                                } catch (e) {
+                                    window.open(fallbackUrl, '_blank');
+                                }
+                            }, 150);
+                        };
+
+                        iframe.onerror = () => {
+                            window.open(fallbackUrl, '_blank');
+                        };
+
+                        document.body.appendChild(iframe);
+                        iframe.src = url;
+                    } catch (e) {
+                        window.open(fallbackUrl, '_blank');
                     }
                 },
 
@@ -614,13 +1105,17 @@
                     }
                 },
 
-                sanitizePhone(str) {
+                normalizeDigits(str) {
                     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
                     const fa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-                    let digits = String(str || '')
+                    return String(str || '')
                         .replace(/[٠-٩]/g, d => ar.indexOf(d))
                         .replace(/[۰-۹]/g, d => fa.indexOf(d))
-                        .replace(/\D/g, '');
+                        .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '');
+                },
+
+                sanitizePhone(str) {
+                    let digits = this.normalizeDigits(str).replace(/\D/g, '');
                     if (digits.length === 12 && digits.startsWith('9677')) digits = digits.substring(3);
                     if (digits.length === 14 && digits.startsWith('009677')) digits = digits.substring(5);
                     return digits.substring(0, 9);
@@ -632,6 +1127,17 @@
 
                 formatMoney(n) {
                     return Number(n || 0).toLocaleString('en-US');
+                },
+
+                generateUuid() {
+                    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                        return window.crypto.randomUUID().toLowerCase();
+                    }
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                        const r = (Math.random() * 16) | 0;
+                        const v = c === 'x' ? r : ((r & 0x3) | 0x8);
+                        return v.toString(16);
+                    });
                 },
 
                 get unaddedAvailable() {
@@ -657,7 +1163,8 @@
                 get uniqueDestinations() {
                     const set = new Set();
                     this.selectedParcels.forEach(p => {
-                        if (p.destination) set.add(p.destination);
+                        const d = p.destination_label || p.destination;
+                        if (d) set.add(d);
                     });
                     return Array.from(set);
                 },
@@ -679,13 +1186,20 @@
                 },
 
                 openCancelModal(data) {
+                    const matched = this.shipments.find((s) =>
+                        (data?.local_key && s.local_key === data.local_key) ||
+                        (data?.id && String(s.id) === String(data.id))
+                    ) || data;
+
                     this.cancelModal = {
                         open: true,
                         submitting: false,
-                        number: data?.number || '',
-                        driver_name: data?.driver_name || '',
-                        parcels_count: Number(data?.parcels_count || 0),
-                        url: data?.url || '#',
+                        shipment: matched,
+                        id: matched?.id || '',
+                        number: matched?.shipment_number || data?.number || '',
+                        driver_name: matched?.driver_name || data?.driver_name || '',
+                        parcels_count: Number(matched?.parcels_count ?? data?.parcels_count ?? 0),
+                        url: data?.url || (matched?.id ? `${this.baseUrl}/${matched.id}/cancel` : '#'),
                     };
                 },
 
@@ -694,43 +1208,85 @@
                     this.cancelModal.open = false;
                 },
 
-                printShipment(url) {
-                    if (!url) return;
-                    const fallbackUrl = url + (url.includes('?') ? '&' : '?') + 'auto_print=1';
-                    try {
-                        let iframe = document.getElementById('sent-shipment-print-iframe');
-                        if (iframe) {
-                            iframe.remove();
+                async confirmCancelShipment() {
+                    if (this.cancelModal.submitting) return;
+                    const target = this.cancelModal.shipment;
+                    if (!target) return;
+
+                    this.cancelModal.submitting = true;
+                    const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+                    // 1. إذا كان متصلاً والشحنة مزامنة على السيرفر نحاول الإلغاء المباشر مع مهلة 8 ثوانٍ
+                    if (navigator.onLine && target.id && !target.pending_sync) {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), 8000);
+                        try {
+                            const cancelUrl = this.cancelModal.url && this.cancelModal.url !== '#'
+                                ? this.cancelModal.url
+                                : `${this.baseUrl}/${target.id}/cancel`;
+
+                            const res = await fetch(cancelUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': token,
+                                },
+                                signal: controller.signal,
+                            });
+                            clearTimeout(timer);
+
+                            const data = await res.json().catch(() => ({}));
+                            if (res.status === 422 || res.status === 403) {
+                                this.cancelModal.submitting = false;
+                                this.cancelModal.open = false;
+                                window.dispatchEvent(new CustomEvent('office-toast', {
+                                    detail: { message: data.message || 'تعذر إلغاء الكشف.', type: 'error' }
+                                }));
+                                this.syncWithServer();
+                                return;
+                            }
+
+                            if (res.ok && data.ok) {
+                                await this.applyLocalCancelResult(target, false);
+                                this.cancelModal.submitting = false;
+                                this.cancelModal.open = false;
+                                window.dispatchEvent(new CustomEvent('office-toast', {
+                                    detail: { message: data.message || `تم إلغاء الكشف #${target.shipment_number} بنجاح.`, type: 'success' }
+                                }));
+                                return;
+                            }
+                        } catch (err) {
+                            clearTimeout(timer);
+                            // في حال انقطاع الشبكة أو انتهاء المهلة ننتقل للإلغاء المحلي الأوفلاين
                         }
-                        iframe = document.createElement('iframe');
-                        iframe.id = 'sent-shipment-print-iframe';
-                        iframe.setAttribute('aria-hidden', 'true');
-                        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-
-                        iframe.onload = () => {
-                            setTimeout(() => {
-                                try {
-                                    if (iframe.contentWindow) {
-                                        iframe.contentWindow.focus();
-                                        iframe.contentWindow.print();
-                                    } else {
-                                        window.open(fallbackUrl, '_blank');
-                                    }
-                                } catch (e) {
-                                    window.open(fallbackUrl, '_blank');
-                                }
-                            }, 150);
-                        };
-
-                        iframe.onerror = () => {
-                            window.open(fallbackUrl, '_blank');
-                        };
-
-                        document.body.appendChild(iframe);
-                        iframe.src = url;
-                    } catch (e) {
-                        window.open(fallbackUrl, '_blank');
                     }
+
+                    // 2. الإلغاء الأوفلاين الفوري مع الجدولة في طابور المزامنة
+                    await this.applyLocalCancelResult(target, true);
+                    this.cancelModal.submitting = false;
+                    this.cancelModal.open = false;
+                    window.dispatchEvent(new CustomEvent('office-toast', {
+                        detail: {
+                            message: `تم إلغاء الكشف #${target.shipment_number} محلياً وإعادة طروده للانتظار — ستتم المزامنة عند توفر الإنترنت.`,
+                            type: 'info'
+                        }
+                    }));
+                },
+
+                async applyLocalCancelResult(target, enqueueSync = true) {
+                    if (window.MursalShipmentStore) {
+                        await window.MursalShipmentStore.cancelOfflineShipment(this.officeId, target, enqueueSync);
+                        this.shipments = await window.MursalShipmentStore.getLocalShipments(this.officeId);
+                        this.availableParcels = await window.MursalShipmentStore.getScannableParcels(this.officeId);
+                    } else {
+                        target.status = 'cancelled';
+                        target.status_label = 'ملغاة';
+                        target.can_cancel = false;
+                        target.pending_sync = enqueueSync;
+                    }
+                    this.recomputeCounts();
                 },
 
                 async toggleCamera() {
@@ -743,7 +1299,7 @@
 
                 async startCamera() {
                     if (typeof Html5Qrcode === 'undefined') {
-                        this.setFeedback('error', 'تعذر تحميل مكتبة الكاميرا، تحقق من الاتصال بالإنترنت.');
+                        this.setFeedback('error', 'تعذر تحميل مكتبة الكاميرا، استخدم حقل الباركود أو الإدخال اليدوي.');
                         return;
                     }
                     this.cameraActive = true;
@@ -761,8 +1317,7 @@
                                 },
                                 (decodedText) => {
                                     const now = Date.now();
-                                    if (decodedText === this._lastScannedCode && (now - this
-                                            ._lastScannedAt) < 2200) {
+                                    if (decodedText === this._lastScannedCode && (now - this._lastScannedAt) < 2200) {
                                         return;
                                     }
                                     this._lastScannedCode = decodedText;
@@ -791,14 +1346,9 @@
                 },
 
                 normalizeCode(raw) {
-                    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-                    const fa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-                    let clean = String(raw || '')
-                        .replace(/[٠-٩]/g, d => ar.indexOf(d))
-                        .replace(/[۰-۹]/g, d => fa.indexOf(d))
-                        .trim();
+                    let clean = this.normalizeDigits(raw).trim();
                     const m = clean.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-                    return m ? m[0].toLowerCase() : clean.replace(/^#/, '');
+                    return m ? m[0].toLowerCase() : clean.replace(/^#+/, '').trim();
                 },
 
                 addParcelObject(parcel) {
@@ -810,8 +1360,7 @@
                     }
                     this.selectedParcels.unshift(parcel);
                     this.beep('success');
-                    this.setFeedback('success', 'تمت إضافة الطرد: سند #' + parcel.receipt_number + ' (' + parcel
-                        .destination + ')');
+                    this.setFeedback('success', 'تمت إضافة الطرد: سند #' + parcel.receipt_number + ' (' + (parcel.destination_label || parcel.destination) + ')');
                 },
 
                 removeParcel(id) {
@@ -823,9 +1372,11 @@
                     this.scanCodeInput = '';
                     if (!code) return;
 
-                    // 1. فحص التكرار المحلي الفوري
-                    const dup = this.selectedParcels.find(p => p.id.toLowerCase() === code || String(p
-                        .receipt_number) === code);
+                    // 1. فحص التكرار المحلي الفوري داخل الشحنة الحالية
+                    const dup = this.selectedParcels.find(p =>
+                        String(p.id).toLowerCase() === code ||
+                        this.normalizeCode(p.receipt_number) === code
+                    );
                     if (dup) {
                         this.beep('error');
                         this.setFeedback('duplicate', 'تم مسح هذا الطرد مسبقاً (سند #' + dup.receipt_number +
@@ -833,15 +1384,32 @@
                         return;
                     }
 
-                    // 2. البحث الفوري في القائمة المحمّلة محلياً (صفر تأخير)
-                    const localMatch = this.availableParcels.find(p => p.id.toLowerCase() === code || String(p
-                        .receipt_number) === code);
+                    // 2. البحث الفوري (<2ms) في IndexedDB (MursalShipmentStore.findScannableParcel) والذاكرة المحلية
+                    if (window.MursalShipmentStore) {
+                        const dbMatch = await window.MursalShipmentStore.findScannableParcel(this.officeId, code);
+                        if (dbMatch) {
+                            this.addParcelObject(dbMatch);
+                            return;
+                        }
+                    }
+
+                    const localMatch = this.availableParcels.find(p =>
+                        String(p.id).toLowerCase() === code ||
+                        this.normalizeCode(p.receipt_number) === code
+                    );
                     if (localMatch) {
                         this.addParcelObject(localMatch);
                         return;
                     }
 
-                    // 3. التحقق من السيرفر في حال لم يكن ضمن آخر 200 طرد
+                    // 3. في وضع عدم الاتصال لا نرسل طلباً للشبكة
+                    if (!navigator.onLine) {
+                        this.beep('error');
+                        this.setFeedback('error', 'لم يتم العثور على طرد في الانتظار بهذا الرمز في الذاكرة المحلية.');
+                        return;
+                    }
+
+                    // 4. التحقق الاحتياطي من السيرفر عند توفر الإنترنت فقط
                     this.isLookingUp = true;
                     const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
                     try {
@@ -853,9 +1421,7 @@
                                 'X-Requested-With': 'XMLHttpRequest',
                                 'X-CSRF-TOKEN': token,
                             },
-                            body: JSON.stringify({
-                                code
-                            })
+                            body: JSON.stringify({ code })
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok || !data.ok || !data.parcel) {
@@ -871,6 +1437,16 @@
                         this.isLookingUp = false;
                         this.$nextTick(() => this.$refs.scanInput?.focus());
                     }
+                },
+
+                resetCreateForm() {
+                    this.driverName = '';
+                    this.driverPhone = '';
+                    this.notes = '';
+                    this.dispatchNow = true;
+                    this.selectedParcels = [];
+                    this.showManualPicker = false;
+                    this.scanFeedback = { type: '', text: '' };
                 },
 
                 async submitShipment() {
@@ -889,39 +1465,100 @@
                     }
 
                     this.submitting = true;
+                    const clientUuid = this.generateUuid();
+                    const cleanDriverName = this.driverName.trim();
+                    const cleanDriverPhone = this.sanitizePhone(this.driverPhone);
+                    const cleanNotes = this.notes.trim() || null;
+                    const selectedSnapshot = [...this.selectedParcels];
+                    const selectedIds = selectedSnapshot.map(p => p.id);
                     const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
+                    // 1. محاولة الحفظ المباشر على السيرفر إذا كان متصلاً (بمهلة 8 ثوانٍ)
+                    if (navigator.onLine) {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), 8000);
+                        try {
+                            const res = await fetch(this.storeUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': token,
+                                },
+                                body: JSON.stringify({
+                                    client_uuid: clientUuid,
+                                    driver_name: cleanDriverName,
+                                    driver_phone: cleanDriverPhone,
+                                    parcel_ids: selectedIds,
+                                    dispatch_now: this.dispatchNow,
+                                    notes: cleanNotes,
+                                }),
+                                signal: controller.signal,
+                            });
+                            clearTimeout(timer);
+
+                            const data = await res.json().catch(() => ({}));
+
+                            if (res.status === 422) {
+                                this.beep('error');
+                                this.setFeedback('error', data.message || 'تعذر حفظ الشحنة.');
+                                this.submitting = false;
+                                return;
+                            }
+
+                            if (res.ok && data.ok && data.shipment) {
+                                if (window.MursalShipmentStore) {
+                                    await window.MursalShipmentStore.saveSyncedShipment(this.officeId, data.shipment, selectedIds);
+                                    this.shipments = await window.MursalShipmentStore.getLocalShipments(this.officeId);
+                                    this.availableParcels = await window.MursalShipmentStore.getScannableParcels(this.officeId);
+                                } else {
+                                    this.shipments.unshift(data.shipment);
+                                    const usedSet = new Set(selectedIds);
+                                    this.availableParcels = this.availableParcels.filter(p => !usedSet.has(p.id));
+                                }
+
+                                this.recomputeCounts();
+                                this.resetCreateForm();
+                                this.submitting = false;
+                                await this.closeCreateModal();
+
+                                window.dispatchEvent(new CustomEvent('office-toast', {
+                                    detail: { message: data.message || 'تم إنشاء كشف الشحنة بنجاح.', type: 'success' }
+                                }));
+                                return;
+                            }
+                        } catch (err) {
+                            clearTimeout(timer);
+                            // عند فشل الاتصال أو انتهاء المهلة، نحفظ الشحنة محلياً في IndexedDB بدون ضياع البيانات
+                        }
+                    }
+
+                    // 2. الحفظ المحلي الفوري في IndexedDB وجدولة المزامنة التلقائية
                     try {
-                        const res = await fetch(this.storeUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRF-TOKEN': token,
-                            },
-                            body: JSON.stringify({
-                                driver_name: this.driverName.trim(),
-                                driver_phone: this.sanitizePhone(this.driverPhone),
-                                parcel_ids: this.selectedParcels.map(p => p.id),
+                        if (window.MursalShipmentStore) {
+                            await window.MursalShipmentStore.createOfflineShipment(this.officeId, {
+                                client_uuid: clientUuid,
+                                driver_name: cleanDriverName,
+                                driver_phone: cleanDriverPhone,
                                 dispatch_now: this.dispatchNow,
-                                notes: this.notes.trim() || null,
-                            })
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok || !data.ok) {
-                            this.beep('error');
-                            this.setFeedback('error', data.message || 'تعذر حفظ الشحنة.');
-                            return;
+                                notes: cleanNotes,
+                                parcels: selectedSnapshot,
+                            });
+                            this.shipments = await window.MursalShipmentStore.getLocalShipments(this.officeId);
+                            this.availableParcels = await window.MursalShipmentStore.getScannableParcels(this.officeId);
                         }
-                        await this.stopCamera();
-                        if (data.redirect_url) {
-                            window.location.href = data.redirect_url;
-                        } else {
-                            window.location.reload();
-                        }
-                    } catch (e) {
-                        this.setFeedback('error', 'تعذر الاتصال بالخادم، يرجى المحاولة مجدداً.');
+
+                        this.recomputeCounts();
+                        this.resetCreateForm();
+                        await this.closeCreateModal();
+
+                        window.dispatchEvent(new CustomEvent('office-toast', {
+                            detail: {
+                                message: 'تم حفظ الكشف محلياً — ستتم المزامنة تلقائياً عند عودة الإنترنت.',
+                                type: 'info'
+                            }
+                        }));
                     } finally {
                         this.submitting = false;
                     }

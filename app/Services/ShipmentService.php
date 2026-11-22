@@ -22,6 +22,22 @@ class ShipmentService
      */
     public function create(Office $office, array $data): Shipment
     {
+        $clientUuid = isset($data['client_uuid']) ? strtolower(trim((string) $data['client_uuid'])) : '';
+        if ($clientUuid !== '' && ! $this->isUuid($clientUuid)) {
+            throw new DomainException('معرّف العملية المحلي (client_uuid) غير صالح.');
+        }
+
+        if ($clientUuid !== '') {
+            $existing = Shipment::with(['office:id,name,branch_name', 'parcels.destinationOffice:id,name,branch_name'])
+                ->where('office_id', $office->id)
+                ->where('client_uuid', $clientUuid)
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
+
         $driverName = trim((string) ($data['driver_name'] ?? ''));
         $driverPhone = $this->sanitizeYemeniPhone((string) ($data['driver_phone'] ?? ''));
         $notes = trim((string) ($data['notes'] ?? ''));
@@ -43,9 +59,24 @@ class ShipmentService
             throw new DomainException('يجب مسح أو اختيار طرد واحد على الأقل لإنشاء الشحنة.');
         }
 
-        return DB::transaction(function () use ($office, $driverName, $driverPhone, $notes, $dispatchNow, $rawIds): Shipment {
+        return DB::transaction(function () use ($office, $clientUuid, $driverName, $driverPhone, $notes, $dispatchNow, $rawIds): Shipment {
             // قفل سجل المكتب لتوليد رقم كشف رقمي تسلسلي بدون تصادم
             Office::query()->whereKey($office->id)->lockForUpdate()->firstOrFail();
+
+            if ($clientUuid !== '') {
+                $existingInTx = Shipment::with(['office:id,name,branch_name', 'parcels.destinationOffice:id,name,branch_name'])
+                    ->where('office_id', $office->id)
+                    ->where('client_uuid', $clientUuid)
+                    ->first();
+
+                if ($existingInTx) {
+                    return $existingInTx;
+                }
+
+                if (Shipment::query()->where('client_uuid', $clientUuid)->exists()) {
+                    throw new DomainException('معرّف العملية المحلي (client_uuid) مستخدم مسبقاً.');
+                }
+            }
 
             $parcels = OutgoingParcel::with('destinationOffice:id,name,branch_name')
                 ->where('office_id', $office->id)
@@ -88,6 +119,7 @@ class ShipmentService
 
             $now = now();
             $shipment = Shipment::create([
+                'client_uuid'           => $clientUuid !== '' ? $clientUuid : null,
                 'office_id'             => $office->id,
                 'shipment_number'       => $shipmentNumber,
                 'driver_name'           => $driverName,

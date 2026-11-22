@@ -16,6 +16,7 @@
             ];
         @endphp
         <article
+            style="content-visibility: auto; contain-intrinsic-size: 180px;"
             class="relative bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
 
             <div class="flex items-start justify-between gap-2">

@@ -14,6 +14,7 @@ class Shipment extends Model
     use HasUuids;
 
     protected $fillable = [
+        'client_uuid',
         'office_id',
         'shipment_number',
         'driver_name',
