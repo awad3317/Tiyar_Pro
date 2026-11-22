@@ -195,14 +195,18 @@
             <div class="pt-1">{{ $shipments->links() }}</div>
         @endif
 
-        {{-- مودال إنشاء كشف شحنة جديد بالمسح بالباركود (بدون backdrop-blur للأداء) --}}
-        <div x-show="createModalOpen" x-cloak @keydown.escape.window="closeCreateModal()"
-            class="fixed inset-0 z-50 bg-slate-950/65 flex items-end sm:items-center justify-center p-1.5 sm:p-4">
+        {{-- مودال إنشاء كشف شحنة جديد بالمسح بالباركود (محسّن لكيبورد الموبايل بـ visualViewport وبدون backdrop-blur للأداء) --}}
+        <div x-show="createModalOpen"
+             x-cloak
+             @keydown.escape.window="closeCreateModal()"
+             @click.self="closeCreateModal()"
+             :style="{ height: viewportHeight + 'px', top: viewportTop + 'px' }"
+             class="fixed left-0 right-0 z-50 bg-slate-950/60 flex items-start justify-center pt-1.5 px-1.5 sm:items-center sm:p-4">
 
-            <div
-                class="bg-white w-full max-w-lg max-h-[94vh] rounded-2xl flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div :style="{ maxHeight: Math.max(260, viewportHeight - 12) + 'px' }"
+                 class="bg-white w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
 
-                {{-- هيدر المودال --}}
+                {{-- هيدر المودال المثبّت --}}
                 <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-secondary text-xl">qr_code_scanner</span>
@@ -216,8 +220,13 @@
                     </button>
                 </div>
 
-                {{-- جسم المودال القابل للتمرير --}}
-                <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {{-- نموذج إنشاء الشحنة بسلسلة تمرير Flex سليمة (min-h-0) --}}
+                <form @submit.prevent="submitShipment()" class="flex flex-col flex-1 min-h-0">
+
+                    {{-- جسم المودال القابل للتمرير فوق الكيبورد --}}
+                    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pt-3 pb-6 space-y-3"
+                         style="-webkit-overflow-scrolling: touch;"
+                         @focusin="if ($event.target.matches('input, textarea, select')) { setTimeout(() => $event.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180); }">
 
                     {{-- 1. بيانات السائق --}}
                     <div class="grid grid-cols-2 gap-2">
@@ -407,20 +416,21 @@
                     </div>
                 </div>
 
-                {{-- فوتر ثابت لحفظ الكشف --}}
-                <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
-                    <button type="button" @click="submitShipment()"
-                        :disabled="submitting || selectedParcels.length === 0"
-                        class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
-                        <span class="material-symbols-outlined text-base">check_circle</span>
-                        <span
-                            x-text="submitting ? 'جاري حفظ الكشف...' : (dispatchNow ? 'اعتماد وشحن الكشف' : 'حفظ كمسودة')"></span>
-                    </button>
-                    <button type="button" @click="closeCreateModal()"
-                        class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
-                        إغلاق
-                    </button>
-                </div>
+                    {{-- فوتر ثابت لحفظ الكشف (يظل مرئياً دائماً فوق الكيبورد) --}}
+                    <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
+                        <button type="submit"
+                            :disabled="submitting || selectedParcels.length === 0"
+                            class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
+                            <span class="material-symbols-outlined text-base">check_circle</span>
+                            <span
+                                x-text="submitting ? 'جاري حفظ الكشف...' : (dispatchNow ? 'اعتماد وشحن الكشف' : 'حفظ كمسودة')"></span>
+                        </button>
+                        <button type="button" @click="closeCreateModal()"
+                            class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                            إغلاق
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </main>
@@ -456,6 +466,56 @@
                 _qrScanner: null,
                 _lastScannedCode: '',
                 _lastScannedAt: 0,
+
+                viewportHeight: window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight,
+                viewportTop: window.visualViewport ? Math.round(window.visualViewport.offsetTop) : 0,
+                _vpRafId: null,
+                _vpHandler: null,
+
+                init() {
+                    this._vpHandler = () => {
+                        if (!this.createModalOpen) return;
+                        if (this._vpRafId) return;
+                        this._vpRafId = window.requestAnimationFrame(() => {
+                            this._vpRafId = null;
+                            const nextH = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
+                            const nextT = window.visualViewport ? Math.round(window.visualViewport.offsetTop) : 0;
+                            if (Math.abs(nextH - this.viewportHeight) > 2) {
+                                this.viewportHeight = nextH;
+                            }
+                            if (Math.abs(nextT - this.viewportTop) > 2) {
+                                this.viewportTop = nextT;
+                            }
+                        });
+                    };
+
+                    if (this.createModalOpen) {
+                        this.attachViewportListeners();
+                    }
+                },
+
+                attachViewportListeners() {
+                    if (!this._vpHandler) return;
+                    this._vpHandler();
+                    if (window.visualViewport) {
+                        window.visualViewport.addEventListener('resize', this._vpHandler, { passive: true });
+                        window.visualViewport.addEventListener('scroll', this._vpHandler, { passive: true });
+                    }
+                    window.addEventListener('resize', this._vpHandler, { passive: true });
+                },
+
+                detachViewportListeners() {
+                    if (!this._vpHandler) return;
+                    if (this._vpRafId) {
+                        window.cancelAnimationFrame(this._vpRafId);
+                        this._vpRafId = null;
+                    }
+                    if (window.visualViewport) {
+                        window.visualViewport.removeEventListener('resize', this._vpHandler);
+                        window.visualViewport.removeEventListener('scroll', this._vpHandler);
+                    }
+                    window.removeEventListener('resize', this._vpHandler);
+                },
 
                 beep(type) {
                     try {
@@ -541,6 +601,7 @@
 
                 openCreateModal() {
                     this.createModalOpen = true;
+                    this.attachViewportListeners();
                     this.scanFeedback = {
                         type: '',
                         text: ''
@@ -551,6 +612,7 @@
                 async closeCreateModal() {
                     await this.stopCamera();
                     this.createModalOpen = false;
+                    this.detachViewportListeners();
                 },
 
                 async toggleCamera() {

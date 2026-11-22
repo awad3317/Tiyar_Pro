@@ -242,4 +242,113 @@ class SentShipmentsFeatureTest extends TestCase
 
         $this->assertSame(ShipmentStatus::DRAFT, $emptyShipment->fresh()->status);
     }
+
+    public function test_sent_shipment_print_view_renders_formal_manifest_and_excludes_cancelled_parcels_from_totals(): void
+    {
+        $this->officeA->syncPartnerOffices([$this->officeB->id]);
+        $this->officeA->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->officeA->refreshFeaturesCache();
+
+        $paidParcel = OutgoingParcel::create([
+            'office_id'             => $this->officeA->id,
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل محاسب',
+            'sender_phone'          => '771111222',
+            'recipient_name'        => 'مستلم محاسب',
+            'recipient_phone'       => '772222333',
+            'package_type'          => 'كرتون أبيض وسط',
+            'receipt_number'        => '1',
+            'cod_amount'            => 3000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'notes'                 => 'قابل للكسر',
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $deferredParcel = OutgoingParcel::create([
+            'office_id'             => $this->officeA->id,
+            'destination_office_id' => null,
+            'external_office_name'  => 'مكتب عدن الخارجي',
+            'sender_name'           => 'مرسل آجل',
+            'sender_phone'          => '773333444',
+            'recipient_name'        => 'مستلم آجل',
+            'recipient_phone'       => '774444555',
+            'package_type'          => 'كيس ملابس كبير',
+            'receipt_number'        => '2',
+            'cod_amount'            => 5000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $cancelledParcel = OutgoingParcel::create([
+            'office_id'             => $this->officeA->id,
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل ملغي',
+            'sender_phone'          => '775555666',
+            'recipient_name'        => 'مستلم ملغي',
+            'recipient_phone'       => '776666777',
+            'package_type'          => 'ضرف مستبعد',
+            'receipt_number'        => '3',
+            'cod_amount'            => 9000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.store'), [
+                'driver_name'  => 'سائق الطباعة',
+                'driver_phone' => '771800900',
+                'parcel_ids'   => [$paidParcel->id, $deferredParcel->id, $cancelledParcel->id],
+                'dispatch_now' => true,
+                'notes'        => 'تسليم عاجل',
+            ])
+            ->assertStatus(201);
+
+        $shipment = Shipment::query()->where('office_id', $this->officeA->id)->firstOrFail();
+
+        // إلغاء الطرد الثالث بعد إنشاء الشحنة للتأكد من استبعاده من مجاميع الطباعة
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $cancelledParcel))
+            ->assertOk();
+
+        // 1. صفحة الطباعة الرسمية ترجع 200 وتعرض الجدول والمجاميع الصافية والتوقيعات
+        $printRes = $this->actingAs($this->officeA, 'office')
+            ->get(route('office.shipments.sent.print', $shipment))
+            ->assertOk();
+
+        $printRes->assertSee('كشف شحنة صادرة')
+            ->assertSee('#' . $shipment->shipment_number)
+            ->assertSee('سائق الطباعة')
+            ->assertSee('771800900')
+            ->assertSee('رقم السند')
+            ->assertSee('الوجهة / الفرع')
+            ->assertSee('المستلم ورقم الهاتف')
+            ->assertSee('مستلم محاسب')
+            ->assertSee('مستلم آجل')
+            ->assertSee('قابل للكسر')
+            ->assertSee('تسليم عاجل')
+            ->assertSee('2 طرد')
+            ->assertSee('3,000 ر.ي')
+            ->assertSee('5,000 ر.ي')
+            ->assertSee('8,000 ر.ي')
+            ->assertDontSee('14,000 ر.ي')
+            ->assertDontSee('17,000 ر.ي')
+            ->assertSee('توقيع السائق')
+            ->assertSee('توقيع الموظف')
+            ->assertSee('الختم الرسمي')
+            ->assertSee('size: A4 portrait;', false);
+
+        // 2. التحقق من أن صفحة تفاصيل الشحنة تربط بمسار الطباعة الرسمي
+        $this->actingAs($this->officeA, 'office')
+            ->get(route('office.shipments.sent.show', $shipment))
+            ->assertOk()
+            ->assertSee(route('office.shipments.sent.print', $shipment), false);
+
+        // 3. مكتب آخر لا يستطيع طباعة شحنة لا تخصه (403)
+        $this->officeB->syncFeaturesStatus(['sent_shipments']);
+        $this->officeB->refreshFeaturesCache();
+
+        $this->actingAs($this->officeB, 'office')
+            ->get(route('office.shipments.sent.print', $shipment))
+            ->assertStatus(403);
+    }
 }

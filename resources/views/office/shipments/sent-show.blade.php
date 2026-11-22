@@ -7,6 +7,11 @@
 @section('content')
     @php
         $destList = is_array($shipment->destinations_summary) ? $shipment->destinations_summary : [];
+        $activeParcels = $shipment->parcels->reject(fn ($p) => $p->status === \App\Enums\OutgoingParcelStatus::CANCELLED);
+        $activePaidTotal = round((float) $activeParcels->filter(fn ($p) => ($p->payment_type instanceof \App\Enums\OutgoingPaymentType ? $p->payment_type : \App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type)) !== \App\Enums\OutgoingPaymentType::DEFERRED)->sum('cod_amount'), 2);
+        $activeDeferredTotal = round((float) $activeParcels->filter(fn ($p) => ($p->payment_type instanceof \App\Enums\OutgoingPaymentType ? $p->payment_type : \App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type)) === \App\Enums\OutgoingPaymentType::DEFERRED)->sum('cod_amount'), 2);
+        $activeGrandTotal = round($activePaidTotal + $activeDeferredTotal, 2);
+
         $canDispatch = $shipment->status === \App\Enums\ShipmentStatus::DRAFT;
         $canCancel =
             in_array(
@@ -24,31 +29,44 @@
             );
     @endphp
 
-    <style>
-        @media print {
-
-            header,
-            footer,
-            nav,
-            .no-print {
-                display: none !important;
+    @push('styles')
+        <style>
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
             }
-
-            body,
-            .max-w-md {
-                max-width: 100% !important;
-                width: 100% !important;
-                background: #fff !important;
-                box-shadow: none !important;
+            @media print {
+                html, body {
+                    height: auto !important;
+                    min-height: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #fff !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                header,
+                footer,
+                nav,
+                .no-print {
+                    display: none !important;
+                }
+                table.print-table thead {
+                    display: table-header-group;
+                }
+                table.print-table tfoot {
+                    display: table-footer-group;
+                }
+                table.print-table tr,
+                .print-avoid-break {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
             }
+        </style>
+    @endpush
 
-            main {
-                padding: 0 !important;
-            }
-        }
-    </style>
-
-    <main class="flex-1 p-3.5 space-y-3.5" x-data="{ confirmModal: { open: false, type: '', url: '', submitting: false } }">
+    <main class="flex-1 p-3.5 space-y-3.5 print:hidden" x-data="{ confirmModal: { open: false, type: '', url: '', submitting: false } }">
 
         {{-- شريط علوي للرجوع والطباعة --}}
         <div class="flex items-center justify-between gap-2 no-print">
@@ -58,11 +76,11 @@
                 <span>الشحنات المرسلة</span>
             </a>
 
-            <button type="button" onclick="window.print()"
+            <a href="{{ route('office.shipments.sent.print', $shipment) }}"
                 class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:bg-slate-800">
                 <span class="material-symbols-outlined text-base">print</span>
                 <span>طباعة الكشف</span>
-            </button>
+            </a>
         </div>
 
         {{-- بطاقة ملخص الكشف --}}
@@ -103,22 +121,22 @@
                 </div>
             @endif
 
-            {{-- المجاميع المالية --}}
+            {{-- المجاميع المالية (الطرود الفعّالة فقط) --}}
             <div class="grid grid-cols-3 gap-2 text-center pt-1">
                 <div class="bg-amber-50 border border-amber-200 rounded-xl p-2">
                     <p class="text-[10px] font-bold text-amber-700">إجمالي الآجل</p>
                     <p class="text-sm font-mono font-black text-amber-900">
-                        {{ number_format((float) $shipment->total_deferred_amount) }} ر.ي</p>
+                        {{ number_format($activeDeferredTotal) }} ر.ي</p>
                 </div>
                 <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2">
                     <p class="text-[10px] font-bold text-emerald-700">إجمالي المحاسب</p>
                     <p class="text-sm font-mono font-black text-emerald-900">
-                        {{ number_format((float) $shipment->total_paid_amount) }} ر.ي</p>
+                        {{ number_format($activePaidTotal) }} ر.ي</p>
                 </div>
                 <div class="bg-primary text-white rounded-xl p-2">
                     <p class="text-[10px] font-bold text-slate-300">الإجمالي الكلي</p>
                     <p class="text-sm font-mono font-black text-secondary">
-                        {{ number_format((float) $shipment->total_amount) }} ر.ي</p>
+                        {{ number_format($activeGrandTotal) }} ر.ي</p>
                 </div>
             </div>
 
@@ -206,4 +224,12 @@
         </div>
 
     </main>
+
+    {{-- قالب الطباعة الرسمي A4 عند الطباعة المباشرة (Ctrl+P) من صفحة التفاصيل --}}
+    <div class="hidden print:block w-full bg-white">
+        @include('office.shipments.partials.sent-manifest-document', [
+            'office'   => $office,
+            'shipment' => $shipment,
+        ])
+    </div>
 @endsection

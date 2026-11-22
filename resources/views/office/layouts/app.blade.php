@@ -36,10 +36,10 @@
 
     @stack('styles')
 </head>
-<body class="bg-slate-100 text-slate-900 pb-20 select-none">
+<body class="bg-slate-100 text-slate-900 pb-20 select-none print:bg-white print:pb-0">
 
     <div x-data="@yield('alpine', 'officeShell()')"
-         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg @yield('shell-class', 'bg-white')">
+         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white')">
 
         @section('header')
             @include('office.layouts.header')

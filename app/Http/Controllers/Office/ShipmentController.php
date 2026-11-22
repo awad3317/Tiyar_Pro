@@ -157,7 +157,7 @@ class ShipmentController extends Controller
     }
 
     /**
-     * تفاصيل كشف الشحنة المرسلة (مع طباعة الكشف).
+     * تفاصيل كشف الشحنة المرسلة.
      */
     public function showSent(Shipment $shipment): View
     {
@@ -167,11 +167,30 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'office:id,name,branch_name',
+            'parcels' => fn ($q) => $q->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')->orderBy('created_at'),
             'parcels.destinationOffice:id,name,branch_name',
             'parcels.linkedIncomingParcel:id,status',
         ]);
 
         return view('office.shipments.sent-show', compact('office', 'shipment'));
+    }
+
+    /**
+     * صفحة طباعة كشف الشحنة المرسلة الرسمية (A4 مطابقة لتصميم كشف المحاسب).
+     */
+    public function printSent(Shipment $shipment): View
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+        abort_unless((int) $shipment->office_id === (int) $office->id, 403);
+
+        $shipment->load([
+            'office:id,name,branch_name',
+            'parcels' => fn ($q) => $q->orderByRaw('CAST(receipt_number AS UNSIGNED) ASC')->orderBy('created_at'),
+            'parcels.destinationOffice:id,name,branch_name',
+        ]);
+
+        return view('office.shipments.sent-print', compact('office', 'shipment'));
     }
 
     public function dispatch(Request $request, Shipment $shipment): JsonResponse|RedirectResponse

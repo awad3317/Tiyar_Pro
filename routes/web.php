@@ -167,6 +167,7 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::post('/', [ShipmentController::class, 'store'])->name('store');
                 Route::post('/lookup-parcel', [ShipmentController::class, 'lookupParcel'])->name('lookup');
                 Route::get('/{shipment}', [ShipmentController::class, 'showSent'])->name('show');
+                Route::get('/{shipment}/print', [ShipmentController::class, 'printSent'])->name('print');
                 Route::post('/{shipment}/dispatch', [ShipmentController::class, 'dispatch'])->name('dispatch');
                 Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel'])->name('cancel');
             });
