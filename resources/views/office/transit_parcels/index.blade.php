@@ -31,7 +31,7 @@
                @input="emit()"
                dir="rtl"
                autocomplete="off"
-               placeholder="بحث بالهاتف، السند، المستلم، المرسل، الفرع..."
+               placeholder="بحث بالهاتف، السند، رقم الكشف، السائق، الفرع..."
                class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
         <span class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg pointer-events-none">search</span>
 
@@ -48,16 +48,89 @@
 
 @section('content')
     @php
-        $transitIndexForJs = $transitParcels->map(function ($p) {
+        $officeUser = $office ?? auth('office')->user();
+        $hasSlotFeature = $officeUser && $officeUser->hasFeature('parcel_slot_number');
+
+        $transitPayloads = [];
+        foreach ($transitParcels as $p) {
             $officeLabel = $p->office
                 ? ($p->office->branch_name
                     ? $p->office->name . ' - ' . $p->office->branch_name
                     : $p->office->name)
-                : '';
+                : 'مكتب غير معروف';
 
-            return [
-                'id'   => (string) $p->id,
-                'text' => implode(' ', array_filter([
+            $paymentEnum = $p->payment_type instanceof \App\Enums\OutgoingPaymentType
+                ? $p->payment_type
+                : (\App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+
+            $dispatchedAt = $p->dispatched_at;
+            $dispatchedAgo = $dispatchedAt ? $dispatchedAt->copy()->locale('ar')->diffForHumans() : null;
+            $dispatchedClock = $dispatchedAt
+                ? $dispatchedAt->format('g:i') . ' ' . ($dispatchedAt->format('A') === 'AM' ? 'ص' : 'م')
+                : null;
+
+            // $shipment = $p->shipment;
+
+            // $transitPayloads[(string) $p->id] = [
+            //     'id'               => (string) $p->id,
+            //     'url'              => route('office.transit-parcels.receive', $p),
+            //     'package_type'     => (string) $p->package_type,
+            //     'receipt_number'   => (string) ($p->receipt_number ?? ''),
+            //     'source_office'    => $officeLabel,
+            //     'shipment_id'      => $shipment ? (string) $shipment->id : '',
+            //     'shipment_number'  => $shipment ? (string) $shipment->shipment_number : '',
+            //     'driver_name'      => $shipment ? (string) $shipment->driver_name : '',
+            //     'driver_phone'     => $shipment ? (string) $shipment->driver_phone : '',
+            //     'payment_label'    => $paymentEnum->label(),
+            //     'is_deferred'      => $paymentEnum->value === 'deferred',
+            //     'cod_amount'       => number_format((float) ($p->cod_amount ?? 0)),
+            //     'recipient_name'   => (string) ($p->recipient_name ?: 'بدون اسم'),
+            //     'recipient_phone'  => (string) $p->recipient_phone,
+            //     'sender_name'      => (string) $p->sender_name,
+            //     'sender_phone'     => (string) $p->sender_phone,
+            //     'notes'            => (string) ($p->notes ?? ''),
+            //     'dispatched_ago'   => $dispatchedAgo,
+            //     'dispatched_clock' => $dispatchedClock,
+            //     'search_text'      => implode(' ', array_filter([
+            //         $p->package_type,
+            //         $p->receipt_number,
+            //         $p->recipient_name,
+            //         $p->recipient_phone,
+            //         $p->sender_name,
+            //         $p->sender_phone,
+            //         $officeLabel,
+            //         $shipment?->shipment_number,
+            //         $shipment?->driver_name,
+            //         $shipment?->driver_phone,
+            //         $p->notes,
+            //     ])),
+            // ];
+            $shipmentId     = (string) ($p->shipment_id ?? '');
+            $shipmentNumber = (string) ($p->shipment_number ?? '');
+            $driverName     = (string) ($p->shipment_driver_name ?? '');
+            $driverPhone    = (string) ($p->shipment_driver_phone ?? '');
+
+            $transitPayloads[(string) $p->id] = [
+                'id'               => (string) $p->id,
+                'url'              => route('office.transit-parcels.receive', $p),
+                'package_type'     => (string) $p->package_type,
+                'receipt_number'   => (string) ($p->receipt_number ?? ''),
+                'source_office'    => $officeLabel,
+                'shipment_id'      => $shipmentId,
+                'shipment_number'  => $shipmentNumber,
+                'driver_name'      => $driverName,
+                'driver_phone'     => $driverPhone,
+                'payment_label'    => $paymentEnum->label(),
+                'is_deferred'      => $paymentEnum->value === 'deferred',
+                'cod_amount'       => number_format((float) ($p->cod_amount ?? 0)),
+                'recipient_name'   => (string) ($p->recipient_name ?: 'بدون اسم'),
+                'recipient_phone'  => (string) $p->recipient_phone,
+                'sender_name'      => (string) $p->sender_name,
+                'sender_phone'     => (string) $p->sender_phone,
+                'notes'            => (string) ($p->notes ?? ''),
+                'dispatched_ago'   => $dispatchedAgo,
+                'dispatched_clock' => $dispatchedClock,
+                'search_text'      => implode(' ', array_filter([
                     $p->package_type,
                     $p->receipt_number,
                     $p->recipient_name,
@@ -65,20 +138,23 @@
                     $p->sender_name,
                     $p->sender_phone,
                     $officeLabel,
+                    $shipmentNumber,
+                    $driverName,
+                    $driverPhone,
                     $p->notes,
                 ])),
             ];
-        })->values();
+        }
     @endphp
 
     <main class="flex-1 p-3.5 space-y-3.5"
           @transit-search-change.window="searchQuery = $event.detail.q || ''"
           x-data="transitParcelsPage({
               initialCount: {{ $transitParcels->count() }},
-              items: @js($transitIndexForJs)
+              parcels: @js(array_values($transitPayloads))
           })">
 
-        {{-- رأس الصفحة بنفس هوية الطرود الصادرة --}}
+        {{-- رأس الصفحة --}}
         <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2.5 min-w-0">
                 <a href="{{ route('office.dashboard') }}"
@@ -90,7 +166,7 @@
                         <span class="material-symbols-outlined text-lg text-secondary">local_shipping</span>
                         <span class="truncate">طرود قادمة في الطريق</span>
                     </h2>
-                    <p class="text-[11px] text-slate-400 truncate">مراجعة الشحنات الواردة من الفروع وتأكيد استلامها</p>
+                    <p class="text-[11px] text-slate-400 truncate">امسح أي طرد ليتعرّف تلقائياً على شحنته ويستلمه فوراً</p>
                 </div>
             </div>
 
@@ -100,55 +176,128 @@
             </span>
         </div>
 
+        {{-- شريط مسح الباركود الشامل لكل الشحنات الواصلة معاً --}}
+        <div x-show="remainingCount > 0"
+             @if ($transitParcels->count() === 0) x-cloak @endif
+             class="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2.5">
+
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="w-8 h-8 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-lg">qr_code_scanner</span>
+                    </span>
+                    <div class="min-w-0">
+                        <h3 class="text-xs font-extrabold text-primary">استلام سريع بالباركود</h3>
+                        <p class="text-[10px] text-slate-400 truncate">يمسح من جميع الشحنات الواصلة ويميز رقم الكشف تلقائياً</p>
+                    </div>
+                </div>
+
+                <button type="button"
+                        @click="toggleCamera()"
+                        :class="cameraActive ? 'bg-rose-600 text-white' : 'bg-primary text-secondary hover:bg-slate-800'"
+                        class="px-3 py-2 rounded-xl text-[11px] font-extrabold flex items-center gap-1 transition-colors shrink-0 shadow-xs">
+                    <span class="material-symbols-outlined text-base" x-text="cameraActive ? 'videocam_off' : 'photo_camera'"></span>
+                    <span x-text="cameraActive ? 'إيقاف' : 'مسح بالكاميرا'"></span>
+                </button>
+            </div>
+
+            {{-- نافذة كاميرا المسح --}}
+            <div x-show="cameraActive" x-cloak class="rounded-xl overflow-hidden border border-slate-300 bg-black">
+                <div id="transit-qr-reader" class="w-full"></div>
+            </div>
+
+            {{-- حقل قارئ الباركود الخارجي (USB/Bluetooth) أو رقم السند --}}
+            <div class="flex gap-1.5">
+                <input type="text"
+                       x-ref="scanInput"
+                       x-model="scanInput"
+                       @keydown.enter.prevent="handleBarcodeScan(scanInput)"
+                       dir="ltr"
+                       autocomplete="off"
+                       placeholder="امسح الباركود أو اكتب رقم السند ثم Enter"
+                       class="flex-1 py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary transition-colors">
+                <button type="button"
+                        @click="handleBarcodeScan(scanInput)"
+                        class="px-3.5 py-2 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shrink-0 transition-colors">
+                    تحقق
+                </button>
+            </div>
+
+            {{-- تنبيه حالة المسح (خطأ أو تكرار) --}}
+            <div x-show="scanAlert.text"
+                 x-cloak
+                 :class="scanAlert.type === 'duplicate'
+                     ? 'bg-amber-50 border-amber-300 text-amber-900'
+                     : 'bg-rose-50 border-rose-200 text-rose-800'"
+                 class="px-2.5 py-2 rounded-xl border text-[11px] font-extrabold flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-base shrink-0"
+                      x-text="scanAlert.type === 'duplicate' ? 'block' : 'error'"></span>
+                <span x-text="scanAlert.text"></span>
+            </div>
+        </div>
+
+        {{-- شريط تصفية الشحنات الذكي (يظهر تلقائياً عند وجود شحنات لمعرفة متبقي كل كشف) --}}
+        <div x-show="remainingCount > 0 && shipmentGroups.length > 0"
+             x-cloak
+             class="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            <button type="button"
+                    @click="activeShipmentFilter = 'all'"
+                    :class="activeShipmentFilter === 'all'
+                        ? 'bg-primary text-secondary border-primary'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'"
+                    class="px-3 py-1.5 rounded-xl border text-[11px] font-extrabold shrink-0 transition-colors flex items-center gap-1">
+                <span>الكل</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px]"
+                      :class="activeShipmentFilter === 'all' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700'"
+                      x-text="remainingCount"></span>
+            </button>
+
+            <template x-for="grp in shipmentGroups" :key="grp.key">
+                <button type="button"
+                        @click="activeShipmentFilter = grp.key"
+                        :class="activeShipmentFilter === grp.key
+                            ? 'bg-primary text-secondary border-primary'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-secondary'"
+                        class="px-3 py-1.5 rounded-xl border text-[11px] font-extrabold shrink-0 transition-colors flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[14px]"
+                          x-text="grp.key === 'standalone' ? 'package_2' : 'receipt_long'"></span>
+                    <span x-text="grp.label"></span>
+                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono"
+                          :class="activeShipmentFilter === grp.key ? 'bg-secondary text-primary' : 'bg-amber-100 text-amber-800'"
+                          x-text="grp.count"></span>
+                </button>
+            </template>
+        </div>
+
         {{-- قائمة الطرود القادمة --}}
         <div class="space-y-3" x-ref="transitList">
             @foreach ($transitParcels as $parcel)
                 @php
-                    $senderOfficeLabel = $parcel->office
-                        ? ($parcel->office->branch_name
-                            ? $parcel->office->name . ' - ' . $parcel->office->branch_name
-                            : $parcel->office->name)
-                        : 'مكتب غير معروف';
-
+                    $payload = $transitPayloads[(string) $parcel->id];
                     $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
                         ? $parcel->payment_type
                         : (\App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
-
-                    $isDeferred = $paymentEnum->value === 'deferred';
-                    $formattedAmount = number_format((float) ($parcel->cod_amount ?? 0));
-
-                    // تنسيق الوقت والتاريخ بالعربي السليم
                     $dispatchedAt = $parcel->dispatched_at;
-                    $dispatchedAgo = $dispatchedAt ? $dispatchedAt->copy()->locale('ar')->diffForHumans() : null;
-                    $dispatchedClock = $dispatchedAt
-                        ? $dispatchedAt->format('g:i') . ' ' . ($dispatchedAt->format('A') === 'AM' ? 'ص' : 'م')
-                        : null;
-                    $dispatchedDate = $dispatchedAt && !$dispatchedAt->isToday()
-                        ? $dispatchedAt->format('Y/m/d')
-                        : null;
-
-                    $modalPayload = [
-                        'id'               => (string) $parcel->id,
-                        'url'              => route('office.transit-parcels.receive', $parcel),
-                        'package_type'     => $parcel->package_type,
-                        'receipt_number'   => $parcel->receipt_number,
-                        'source_office'    => $senderOfficeLabel,
-                        'payment_label'    => $paymentEnum->label(),
-                        'is_deferred'      => $isDeferred,
-                        'cod_amount'       => $formattedAmount,
-                        'recipient_name'   => $parcel->recipient_name,
-                        'recipient_phone'  => $parcel->recipient_phone,
-                        'sender_name'      => $parcel->sender_name,
-                        'sender_phone'     => $parcel->sender_phone,
-                        'dispatched_ago'   => $dispatchedAgo,
-                        'dispatched_clock' => $dispatchedClock,
-                    ];
+                    $dispatchedDate = $dispatchedAt && !$dispatchedAt->isToday() ? $dispatchedAt->format('Y/m/d') : null;
                 @endphp
 
                 <article id="transit-card-{{ $parcel->id }}"
                          x-show="!receivedIds['{{ $parcel->id }}'] && isItemVisible('{{ $parcel->id }}')"
-                         style="content-visibility: auto; contain-intrinsic-size: 185px;"
+                         style="content-visibility: auto; contain-intrinsic-size: 195px;"
                          class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-3">
+
+                    {{-- شريط تعريف الكشف والسائق (إن كان الطرد ضمن شحنة) --}}
+                    @if ($payload['shipment_number'])
+                        <div class="flex items-center justify-between gap-2 bg-primary/5 border border-primary/10 rounded-xl px-2.5 py-1.5 text-[11px]">
+                            <span class="inline-flex items-center gap-1 font-extrabold text-primary min-w-0">
+                                <span class="material-symbols-outlined text-sm text-secondary shrink-0">receipt_long</span>
+                                <span class="font-mono shrink-0">كشف #{{ $payload['shipment_number'] }}</span>
+                            </span>
+                            <span class="text-slate-600 font-bold truncate">
+                                السائق: {{ $payload['driver_name'] }}
+                            </span>
+                        </div>
+                    @endif
 
                     {{-- 1. رأس البطاقة: نوع الطرد + السند + وقت الشحن بالعربي --}}
                     <div class="flex items-start justify-between gap-2">
@@ -166,19 +315,19 @@
                                     @endif
                                 </div>
 
-                                @if ($dispatchedClock)
+                                @if ($payload['dispatched_clock'])
                                     <p class="text-[10px] text-slate-400 font-semibold mt-0.5 flex items-center gap-1">
                                         <span class="material-symbols-outlined text-[12px]">schedule</span>
-                                        <span>شُحن {{ $dispatchedDate ? $dispatchedDate . ' • ' : 'الساعة ' }}{{ $dispatchedClock }}</span>
+                                        <span>شُحن {{ $dispatchedDate ? $dispatchedDate . ' • ' : 'الساعة ' }}{{ $payload['dispatched_clock'] }}</span>
                                     </p>
                                 @endif
                             </div>
                         </div>
 
-                        @if ($dispatchedAgo)
+                        @if ($payload['dispatched_ago'])
                             <span dir="rtl"
                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-extrabold shrink-0">
-                                <span>{{ $dispatchedAgo }}</span>
+                                <span>{{ $payload['dispatched_ago'] }}</span>
                             </span>
                         @endif
                     </div>
@@ -187,20 +336,20 @@
                     <div class="flex items-center justify-between gap-2 flex-wrap pt-0.5">
                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-primary border border-slate-200/80 text-[11px] font-extrabold max-w-full">
                             <span class="material-symbols-outlined text-[14px] text-secondary shrink-0">domain</span>
-                            <span class="truncate">قادم من: {{ $senderOfficeLabel }}</span>
+                            <span class="truncate">قادم من: {{ $payload['source_office'] }}</span>
                         </span>
 
                         <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-extrabold shrink-0 {{ $paymentEnum->badgeClass() }}">
                             <span>{{ $paymentEnum->label() }}:</span>
-                            <span class="font-mono">{{ $formattedAmount }} ر.ي</span>
+                            <span class="font-mono">{{ $payload['cod_amount'] }} ر.ي</span>
                         </span>
                     </div>
 
-                    {{-- 3. بطاقة المستلم والمرسل مع زر اتصال سريع --}}
+                    {{-- 3. بطاقة المستلم والمرسل --}}
                     <div class="grid grid-cols-2 gap-2.5 bg-slate-50 rounded-xl p-2.5 text-xs border border-slate-100">
                         <div class="min-w-0">
                             <p class="text-[10px] text-slate-400 font-bold mb-0.5">المستلم</p>
-                            <p class="font-extrabold text-slate-800 truncate">{{ $parcel->recipient_name ?: 'بدون اسم' }}</p>
+                            <p class="font-extrabold text-slate-800 truncate">{{ $payload['recipient_name'] }}</p>
                             <a href="tel:{{ $parcel->recipient_phone }}"
                                class="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-primary font-mono font-bold mt-0.5">
                                 <span class="material-symbols-outlined text-[13px] text-emerald-600">call</span>
@@ -219,7 +368,6 @@
                         </div>
                     </div>
 
-                    {{-- 4. الملاحظات (إن وجدت) --}}
                     @if ($parcel->notes)
                         <div class="flex items-start gap-1.5 text-[11px] text-slate-700 bg-amber-50/70 border border-amber-200/70 rounded-xl px-2.5 py-2 leading-relaxed">
                             <span class="material-symbols-outlined text-sm text-amber-600 shrink-0 mt-0.5">sticky_note_2</span>
@@ -229,11 +377,11 @@
                         </div>
                     @endif
 
-                    {{-- 5. زر تأكيد الاستلام (يفتح مودال التأكيد الموحّد) --}}
+                    {{-- 5. زر تأكيد الاستلام اليدوي --}}
                     <div class="pt-0.5">
                         <button type="button"
                                 :disabled="Boolean(receivingIds['{{ $parcel->id }}'])"
-                                @click="openReceiveModal(@js($modalPayload))"
+                                @click="openReceiveModalById('{{ $parcel->id }}')"
                                 class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-extrabold shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
                             <span class="material-symbols-outlined text-base">download_done</span>
                             <span x-text="receivingIds['{{ $parcel->id }}'] ? 'جاري الاستلام وإشعار العميل...' : 'تم الاستلام'"></span>
@@ -248,13 +396,12 @@
                  class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400 space-y-2">
                 <span class="material-symbols-outlined text-4xl text-slate-300">search_off</span>
                 <p class="text-xs font-extrabold text-slate-700">لا توجد طرود مطابقة لبحثك</p>
-                <p class="text-[11px] text-slate-400">جرّب البحث برقم جوال آخر أو رقم سند أو اسم الفرع.</p>
                 <div class="pt-1.5">
                     <button type="button"
-                            @click="window.dispatchEvent(new CustomEvent('transit-search-clear'))"
+                            @click="activeShipmentFilter = 'all'; window.dispatchEvent(new CustomEvent('transit-search-clear'))"
                             class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
                         <span class="material-symbols-outlined text-sm">close</span>
-                        <span>مسح البحث</span>
+                        <span>عرض جميع الطرود</span>
                     </button>
                 </div>
             </div>
@@ -278,13 +425,44 @@
             </div>
         </div>
 
-        {{-- مودال تأكيد استلام الطرد القادم (بنفس التصميم الموحّد للنظام وبدون backdrop-blur للأداء) --}}
+        {{-- مودال فضّ التشابه (يظهر فقط إذا تكرر نفس رقم السند في أكثر من فرع/شحنة) --}}
+        <div x-show="disambiguateModal.open"
+             x-cloak
+             @keydown.escape.window="disambiguateModal.open = false"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="disambiguateModal.open = false"></div>
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-4 shadow-2xl border border-slate-100 z-10 space-y-3 text-right">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-extrabold text-primary">يوجد أكثر من طرد بنفس رقم السند</h3>
+                    <button type="button" @click="disambiguateModal.open = false" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+                <p class="text-[11px] text-slate-500">اختر الطرد الصحيح حسب الفرع المرسل ورقم الكشف:</p>
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    <template x-for="cand in disambiguateModal.matches" :key="cand.id">
+                        <button type="button"
+                                @click="disambiguateModal.open = false; openReceiveModal(cand)"
+                                class="w-full text-right p-3 rounded-2xl border border-slate-200 hover:border-secondary hover:bg-amber-50/40 transition-colors space-y-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-extrabold text-primary" x-text="cand.package_type"></span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] font-black text-slate-700"
+                                      x-text="cand.shipment_number ? ('كشف #' + cand.shipment_number) : 'طرد منفرد'"></span>
+                            </div>
+                            <p class="text-[11px] font-bold text-slate-600" x-text="'من: ' + cand.source_office"></p>
+                            <p class="text-[10px] text-slate-400" x-text="'المستلم: ' + cand.recipient_name + ' (' + cand.recipient_phone + ')'"></p>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {{-- مودال التحقق وتأكيد الاستلام (يعرض الكشف + السائق + نوع الطرد + واتساب / SMS / كلاهما) --}}
         <div x-show="receiveModal.open"
              x-cloak
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
              @keydown.escape.window="closeReceiveModal()">
 
-            {{-- خلفية التعتيم السريعة --}}
             <div class="fixed inset-0 bg-slate-950/60 transition-opacity"
                  x-show="receiveModal.open"
                  x-transition:enter="ease-out duration-200"
@@ -296,8 +474,7 @@
                  @click="closeReceiveModal()">
             </div>
 
-            {{-- بطاقة المودال --}}
-            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-4 text-right"
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-3.5 text-right"
                  x-show="receiveModal.open"
                  x-transition:enter="ease-out duration-200"
                  x-transition:enter-start="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95"
@@ -306,7 +483,6 @@
                  x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                  x-transition:leave-end="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95">
 
-                {{-- زر إغلاق علوي --}}
                 <button type="button"
                         @click="closeReceiveModal()"
                         :disabled="receiveModal.submitting"
@@ -315,90 +491,148 @@
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
 
-                {{-- الأيقونة والعنوان --}}
-                <div class="text-center pt-1">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner mb-3">
-                        <span class="material-symbols-outlined text-3xl">download_done</span>
-                    </div>
-                    <h3 class="text-base font-extrabold text-slate-800">تأكيد استلام الطرد</h3>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                        هل وصل هذا الطرد إلى مكتبك فعلياً وتريد تحويله للطرود الواردة؟
-                    </p>
-                </div>
-
-                {{-- ملخص بيانات الطرد --}}
                 <template x-if="receiveModal.parcel">
-                    <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
-                        <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                            <span class="text-slate-400 flex items-center gap-1 font-medium">
-                                <span class="material-symbols-outlined text-sm text-secondary">domain</span>
-                                قادم من:
+                    <div class="space-y-3">
+                        <div class="text-center pt-1">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-extrabold mb-2">
+                                <span class="material-symbols-outlined text-sm">verified</span>
+                                <span>تأكد من مطابقة الطرد قبل الاستلام</span>
                             </span>
-                            <span class="font-extrabold text-primary truncate max-w-[180px]"
-                                  x-text="receiveModal.parcel.source_office"></span>
-                        </div>
 
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">نوع الشحنة:</span>
-                            <span class="font-bold text-slate-700" x-text="receiveModal.parcel.package_type"></span>
-                        </div>
+                            {{-- بطاقة بارزة لنوع الطرد + رقم الكشف الذي ينتمي له تلقائياً --}}
+                            <div class="bg-primary text-white rounded-2xl p-3.5 shadow-sm space-y-2">
+                                <div>
+                                    <p class="text-[10px] text-slate-300 font-bold">نوع الطرد</p>
+                                    <h3 class="text-lg font-black text-secondary mt-0.5" x-text="receiveModal.parcel.package_type"></h3>
+                                </div>
 
-                        <div class="flex items-center justify-between" x-show="receiveModal.parcel.receipt_number">
-                            <span class="text-slate-400">رقم السند:</span>
-                            <span class="font-mono font-bold text-slate-700" x-text="'#' + receiveModal.parcel.receipt_number"></span>
-                        </div>
+                                <div class="flex items-center justify-center gap-1.5 flex-wrap text-[11px]">
+                                    <span x-show="receiveModal.parcel.receipt_number"
+                                          class="px-2 py-0.5 rounded-md bg-white/10 font-mono font-extrabold text-white"
+                                          x-text="'سند #' + receiveModal.parcel.receipt_number"></span>
+                                    <span class="px-2 py-0.5 rounded-md bg-white/10 font-bold text-slate-200 truncate max-w-[180px]"
+                                          x-text="receiveModal.parcel.source_office"></span>
+                                </div>
 
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">الحساب:</span>
-                            <span class="font-extrabold"
-                                  :class="receiveModal.parcel.is_deferred ? 'text-amber-700' : 'text-emerald-700'">
-                                <span x-text="receiveModal.parcel.payment_label"></span>:
-                                <span class="font-mono" x-text="(receiveModal.parcel.cod_amount || '0') + ' ر.ي'"></span>
-                            </span>
-                        </div>
-
-                        <div class="flex items-center justify-between pt-1">
-                            <span class="text-slate-400">المستلم:</span>
-                            <div class="text-left">
-                                <span class="font-bold text-slate-700 block" x-text="receiveModal.parcel.recipient_name || 'بدون اسم'"></span>
-                                <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="receiveModal.parcel.recipient_phone"></span>
+                                {{-- تعريف الشحنة (الكشف) التلقائي --}}
+                                <template x-if="receiveModal.parcel.shipment_number">
+                                    <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-2 text-[11px]">
+                                        <span class="inline-flex items-center gap-1 font-extrabold text-secondary">
+                                            <span class="material-symbols-outlined text-sm">receipt_long</span>
+                                            <span class="font-mono" x-text="'كشف #' + receiveModal.parcel.shipment_number"></span>
+                                        </span>
+                                        <span class="text-slate-200 font-bold truncate"
+                                              x-text="'السائق: ' + receiveModal.parcel.driver_name"></span>
+                                    </div>
+                                </template>
                             </div>
                         </div>
+
+                        {{-- شريط اختيار قناة إشعار العميل (واتساب | SMS | كلاهما) --}}
+                        <div class="space-y-1.5">
+                            <label class="block text-[11px] font-extrabold text-slate-600">
+                                طريقة إشعار المستلم بوصول الطرد:
+                            </label>
+                            <div class="grid grid-cols-3 gap-1 p-1 rounded-full bg-slate-100 border border-slate-200/70">
+                                <button type="button"
+                                        @click="setChannel('whatsapp')"
+                                        :class="notifyChannel === 'whatsapp'
+                                            ? 'bg-white text-secondary shadow-xs border border-amber-100 font-extrabold'
+                                            : 'text-slate-600 hover:text-primary font-bold border border-transparent'"
+                                        class="py-2 px-2 rounded-full text-xs flex items-center justify-center gap-1.5 transition-all">
+                                    <span class="material-symbols-outlined text-[16px]">chat</span>
+                                    <span>واتساب</span>
+                                </button>
+
+                                <button type="button"
+                                        @click="setChannel('sms')"
+                                        :class="notifyChannel === 'sms'
+                                            ? 'bg-white text-secondary shadow-xs border border-amber-100 font-extrabold'
+                                            : 'text-slate-600 hover:text-primary font-bold border border-transparent'"
+                                        class="py-2 px-2 rounded-full text-xs flex items-center justify-center gap-1.5 transition-all">
+                                    <span class="material-symbols-outlined text-[16px]">sms</span>
+                                    <span>SMS</span>
+                                </button>
+
+                                <button type="button"
+                                        @click="setChannel('both')"
+                                        :class="notifyChannel === 'both'
+                                            ? 'bg-white text-secondary shadow-xs border border-amber-100 font-extrabold'
+                                            : 'text-slate-600 hover:text-primary font-bold border border-transparent'"
+                                        class="py-2 px-2 rounded-full text-xs flex items-center justify-center gap-1.5 transition-all">
+                                    <span class="material-symbols-outlined text-[16px]">all_inclusive</span>
+                                    <span>كلاهما</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- حقل رقم الخانة (عند تفعيل ميزة parcel_slot_number) --}}
+                        @if($hasSlotFeature)
+                            <div>
+                                <label class="flex items-center gap-1 text-[11px] font-bold text-slate-600 mb-1">
+                                    <span class="material-symbols-outlined text-sm text-indigo-500">grid_view</span>
+                                    <span>رقم الخانة <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
+                                </label>
+                                <input type="text"
+                                       x-model="slotNumber"
+                                       maxlength="50"
+                                       placeholder="مثال : 12"
+                                       class="w-full py-2 px-3.5 text-xs font-bold text-slate-800 rounded-full border border-slate-200 bg-slate-50 focus:bg-white focus:border-secondary outline-none transition-colors">
+                            </div>
+                        @endif
+
+                        {{-- ملخص المستلم والحساب والمتبقي في الكشف --}}
+                        <div class="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 space-y-2 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-400">المستلم:</span>
+                                <div class="text-left">
+                                    <span class="font-bold text-slate-800 block" x-text="receiveModal.parcel.recipient_name"></span>
+                                    <span class="text-[11px] text-slate-500 font-mono dir-ltr block" x-text="receiveModal.parcel.recipient_phone"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                                <span class="text-slate-400">الحساب:</span>
+                                <span class="font-extrabold"
+                                      :class="receiveModal.parcel.is_deferred ? 'text-amber-700' : 'text-emerald-700'">
+                                    <span x-text="receiveModal.parcel.payment_label"></span>:
+                                    <span class="font-mono" x-text="receiveModal.parcel.cod_amount + ' ر.ي'"></span>
+                                </span>
+                            </div>
+
+                            <template x-if="receiveModal.parcel.shipment_id">
+                                <div class="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                                    <span class="text-slate-400">المتبقي في هذا الكشف:</span>
+                                    <span class="font-extrabold text-primary"
+                                          x-text="remainingInShipment(receiveModal.parcel.shipment_id) + ' طرد (شامل هذا الطرد)'"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <template x-if="receiveModal.parcel.is_deferred">
+                            <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 leading-snug">
+                                <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">payments</span>
+                                <span>
+                                    <strong>طرد آجل:</strong> سيُسجَّل مبلغ
+                                    <strong class="font-mono" x-text="receiveModal.parcel.cod_amount + ' ر.ي'"></strong>
+                                    للتحصيل من العميل عند التسليم.
+                                </span>
+                            </div>
+                        </template>
                     </div>
                 </template>
 
-                {{-- تنبيه إشعار العميل وتحصيل الآجل --}}
-                <div class="space-y-2">
-                    <template x-if="receiveModal.parcel && receiveModal.parcel.is_deferred">
-                        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 leading-snug">
-                            <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">payments</span>
-                            <span>
-                                <strong>طرد آجل:</strong> سيتم تسجيل مبلغ
-                                <strong class="font-mono" x-text="receiveModal.parcel.cod_amount + ' ر.ي'"></strong>
-                                لتحصيله من العميل عند التسليم.
-                            </span>
-                        </div>
-                    </template>
-
-                    <div class="bg-emerald-50 border border-emerald-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-emerald-800 leading-snug">
-                        <span class="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">notifications_active</span>
-                        <span>
-                            <strong>إشعار تلقائي:</strong> سيتم تحويل الطرد إلى (الطرود المستلمة) وإشعار العميل بوصول طرده فوراً.
-                        </span>
-                    </div>
-                </div>
-
-                {{-- أزرار التنفيذ --}}
+                {{-- أزرار الموافقة والتراجع --}}
                 <form method="POST"
                       :action="receiveModal.url"
-                      class="flex flex-col gap-2 pt-1"
+                      class="flex flex-col gap-2 pt-0.5"
                       @submit.prevent="confirmReceiveModal()">
                     @csrf
                     <button type="submit"
                             :disabled="receiveModal.submitting"
                             class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50">
                         <span class="material-symbols-outlined text-base">download_done</span>
-                        <span x-text="receiveModal.submitting ? 'جاري الاستلام وإشعار العميل...' : 'تأكيد الاستلام وإشعار العميل'"></span>
+                        <span x-text="receiveModal.submitting ? 'جاري التحويل وإرسال الإشعار...' : ('موافق — استلام وإشعار (' + channelLabel(notifyChannel) + ')')"></span>
                     </button>
 
                     <button type="button"
@@ -415,27 +649,131 @@
 @endsection
 
 @push('scripts')
+    <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
         function transitParcelsPage(config) {
-            const rawItems = Array.isArray(config.items) ? config.items : [];
-            const itemsMap = {};
-            rawItems.forEach(item => {
-                itemsMap[String(item.id)] = String(item.text || '');
+            const rawParcels = Array.isArray(config.parcels) ? config.parcels : [];
+            const parcelsById = {};
+            rawParcels.forEach(p => {
+                parcelsById[String(p.id)] = p;
             });
+
+            const savedChannel = localStorage.getItem('mursal_transit_notify_channel');
+            const initialChannel = ['sms', 'whatsapp', 'both'].includes(savedChannel) ? savedChannel : 'both';
 
             return {
                 remainingCount: Number(config.initialCount || 0),
-                items: rawItems,
-                itemsMap: itemsMap,
+                parcels: rawParcels,
+                parcelsById: parcelsById,
                 searchQuery: '',
+                activeShipmentFilter: 'all',
                 receivingIds: {},
                 receivedIds: {},
+
+                notifyChannel: initialChannel,
+                slotNumber: '',
+
+                scanInput: '',
+                scanAlert: { type: '', text: '' },
+                cameraActive: false,
+                _qrScanner: null,
+                _lastScannedCode: '',
+                _lastScannedAt: 0,
+
+                disambiguateModal: {
+                    open: false,
+                    matches: [],
+                },
 
                 receiveModal: {
                     open: false,
                     submitting: false,
                     url: '#',
                     parcel: null,
+                },
+
+                setChannel(ch) {
+                    this.notifyChannel = ch;
+                    localStorage.setItem('mursal_transit_notify_channel', ch);
+                },
+
+                channelLabel(ch) {
+                    if (ch === 'sms') return 'SMS';
+                    if (ch === 'whatsapp') return 'واتساب';
+                    return 'كلاهما';
+                },
+
+                remainingInShipment(shipmentId) {
+                    if (!shipmentId) return 0;
+                    return this.parcels.filter(
+                        p => !this.receivedIds[p.id] && p.shipment_id === shipmentId
+                    ).length;
+                },
+
+                get shipmentGroups() {
+                    const map = new Map();
+                    let standaloneCount = 0;
+
+                    for (let i = 0; i < this.parcels.length; i++) {
+                        const p = this.parcels[i];
+                        if (this.receivedIds[p.id]) continue;
+
+                        if (p.shipment_id) {
+                            if (!map.has(p.shipment_id)) {
+                                map.set(p.shipment_id, {
+                                    key: p.shipment_id,
+                                    label: 'كشف #' + p.shipment_number,
+                                    count: 0,
+                                });
+                            }
+                            map.get(p.shipment_id).count++;
+                        } else {
+                            standaloneCount++;
+                        }
+                    }
+
+                    const list = Array.from(map.values());
+                    if (standaloneCount > 0 && list.length > 0) {
+                        list.push({
+                            key: 'standalone',
+                            label: 'طرود منفردة',
+                            count: standaloneCount,
+                        });
+                    }
+                    return list;
+                },
+
+                beep(type) {
+                    try {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (!AudioCtx) return;
+                        const ctx = new AudioCtx();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+
+                        if (type === 'scan') {
+                            osc.frequency.value = 880;
+                            gain.gain.value = 0.12;
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.09);
+                            if (navigator.vibrate) navigator.vibrate(40);
+                        } else if (type === 'success') {
+                            osc.frequency.value = 1040;
+                            gain.gain.value = 0.14;
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.13);
+                            if (navigator.vibrate) navigator.vibrate(60);
+                        } else {
+                            osc.frequency.value = 220;
+                            osc.type = 'sawtooth';
+                            gain.gain.value = 0.15;
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.24);
+                            if (navigator.vibrate) navigator.vibrate([90, 40, 90]);
+                        }
+                    } catch (e) {}
                 },
 
                 norm(str) {
@@ -447,17 +785,38 @@
                         .trim();
                 },
 
+                normalizeCode(raw) {
+                    const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                    const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+                    let clean = String(raw || '')
+                        .replace(/[٠-٩]/g, d => ar.indexOf(d))
+                        .replace(/[۰-۹]/g, d => fa.indexOf(d))
+                        .trim();
+                    const m = clean.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+                    return m ? m[0].toLowerCase() : clean.replace(/^#/, '');
+                },
+
                 isItemVisible(id) {
+                    const p = this.parcelsById[String(id)];
+                    if (!p) return false;
+
+                    if (this.activeShipmentFilter !== 'all') {
+                        if (this.activeShipmentFilter === 'standalone') {
+                            if (p.shipment_id !== '') return false;
+                        } else if (p.shipment_id !== this.activeShipmentFilter) {
+                            return false;
+                        }
+                    }
+
                     const q = this.norm(this.searchQuery);
                     if (!q) return true;
-                    const haystack = this.norm(this.itemsMap[String(id)] || '');
-                    return haystack.includes(q);
+                    return this.norm(p.search_text).includes(q);
                 },
 
                 get visibleCount() {
                     let count = 0;
-                    for (let i = 0; i < this.items.length; i++) {
-                        const id = String(this.items[i].id);
+                    for (let i = 0; i < this.parcels.length; i++) {
+                        const id = String(this.parcels[i].id);
                         if (!this.receivedIds[id] && this.isItemVisible(id)) {
                             count++;
                         }
@@ -475,6 +834,7 @@
                 },
 
                 notifyToast(message, typeOrIsError = false) {
+                    if (!message) return;
                     const type = typeof typeOrIsError === 'boolean'
                         ? (typeOrIsError ? 'error' : 'success')
                         : (typeOrIsError || 'success');
@@ -483,7 +843,125 @@
                     }));
                 },
 
+                async toggleCamera() {
+                    if (this.cameraActive) {
+                        await this.stopCamera();
+                    } else {
+                        await this.startCamera();
+                    }
+                },
+
+                async startCamera() {
+                    if (typeof Html5Qrcode === 'undefined') {
+                        this.scanAlert = { type: 'error', text: 'تعذر تحميل مكتبة الكاميرا، تحقق من الاتصال بالإنترنت.' };
+                        return;
+                    }
+                    this.scanAlert = { type: '', text: '' };
+                    this.cameraActive = true;
+                    this.$nextTick(async () => {
+                        try {
+                            this._qrScanner = new Html5Qrcode('transit-qr-reader');
+                            await this._qrScanner.start(
+                                { facingMode: 'environment' },
+                                { fps: 10, qrbox: { width: 230, height: 150 } },
+                                (decodedText) => {
+                                    if (this.receiveModal.open || this.disambiguateModal.open) return;
+                                    const now = Date.now();
+                                    if (decodedText === this._lastScannedCode && (now - this._lastScannedAt) < 2200) {
+                                        return;
+                                    }
+                                    this._lastScannedCode = decodedText;
+                                    this._lastScannedAt = now;
+                                    this.handleBarcodeScan(decodedText);
+                                },
+                                () => {}
+                            );
+                        } catch (err) {
+                            this.cameraActive = false;
+                            this.scanAlert = { type: 'error', text: 'تعذر فتح الكاميرا، تأكد من السماح بالصلاحية أو استخدم حقل القارئ.' };
+                        }
+                    });
+                },
+
+                async stopCamera() {
+                    if (this._qrScanner) {
+                        try {
+                            await this._qrScanner.stop();
+                            await this._qrScanner.clear();
+                        } catch (e) {}
+                        this._qrScanner = null;
+                    }
+                    this.cameraActive = false;
+                },
+
+                handleBarcodeScan(rawCode) {
+                    const code = this.normalizeCode(rawCode);
+                    this.scanInput = '';
+                    this.scanAlert = { type: '', text: '' };
+                    if (!code) return;
+
+                    // 1. تطابق دقيق بالـ UUID (لا يتكرر بين الشحنات أبداً)
+                    const byUuid = this.parcels.find(p => p.id.toLowerCase() === code);
+                    if (byUuid) {
+                        if (this.receivedIds[byUuid.id]) {
+                            this.beep('error');
+                            const dupMsg = 'تم استلام هذا الطرد مسبقاً (سند #' + byUuid.receipt_number + ').';
+                            this.scanAlert = { type: 'duplicate', text: dupMsg };
+                            this.notifyToast(dupMsg, 'warning');
+                            return;
+                        }
+                        this.beep('scan');
+                        this.openReceiveModal(byUuid);
+                        return;
+                    }
+
+                    // 2. البحث برقم السند عبر جميع الشحنات الواصلة
+                    const unreceivedMatches = this.parcels.filter(
+                        p => !this.receivedIds[p.id] && String(p.receipt_number) === code
+                    );
+
+                    if (unreceivedMatches.length === 1) {
+                        this.beep('scan');
+                        this.openReceiveModal(unreceivedMatches[0]);
+                        return;
+                    }
+
+                    if (unreceivedMatches.length > 1) {
+                        this.beep('scan');
+                        this.disambiguateModal.matches = unreceivedMatches;
+                        this.disambiguateModal.open = true;
+                        return;
+                    }
+
+                    // 3. هل تم استلامه مسبقاً في نفس الجلسة؟
+                    const already = this.parcels.find(
+                        p => this.receivedIds[p.id] && String(p.receipt_number) === code
+                    );
+                    if (already) {
+                        this.beep('error');
+                        const dupMsg = 'تم استلام هذا الطرد مسبقاً (سند #' + already.receipt_number + ').';
+                        this.scanAlert = { type: 'duplicate', text: dupMsg };
+                        this.notifyToast(dupMsg, 'warning');
+                        return;
+                    }
+
+                    this.beep('error');
+                    this.scanAlert = {
+                        type: 'error',
+                        text: 'هذا الطرد غير موجود ضمن أي شحنة قادمة لمكتبك حالياً.'
+                    };
+                },
+
+                openReceiveModalById(id) {
+                    const found = this.parcelsById[String(id)];
+                    if (found) {
+                        this.openReceiveModal(found);
+                    }
+                },
+
                 openReceiveModal(parcelData) {
+                    this.scanAlert = { type: '', text: '' };
+                    this.slotNumber = '';
                     this.receiveModal.parcel = parcelData || null;
                     this.receiveModal.url = parcelData?.url || '#';
                     this.receiveModal.submitting = false;
@@ -495,6 +973,8 @@
                     this.receiveModal.open = false;
                     this.receiveModal.parcel = null;
                     this.receiveModal.url = '#';
+                    this.slotNumber = '';
+                    this.$nextTick(() => this.$refs.scanInput?.focus());
                 },
 
                 async confirmReceiveModal() {
@@ -502,6 +982,8 @@
                     if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
 
                     const parcelId = String(this.receiveModal.parcel.id);
+                    const receiptNum = this.receiveModal.parcel.receipt_number;
+                    const shipmentId = this.receiveModal.parcel.shipment_id;
                     const url = this.receiveModal.url;
                     const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -517,12 +999,17 @@
                                 'X-Requested-With': 'XMLHttpRequest',
                                 'X-CSRF-TOKEN': token,
                             },
+                            body: JSON.stringify({
+                                channel: this.notifyChannel,
+                                slot_number: this.slotNumber.trim() || null,
+                            }),
                         });
 
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok || !data.ok) {
+                            this.beep('error');
                             this.receiveModal.submitting = false;
-                            this.notifyToast(data.message || 'تعذر استلام الطرد.', true);
+                            this.notifyToast(data.message || 'تعذر استلام الطرد.', 'error');
                             return;
                         }
 
@@ -534,19 +1021,41 @@
                             this.remainingCount = Math.max(0, this.remainingCount - 1);
                         }
 
+                        // إذا اكتمل الكشف المفلتر حالياً نعود تلقائياً لعرض الكل
+                        if (this.activeShipmentFilter !== 'all' && shipmentId && this.activeShipmentFilter === shipmentId && this.remainingInShipment(shipmentId) === 0) {
+                            this.activeShipmentFilter = 'all';
+                        }
+
+                        // تحديث عداد "الطرود" وعداد "الشحنات" معاً لحظياً في الشريط السفلي
                         window.dispatchEvent(new CustomEvent('transit-count-updated', {
                             detail: { count: this.remainingCount }
                         }));
+                        if (typeof data.pending_shipments_count === 'number') {
+                            window.dispatchEvent(new CustomEvent('shipments-pending-updated', {
+                                detail: { count: data.pending_shipments_count }
+                            }));
+                        }
 
+                        this.beep('success');
                         this.receiveModal.submitting = false;
                         this.closeReceiveModal();
-                        this.notifyToast(data.message || 'تم استلام الطرد وإشعار العميل بنجاح.', false);
+
+                        if (this.remainingCount === 0) {
+                            await this.stopCamera();
+                        }
+
+                        const label = this.channelLabel(this.notifyChannel);
+                        this.notifyToast(
+                            data.message || ('تم استلام سند #' + receiptNum + ' وتحويله للطرود المستلمة (' + label + ').'),
+                            'success'
+                        );
                     } catch (err) {
+                        this.beep('error');
                         this.receiveModal.submitting = false;
                         if (typeof window.notifyNetworkError === 'function') {
                             window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
                         } else {
-                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
+                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', 'error');
                         }
                     } finally {
                         this.receivingIds[parcelId] = false;

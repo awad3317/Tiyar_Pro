@@ -285,15 +285,19 @@ class OutgoingParcelService
 
     //     return $newParcel->fresh() ?? $newParcel;
     // }
-    public function receiveAtDestination(
+  public function receiveAtDestination(
         OutgoingParcel $outgoingParcel,
         Office $receivingOffice,
         bool $afterResponse = false,
-        string $channel = 'both'
+        string $channel = 'both',
+        ?string $slotNumber = null
     ): Parcel {
         $channel = in_array($channel, ['sms', 'whatsapp', 'both'], true) ? $channel : 'both';
+        $cleanSlot = ($receivingOffice->hasFeature('parcel_slot_number') && $slotNumber !== null && trim($slotNumber) !== '')
+            ? mb_substr(trim($slotNumber), 0, 50)
+            : null;
 
-        $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice): Parcel {
+        $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice, $cleanSlot): Parcel {
             $locked = OutgoingParcel::with('office:id,name,branch_name')
                 ->whereKey($outgoingParcel->id)
                 ->lockForUpdate()
@@ -333,6 +337,7 @@ class OutgoingParcelService
                 'recipient_phone'    => $locked->recipient_phone,
                 'package_type'       => $locked->package_type,
                 'receipt_number'     => $locked->receipt_number,
+                'slot_number'        => $cleanSlot,
                 'cod_amount'         => $codAmount,
                 'source_office_id'   => $locked->office_id,
                 'source_office_name' => $sourceOfficeName,
