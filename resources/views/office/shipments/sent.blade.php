@@ -32,23 +32,6 @@
         senderOfficeLabel: @js($office->branch_name ? $office->name . ' - ' . $office->branch_name : $office->name)
     })">
 
-        {{-- رسائل التنبيه --}}
-        @if (session('success'))
-            <div
-                class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
-                <span class="flex-1">{{ session('success') }}</span>
-            </div>
-        @endif
-
-        @if (session('error'))
-            <div
-                class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-base text-rose-600">error</span>
-                <span class="flex-1">{{ session('error') }}</span>
-            </div>
-        @endif
-
         {{-- رأس الصفحة --}}
         <div class="flex items-center justify-between gap-2">
             <div>
@@ -549,6 +532,12 @@
                         type,
                         text
                     };
+                    if (text) {
+                        const toastType = type === 'duplicate' ? 'warning' : (type === 'error' ? 'error' : 'success');
+                        window.dispatchEvent(new CustomEvent('office-toast', {
+                            detail: { message: text, type: toastType }
+                        }));
+                    }
                 },
 
                 sanitizePhone(str) {

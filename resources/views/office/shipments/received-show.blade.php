@@ -423,6 +423,13 @@
                     };
                 },
 
+                notifyToast(message, type = 'success') {
+                    if (!message) return;
+                    window.dispatchEvent(new CustomEvent('office-toast', {
+                        detail: { message, type }
+                    }));
+                },
+
                 beep(type) {
                     try {
                         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -555,11 +562,12 @@
                     );
                     if (already) {
                         this.beep('error');
+                        const dupMsg = 'تم مسح واستلام هذا الطرد مسبقاً (سند #' + already.receipt_number + ') — مُنع التكرار.';
                         this.scanFeedback = {
                             type: 'duplicate',
-                            text: 'تم مسح واستلام هذا الطرد مسبقاً (سند #' + already.receipt_number +
-                                ') — مُنع التكرار.'
+                            text: dupMsg
                         };
+                        this.notifyToast(dupMsg, 'warning');
                         return false;
                     }
 
@@ -584,10 +592,12 @@
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok || !data.ok) {
                             this.beep('error');
+                            const errMsg = data.message || 'تعذر استلام الطرد.';
                             this.scanFeedback = {
                                 type: 'error',
-                                text: data.message || 'تعذر استلام الطرد.'
+                                text: errMsg
                             };
+                            this.notifyToast(errMsg, 'error');
                             return false;
                         }
 
@@ -599,10 +609,12 @@
                         }
 
                         this.beep('success');
+                        const okMsg = data.message || 'تم الاستلام وإرسال الإشعار بنجاح.';
                         this.scanFeedback = {
                             type: 'success',
-                            text: data.message || 'تم الاستلام وإرسال الإشعار بنجاح.'
+                            text: okMsg
                         };
+                        this.notifyToast(okMsg, 'success');
 
                         if (typeof data.pending_shipments_count === 'number') {
                             window.dispatchEvent(new CustomEvent('shipments-pending-updated', {
@@ -619,10 +631,12 @@
                         return true;
                     } catch (err) {
                         this.beep('error');
+                        const netErr = 'تعذر الاتصال بالخادم، حاول مجدداً.';
                         this.scanFeedback = {
                             type: 'error',
-                            text: 'تعذر الاتصال بالخادم، حاول مجدداً.'
+                            text: netErr
                         };
+                        this.notifyToast(netErr, 'error');
                         return false;
                     } finally {
                         this.isProcessing = false;

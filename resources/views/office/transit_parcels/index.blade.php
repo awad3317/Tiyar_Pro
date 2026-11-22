@@ -78,21 +78,6 @@
               items: @js($transitIndexForJs)
           })">
 
-        {{-- رسائل النجاح أو الخطأ --}}
-        @if (session('success'))
-            <div class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-2xs">
-                <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
-                <span class="flex-1">{{ session('success') }}</span>
-            </div>
-        @endif
-
-        @if (session('error'))
-            <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2 shadow-2xs">
-                <span class="material-symbols-outlined text-base text-rose-600">error</span>
-                <span class="flex-1">{{ session('error') }}</span>
-            </div>
-        @endif
-
         {{-- رأس الصفحة بنفس هوية الطرود الصادرة --}}
         <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -489,10 +474,13 @@
                     return n + ' طرداً';
                 },
 
-                notifyToast(message, isError = false) {
-                    if (typeof this.showFeedback === 'function') {
-                        this.showFeedback(message, isError);
-                    }
+                notifyToast(message, typeOrIsError = false) {
+                    const type = typeof typeOrIsError === 'boolean'
+                        ? (typeOrIsError ? 'error' : 'success')
+                        : (typeOrIsError || 'success');
+                    window.dispatchEvent(new CustomEvent('office-toast', {
+                        detail: { message, type }
+                    }));
                 },
 
                 openReceiveModal(parcelData) {

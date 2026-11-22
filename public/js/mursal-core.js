@@ -269,12 +269,14 @@
                 channel: 'whatsapp', // افتراضياً واتساب مع دعم SMS أو كلاهما
             },
 
-            // إشعار التنبيهات
+            // إشعار التنبيهات العائم الموحّد لجميع شاشات المكتب
             smsFeedback: {
                 show: false,
                 message: '',
+                type: 'success',
                 isError: false,
             },
+            _feedbackTimer: null,
 
             openQuickSmsModal() {
                 this.quickSms.open = true;
@@ -312,11 +314,40 @@
                 this.quickSms.slotNumber = '';
             },
 
-            showFeedback(message, isError = false) {
-                this.smsFeedback = { show: true, message, isError };
-                setTimeout(() => {
+            showFeedback(message, typeOrIsError = 'success') {
+                if (!message) return;
+                const normalizedType = typeof typeOrIsError === 'boolean'
+                    ? (typeOrIsError ? 'error' : 'success')
+                    : (['success', 'error', 'warning', 'info'].includes(String(typeOrIsError))
+                        ? String(typeOrIsError)
+                        : 'success');
+
+                if (this._feedbackTimer) {
+                    clearTimeout(this._feedbackTimer);
+                    this._feedbackTimer = null;
+                }
+
+                this.smsFeedback = {
+                    show: true,
+                    message: String(message),
+                    type: normalizedType,
+                    isError: normalizedType === 'error',
+                };
+
+                this._feedbackTimer = setTimeout(() => {
                     if (this.smsFeedback) this.smsFeedback.show = false;
-                }, 4000);
+                    this._feedbackTimer = null;
+                }, 3500);
+            },
+
+            dismissFeedback() {
+                if (this._feedbackTimer) {
+                    clearTimeout(this._feedbackTimer);
+                    this._feedbackTimer = null;
+                }
+                if (this.smsFeedback) {
+                    this.smsFeedback.show = false;
+                }
             },
 
             async pasteFromClipboard() {

@@ -536,11 +536,17 @@ function whatsappSettings() {
             this.isSaving = false;
         },
 
-        showFeedback(message, isError) {
-            this.smsFeedback = { show: true, message, isError };
-            setTimeout(() => {
+        showFeedback(message, typeOrIsError = 'success') {
+            if (!message) return;
+            const normalizedType = typeof typeOrIsError === 'boolean'
+                ? (typeOrIsError ? 'error' : 'success')
+                : (['success', 'error', 'warning', 'info'].includes(String(typeOrIsError)) ? String(typeOrIsError) : 'success');
+            if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
+            this.smsFeedback = { show: true, message: String(message), type: normalizedType, isError: normalizedType === 'error' };
+            this._feedbackTimer = setTimeout(() => {
                 if (this.smsFeedback) this.smsFeedback.show = false;
-            }, 4000);
+                this._feedbackTimer = null;
+            }, 3500);
         }
     };
 }

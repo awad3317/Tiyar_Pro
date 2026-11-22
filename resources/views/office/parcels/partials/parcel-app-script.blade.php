@@ -459,13 +459,6 @@
 
             // ---------- إرسال رسائل SMS ----------
 
-            showFeedback(message, isError = false) {
-                this.smsFeedback = { show: true, message, isError };
-                setTimeout(() => {
-                    this.smsFeedback.show = false;
-                }, 4000);
-            },
-
             async resendSms(parcel) {
                 if (this.sendingSmsId) return;
 

@@ -904,4 +904,22 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringNotContainsString('data-card-action="detach"', $afterReceiptHtml);
         $this->assertStringNotContainsString('data-card-action="cancel"', $afterReceiptHtml);
     }
+
+    public function test_session_flash_messages_bridge_into_unified_floating_toast_without_inline_banners(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $res = $this->actingAs($this->senderOffice, 'office')
+            ->withSession(['success' => 'تم تسجيل الطرد الصادر بنجاح.'])
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk();
+
+        $html = $res->getContent();
+        $this->assertStringContainsString('showFeedback(', $html);
+        $this->assertStringContainsString('تم تسجيل الطرد الصادر بنجاح.', $html);
+        $this->assertStringContainsString('@office-toast.window', $html);
+        // لا يوجد بانر ثابت مكرر بداخل جسم الصفحة
+        $this->assertStringNotContainsString('<span class="flex-1">تم تسجيل الطرد الصادر بنجاح.</span>', $html);
+    }
 }
