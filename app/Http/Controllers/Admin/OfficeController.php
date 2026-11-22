@@ -6,16 +6,17 @@ use App\Enums\ParcelStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Feature;
 use App\Models\Office;
+use App\Models\OfficeProfile;
 use App\Models\WhatsappInstance;
-use App\Services\WhatsAppService;
 use App\Services\DailyReportService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class OfficeController extends Controller
@@ -114,13 +115,13 @@ class OfficeController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'                   => ['required', 'string', 'max:255'],
-            'branch_name'            => ['nullable', 'string', 'max:255'],
-            'whatsapp_sender_phone'  => ['required', 'string', 'max:30'],
-            'manager_phone'          => ['nullable', 'string', 'max:30'],
-            'send_daily_report'      => ['nullable', 'boolean'],
-            'password'               => ['required', 'string', 'min:6'],
-            'httpsms_from_phone'     => ['required', 'string', 'max:30'],
+            'name'                       => ['required', 'string', 'max:255'],
+            'branch_name'                => ['nullable', 'string', 'max:255'],
+            'whatsapp_sender_phone'      => ['required', 'string', 'max:30'],
+            'manager_phone'              => ['nullable', 'string', 'max:30'],
+            'send_daily_report'          => ['nullable', 'boolean'],
+            'password'                   => ['required', 'string', 'min:6'],
+            'httpsms_from_phone'         => ['required', 'string', 'max:30'],
             'httpsms_api_key'            => ['nullable', 'string', 'max:255'],
             'sms_template'               => ['nullable', 'string'],
             'delivery_sms_template'      => ['nullable', 'string'],
@@ -149,12 +150,12 @@ class OfficeController extends Controller
         $defaultWaTemplate  = "السلام عليكم ورحمة الله وبركاته 🌸\nعميلنا العزيز {recipient}،\nيسرنا إشعاركم بوصول طردكم الجديد لدى *{office}* ({branch}).\n📦 نوع الطرد: {package}\n🔖 رقم السند: {receipt}\n📍 يرجى الحضور للاستلام خلال أوقات الدوام الرسمي.\nشكراً لتعاملكم معنا ✨";
 
         $office = Office::create([
-            'name'                   => $validated['name'],
-            'branch_name'            => $validated['branch_name'] ?? null,
-            'whatsapp_sender_phone'  => $cleanWaPhone,
-            'manager_phone'          => $cleanManagerPhone,
-            'send_daily_report'      => $request->boolean('send_daily_report'),
-            'password'               => Hash::make($validated['password']),
+            'name'                       => $validated['name'],
+            'branch_name'                => $validated['branch_name'] ?? null,
+            'whatsapp_sender_phone'      => $cleanWaPhone,
+            'manager_phone'              => $cleanManagerPhone,
+            'send_daily_report'          => $request->boolean('send_daily_report'),
+            'password'                   => Hash::make($validated['password']),
             'httpsms_from_phone'         => $cleanSmsPhone,
             'httpsms_api_key'            => $validated['httpsms_api_key'] ?? '',
             'sms_template'               => ($validated['sms_template'] ?? null) ?: $defaultSmsTemplate,
@@ -171,7 +172,7 @@ class OfficeController extends Controller
         ]);
 
         return redirect()->route('admin.offices.edit', $office)
-            ->with('success', 'تم إنشاء المكتب بنجاح! يمكنك مراجعة وإدارة إعدادات الواتساب والـ SMS.');
+            ->with('success', 'تم إنشاء المكتب بنجاح! يمكنك مراجعة وإدارة إعدادات الواتساب والـ SMS والهوية.');
     }
 
     /**
@@ -212,8 +213,13 @@ class OfficeController extends Controller
             $office->partnerOffices()->pluck('offices.id')->all()
         );
 
+        $officeProfile = $office->profile;
+        $resolvedProfile = $office->getResolvedProfile();
+
         return view('admin.offices.edit', [
             'office'             => $office,
+            'officeProfile'      => $officeProfile,
+            'resolvedProfile'    => $resolvedProfile,
             'parcelsSummary'     => $parcelsSummary,
             'recentParcels'      => $recentParcels,
             'whatsappStatus'     => $whatsappStatus,
@@ -224,7 +230,7 @@ class OfficeController extends Controller
     }
 
     /**
-     * تحديث بيانات المكتب (المعلومات العامة، إعدادات SMS، إعدادات الواتساب)
+     * تحديث بيانات المكتب (المعلومات العامة، الهوية والسندات، إعدادات SMS، إعدادات الواتساب)
      */
     public function update(Request $request, Office $office): RedirectResponse
     {
@@ -250,6 +256,36 @@ class OfficeController extends Controller
             'partner_links_submitted'    => ['nullable', 'boolean'],
             'partner_office_ids'         => ['nullable', 'array'],
             'partner_office_ids.*'       => ['integer', 'exists:offices,id'],
+
+            // حقول الهوية البصرية وإعدادات السندات
+            'branding_submitted'         => ['nullable', 'boolean'],
+            'logo'                       => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+            'icon'                       => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,ico', 'max:1024'],
+            'remove_logo'                => ['nullable', 'boolean'],
+            'remove_icon'                => ['nullable', 'boolean'],
+            'primary_color'              => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'secondary_color'            => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'tagline_primary'            => ['nullable', 'string', 'max:150'],
+            'tagline_secondary'          => ['nullable', 'string', 'max:150'],
+            'branch_address'             => ['nullable', 'string', 'max:255'],
+            'complaints_phone'           => ['nullable', 'string', 'max:60'],
+            'dispatch_phone_1'           => ['nullable', 'string', 'max:100'],
+            'dispatch_phone_2'           => ['nullable', 'string', 'max:100'],
+            'delivery_phone'             => ['nullable', 'string', 'max:60'],
+            'receipt_title'              => ['nullable', 'string', 'max:80'],
+            'slogan'                     => ['nullable', 'string', 'max:150'],
+            'footer_text'                => ['nullable', 'string', 'max:120'],
+            'receipt_terms'              => ['nullable', 'array', 'max:12'],
+            'receipt_terms.*'            => ['nullable', 'string', 'max:255'],
+        ], [
+            'logo.image'            => 'ملف الشعار يجب أن يكون صورة صالحة.',
+            'logo.mimes'            => 'صيغ الشعار المدعومة: PNG, JPG, JPEG, WEBP.',
+            'logo.max'              => 'حجم الشعار يجب ألا يتجاوز 2 ميجابايت.',
+            'icon.image'            => 'ملف الأيقونة يجب أن يكون صورة صالحة.',
+            'icon.mimes'            => 'صيغ الأيقونة المدعومة: PNG, JPG, JPEG, WEBP, ICO.',
+            'icon.max'              => 'حجم الأيقونة يجب ألا يتجاوز 1 ميجابايت.',
+            'primary_color.regex'   => 'صيغة اللون الأساسي غير صحيحة (مثال: #041627).',
+            'secondary_color.regex' => 'صيغة اللون الثانوي غير صحيحة (مثال: #fe9d20).',
         ]);
 
         $cleanWaPhone = preg_replace('/[^0-9]/', '', $validated['whatsapp_sender_phone']);
@@ -257,11 +293,11 @@ class OfficeController extends Controller
         $cleanSmsPhone = preg_replace('/[^0-9+]/', '', $validated['httpsms_from_phone']);
 
         $updateData = [
-            'name'                   => $validated['name'],
-            'branch_name'            => $validated['branch_name'] ?? null,
-            'whatsapp_sender_phone'  => $cleanWaPhone,
-            'manager_phone'          => $cleanManagerPhone,
-            'send_daily_report'      => $request->boolean('send_daily_report'),
+            'name'                       => $validated['name'],
+            'branch_name'                => $validated['branch_name'] ?? null,
+            'whatsapp_sender_phone'      => $cleanWaPhone,
+            'manager_phone'              => $cleanManagerPhone,
+            'send_daily_report'          => $request->boolean('send_daily_report'),
             'httpsms_from_phone'         => $cleanSmsPhone,
             'httpsms_api_key'            => $validated['httpsms_api_key'] ?? $office->httpsms_api_key,
             'sms_template'               => $validated['sms_template'] ?? $office->sms_template,
@@ -281,6 +317,65 @@ class OfficeController extends Controller
 
         if ($request->boolean('partner_links_submitted')) {
             $office->syncPartnerOffices($request->input('partner_office_ids', []));
+        }
+
+        if ($request->boolean('branding_submitted')) {
+            $profile = $office->profile()->firstOrNew(['office_id' => $office->id]);
+
+            $logoPath = $profile->logo_path;
+            if ($request->boolean('remove_logo') && $logoPath) {
+                Storage::disk('public')->delete($logoPath);
+                $logoPath = null;
+            }
+            if ($request->hasFile('logo')) {
+                if ($logoPath) {
+                    Storage::disk('public')->delete($logoPath);
+                }
+                $logoPath = $request->file('logo')->store("office-branding/{$office->id}", 'public');
+            }
+
+            $iconPath = $profile->icon_path;
+            if ($request->boolean('remove_icon') && $iconPath) {
+                Storage::disk('public')->delete($iconPath);
+                $iconPath = null;
+            }
+            if ($request->hasFile('icon')) {
+                if ($iconPath) {
+                    Storage::disk('public')->delete($iconPath);
+                }
+                $iconPath = $request->file('icon')->store("office-branding/{$office->id}", 'public');
+            }
+
+            $terms = array_values(array_filter(
+                array_map(static fn ($t) => trim((string) $t), (array) $request->input('receipt_terms', [])),
+                static fn (string $t) => $t !== ''
+            ));
+
+            $trimOrNull = static function (?string $val): ?string {
+                $clean = trim((string) $val);
+                return $clean !== '' ? $clean : null;
+            };
+
+            $profile->fill([
+                'logo_path'         => $logoPath,
+                'icon_path'         => $iconPath,
+                'primary_color'     => OfficeProfile::sanitizeHex($validated['primary_color'] ?? null, OfficeProfile::DEFAULT_PRIMARY_COLOR),
+                'secondary_color'   => OfficeProfile::sanitizeHex($validated['secondary_color'] ?? null, OfficeProfile::DEFAULT_SECONDARY_COLOR),
+                'tagline_primary'   => $trimOrNull($validated['tagline_primary'] ?? null),
+                'tagline_secondary' => $trimOrNull($validated['tagline_secondary'] ?? null),
+                'branch_address'    => $trimOrNull($validated['branch_address'] ?? null),
+                'complaints_phone'  => $trimOrNull($validated['complaints_phone'] ?? null),
+                'dispatch_phone_1'  => $trimOrNull($validated['dispatch_phone_1'] ?? null),
+                'dispatch_phone_2'  => $trimOrNull($validated['dispatch_phone_2'] ?? null),
+                'delivery_phone'    => $trimOrNull($validated['delivery_phone'] ?? null),
+                'receipt_title'     => $trimOrNull($validated['receipt_title'] ?? null),
+                'slogan'            => $trimOrNull($validated['slogan'] ?? null),
+                'footer_text'       => $trimOrNull($validated['footer_text'] ?? null),
+                'receipt_terms'     => ! empty($terms) ? $terms : null,
+            ]);
+            $profile->save();
+
+            $office->clearProfileCache();
         }
 
         // مسح كاش الواتساب لإعادة الفحص بالإعدادات الجديدة
@@ -449,11 +544,22 @@ class OfficeController extends Controller
     }
 
     /**
-     * حذف المكتب نهائياً
+     * حذف المكتب نهائياً مع تنظيف ملفات الشعار والأيقونة
      */
     public function destroy(Office $office): RedirectResponse
     {
         $name = $office->name;
+
+        if ($office->profile) {
+            if ($office->profile->logo_path) {
+                Storage::disk('public')->delete($office->profile->logo_path);
+            }
+            if ($office->profile->icon_path) {
+                Storage::disk('public')->delete($office->profile->icon_path);
+            }
+            $office->clearProfileCache();
+        }
+
         $office->delete();
 
         return redirect()->route('admin.offices.index')
@@ -535,10 +641,9 @@ class OfficeController extends Controller
             $isLoggedInRaw = data_get($result, 'data.LoggedIn') ?? data_get($result, 'LoggedIn');
             $isLoggedIn    = filter_var($isLoggedInRaw, FILTER_VALIDATE_BOOLEAN);
 
-            $isConnectedRaw = data_get($result, 'data.Connected') ?? data_get($result, 'Connected');
-            $accountName    = data_get($result, 'data.Name') ?? data_get($result, 'Name') ?? $office->name;
+            $accountName   = data_get($result, 'data.Name') ?? data_get($result, 'Name') ?? $office->name;
 
-            $instanceState  = strtolower(trim((string)(
+            $instanceState = strtolower(trim((string) (
                 data_get($result, 'instance.state')
                 ?? data_get($result, 'data.instance.state')
                 ?? data_get($result, 'state')
@@ -566,7 +671,7 @@ class OfficeController extends Controller
             ]);
         } catch (\Exception $e) {
             Cache::put($cacheKey, 'offline', now()->addMinutes(10));
-            Log::error("Admin WhatsApp status check error: " . $e->getMessage());
+            Log::error('Admin WhatsApp status check error: ' . $e->getMessage());
 
             return response()->json([
                 'success'      => false,

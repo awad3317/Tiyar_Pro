@@ -1,35 +1,54 @@
+@php
+    $brandOffice = auth('office')->user();
+    $officeProfile = $brandOffice
+        ? $brandOffice->getResolvedProfile()
+        : [
+            'primary_color'   => \App\Models\OfficeProfile::DEFAULT_PRIMARY_COLOR,
+            'secondary_color' => \App\Models\OfficeProfile::DEFAULT_SECONDARY_COLOR,
+            'logo_url'        => null,
+            'icon_url'        => null,
+        ];
+    $brandPrimary   = $officeProfile['primary_color'] ?? '#041627';
+    $brandSecondary = $officeProfile['secondary_color'] ?? '#fe9d20';
+    $brandIconUrl   = $officeProfile['icon_url'] ?? $officeProfile['logo_url'] ?? asset('icons/icon-192.png');
+@endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'بوابة المكاتب') - مُرسَل</title>
+    <title>@yield('title', 'بوابة المكاتب') - {{ $brandOffice?->name ?? 'مُرسَل' }}</title>
 
-    <meta name="theme-color" content="#041627">
+    <meta name="theme-color" content="{{ $brandPrimary }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" href="{{ $brandIconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $brandIconUrl }}">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
     <script src="{{ asset('js/tailwind.js') }}"></script>
-    <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
-    <script src="{{ asset('js/shipment-manifest-print.js') }}?v=22"></script>
-
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        primary: '#041627',
-                        secondary: '#fe9d20',
+                        primary: @json($brandPrimary),
+                        secondary: @json($brandSecondary),
                     },
                 },
             },
         };
     </script>
+    <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
+    <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
 
     <style>
+        :root {
+            --office-primary: {{ $brandPrimary }};
+            --office-secondary: {{ $brandSecondary }};
+        }
         [x-cloak] { display: none !important; }
         body { font-family: 'Almarai', sans-serif; -webkit-tap-highlight-color: transparent; }
         .dir-ltr { direction: ltr; }

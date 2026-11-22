@@ -41,14 +41,14 @@
                dir="rtl"
                autocomplete="off"
                placeholder="بحث برقم الكشف، اسم السائق، أو رقم السائق..."
-               class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
+               class="w-full bg-white/10 text-white placeholder-slate-300/70 text-xs rounded-xl pr-9 pl-8 py-2.5 outline-none border border-white/15 focus:border-secondary transition-all">
         <span
-            class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg pointer-events-none">search</span>
+            class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-300/70 text-lg pointer-events-none">search</span>
         <template x-if="q.length > 0">
             <button type="button"
                     @click="clear()"
                     title="مسح البحث"
-                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-700 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 flex items-center justify-center text-xs font-bold transition-colors">
+                    class="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/15 hover:bg-rose-500/20 text-slate-200 hover:text-rose-300 flex items-center justify-center text-xs font-bold transition-colors">
                 ✕
             </button>
         </template>
@@ -56,6 +56,9 @@
 @endsection
 
 @section('content')
+    @php
+        $sentOfficeProfile = $office->getResolvedProfile();
+    @endphp
     <div class="flex-1 flex flex-col"
          @open-create-shipment-modal.window="openCreateModal()"
          @sent-search-change.window="handleSearchEvent($event.detail.q)"
@@ -63,9 +66,15 @@
          x-data="sentShipmentsPage({
              officeId: @js((int) $office->id),
              officeInfo: @js([
-                 'id'          => (int) $office->id,
-                 'name'        => (string) $office->name,
-                 'branch_name' => (string) ($office->branch_name ?? ''),
+                 'id'               => (int) $office->id,
+                 'name'             => (string) $office->name,
+                 'branch_name'      => (string) ($office->branch_name ?? ''),
+                 'logo_url'         => $sentOfficeProfile['logo_url'] ?? $sentOfficeProfile['icon_url'] ?? null,
+                 'primary_color'    => $sentOfficeProfile['primary_color'] ?? '#041627',
+                 'secondary_color'  => $sentOfficeProfile['secondary_color'] ?? '#fe9d20',
+                 'branch_address'   => $sentOfficeProfile['branch_address'] ?? '',
+                 'complaints_phone' => $sentOfficeProfile['complaints_phone'] ?? '',
+                 'dispatch_phone_1' => $sentOfficeProfile['dispatch_phone_1'] ?? '',
              ]),
              baseUrl: @js(route('office.shipments.sent.index')),
              bootstrapUrl: @js(route('office.shipments.sent.bootstrap')),
@@ -265,7 +274,7 @@
                     <div class="pt-1">
                         <button type="button"
                             @click="openCreateModal()"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-xs active:scale-95 transition-all">
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary hover:brightness-105 text-primary text-xs font-extrabold shadow-xs active:scale-95 transition-all">
                             <span class="material-symbols-outlined text-base">qr_code_scanner</span>
                             <span>كشف شحنة جديد</span>
                         </button>
@@ -354,7 +363,7 @@
                                 placeholder="امسح بالباركود أو اكتب رقم السند ثم Enter"
                                 class="flex-1 py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-300 bg-white outline-none focus:border-secondary">
                             <button type="button" @click="handleScan(scanCodeInput)" :disabled="isLookingUp"
-                                class="px-3 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:bg-slate-800 disabled:opacity-50 shrink-0">
+                                class="px-3 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:opacity-95 disabled:opacity-50 shrink-0">
                                 <span x-text="isLookingUp ? '...' : 'إضافة'"></span>
                             </button>
                         </div>
@@ -488,7 +497,7 @@
                             class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary"></textarea>
 
                         <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                            <input type="checkbox" x-model="dispatchNow" class="w-4 h-4 accent-[#fe9d20] rounded">
+                            <input type="checkbox" x-model="dispatchNow" style="accent-color: var(--office-secondary, #fe9d20);" class="w-4 h-4 rounded">
                             <span>شحن الكشف فوراً (تحويل جميع الطرود إلى «في الطريق»)</span>
                         </label>
                     </div>
@@ -498,7 +507,7 @@
                     <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
                         <button type="submit"
                             :disabled="submitting || selectedParcels.length === 0"
-                            class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
+                            class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:brightness-105 text-primary text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
                             <span class="material-symbols-outlined text-base">check_circle</span>
                             <span
                                 x-text="submitting ? 'جاري حفظ الكشف...' : (dispatchNow ? 'اعتماد وشحن الكشف' : 'حفظ كمسودة')"></span>
@@ -597,7 +606,7 @@
                 <div class="shrink-0 border-t border-slate-100 px-4 py-3 bg-white flex items-center gap-2">
                     <button type="button"
                             @click="printShipmentOffline(detailsModal.shipment)"
-                            class="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-secondary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors">
+                            class="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:opacity-95 text-secondary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all">
                         <span class="material-symbols-outlined text-base">print</span>
                         <span>طباعة الكشف (A4)</span>
                     </button>

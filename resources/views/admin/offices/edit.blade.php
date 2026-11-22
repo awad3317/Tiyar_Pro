@@ -2,7 +2,7 @@
 
 @section('title', 'إدارة وتعديل ' . $office->name)
 @section('page-title', 'إدارة وتعديل: ' . $office->name)
-@section('page-subtitle', 'التحكم بكافة إعدادات المكتب، قوالب الإشعار، وحالة جلسة الواتساب المباشرة')
+@section('page-subtitle', 'التحكم بكافة إعدادات المكتب، الهوية والسندات، قوالب الإشعار، وحالة جلسة الواتساب المباشرة')
 
 @section('header-actions')
     <a href="{{ route('admin.favorite_customers.index', ['office_id' => $office->id]) }}"
@@ -23,8 +23,15 @@
     <!-- بطاقة الهيدر العلوية للمكتب وحالته -->
     <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div class="flex items-center gap-4">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-slate-800 text-white flex items-center justify-center font-black text-2xl shadow-md shrink-0">
-                {{ mb_substr($office->name, 0, 1) }}
+            <div class="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-black text-2xl shadow-md shrink-0 overflow-hidden border border-slate-200"
+                 style="background-color: {{ $resolvedProfile['primary_color'] ?? '#041627' }};">
+                @if (!empty($resolvedProfile['icon_url'] ?? $resolvedProfile['logo_url']))
+                    <img src="{{ $resolvedProfile['icon_url'] ?? $resolvedProfile['logo_url'] }}"
+                         alt="{{ $office->name }}"
+                         class="w-full h-full object-contain p-1.5 bg-white/95">
+                @else
+                    {{ mb_substr($office->name, 0, 1) }}
+                @endif
             </div>
             <div>
                 <div class="flex items-center gap-2.5 flex-wrap">
@@ -68,6 +75,13 @@
             <span>المعلومات والطرود</span>
         </button>
 
+        <button type="button" @click="activeTab = 'branding'"
+                :class="activeTab === 'branding' ? 'border-secondary text-primary font-black' : 'border-transparent text-slate-500 font-bold hover:text-slate-700'"
+                class="flex items-center gap-2 py-4 px-4 border-b-2 text-xs transition-colors shrink-0">
+            <span class="material-symbols-outlined text-lg">palette</span>
+            <span>الهوية والسندات</span>
+        </button>
+
         <button type="button" @click="activeTab = 'sms'"
                 :class="activeTab === 'sms' ? 'border-secondary text-primary font-black' : 'border-transparent text-slate-500 font-bold hover:text-slate-700'"
                 class="flex items-center gap-2 py-4 px-4 border-b-2 text-xs transition-colors shrink-0">
@@ -98,7 +112,7 @@
     </div>
 
     <!-- نموذج التعديل الشامل -->
-    <form method="POST" action="{{ route('admin.offices.update', $office) }}" id="officeForm" class="space-y-6">
+    <form method="POST" action="{{ route('admin.offices.update', $office) }}" id="officeForm" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="active_tab" :value="activeTab">
@@ -342,7 +356,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="py-6 text-center text-slate-400 font-bold">لا توجد طرود مسجلة لهذا المكتب بعد.</td>
+                                    <td colspan="6" class="py-6 text-center text-slate-400 font-bold">لا توجد طرود مسجلة لهذا المكتب بعد.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -352,7 +366,339 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- التبويب 2: إعدادات وقالب الـ SMS          -->
+        <!-- التبويب 2: الهوية البصرية، الألوان، وإعدادات السندات -->
+        <!-- ========================================== -->
+        @php
+            $pModel = $officeProfile ?? null;
+            $pPrimary = old('primary_color', $pModel?->primary_color ?? \App\Models\OfficeProfile::DEFAULT_PRIMARY_COLOR);
+            $pSecondary = old('secondary_color', $pModel?->secondary_color ?? \App\Models\OfficeProfile::DEFAULT_SECONDARY_COLOR);
+            $pTerms = old('receipt_terms', $pModel?->receipt_terms ?? \App\Models\OfficeProfile::DEFAULT_TERMS);
+            if (!is_array($pTerms) || empty($pTerms)) {
+                $pTerms = \App\Models\OfficeProfile::DEFAULT_TERMS;
+            }
+        @endphp
+        <div x-show="activeTab === 'branding'" x-cloak class="space-y-6"
+             x-data="{
+                 primaryColor: @js($pPrimary),
+                 secondaryColor: @js($pSecondary),
+                 logoPreview: @js($resolvedProfile['logo_url'] ?? ''),
+                 iconPreview: @js($resolvedProfile['icon_url'] ?? ''),
+                 removeLogo: false,
+                 removeIcon: false,
+                 terms: @js(array_values($pTerms)),
+                 defaultTerms: @js(\App\Models\OfficeProfile::DEFAULT_TERMS),
+                 presets: [
+                     { name: 'مُرسَل الافتراضي', primary: '#041627', secondary: '#fe9d20' },
+                     { name: 'كحلي وذهبي',      primary: '#0f172a', secondary: '#eab308' },
+                     { name: 'زمردي وبرتقالي',   primary: '#064e3b', secondary: '#f97316' },
+                     { name: 'أزرق ملكي',        primary: '#1e3a8a', secondary: '#38bdf8' },
+                     { name: 'عنابي وذهبي',      primary: '#4c0519', secondary: '#f59e0b' },
+                 ],
+                 previewFile(event, target) {
+                     const file = event.target.files?.[0];
+                     if (!file) return;
+                     const reader = new FileReader();
+                     reader.onload = (e) => {
+                         if (target === 'logo') { this.logoPreview = e.target.result; this.removeLogo = false; }
+                         if (target === 'icon') { this.iconPreview = e.target.result; this.removeIcon = false; }
+                     };
+                     reader.readAsDataURL(file);
+                 },
+                 addTerm() {
+                     if (this.terms.length >= 12) return;
+                     this.terms.push((this.terms.length + 1) + '- ');
+                 },
+                 removeTerm(idx) {
+                     this.terms.splice(idx, 1);
+                 },
+                 resetTerms() {
+                     this.terms = [...this.defaultTerms];
+                 }
+             }">
+            <input type="hidden" name="branding_submitted" value="1">
+            <input type="hidden" name="remove_logo" :value="removeLogo ? 1 : 0">
+            <input type="hidden" name="remove_icon" :value="removeIcon ? 1 : 0">
+
+            <!-- 1. بطاقة الشعار والأيقونة وألوان الهوية -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
+                <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-xl">palette</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">الشعار والأيقونة وألوان هوية المكتب</h3>
+                        <p class="text-xs text-slate-500">تُطبّق تلقائياً على واجهة تطبيق المكتب، الترويسة، سندات الإرسال، وكشوفات الشحنات</p>
+                    </div>
+                </div>
+
+                <!-- رفع الشعار والأيقونة -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <!-- الشعار الرسمي -->
+                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-extrabold text-slate-800">شعار المكتب (Logo)</p>
+                                <p class="text-[11px] text-slate-400">يظهر في السندات والعلامة المائية وكشوفات A4 (PNG/WEBP يفضّل شفاف)</p>
+                            </div>
+                            <button type="button" x-show="logoPreview" x-cloak
+                                    @click="logoPreview = ''; removeLogo = true; $refs.logoInput.value = ''"
+                                    class="text-[11px] font-bold text-rose-600 hover:underline">حذف</button>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <div class="w-20 h-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                                <template x-if="logoPreview">
+                                    <img :src="logoPreview" alt="Logo Preview" class="w-full h-full object-contain p-1.5">
+                                </template>
+                                <template x-if="!logoPreview">
+                                    <span class="material-symbols-outlined text-3xl text-slate-300">image</span>
+                                </template>
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" name="logo" x-ref="logoInput" accept="image/png,image/jpeg,image/webp"
+                                       @change="previewFile($event, 'logo')"
+                                       class="block w-full text-xs text-slate-600 file:ml-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-white hover:file:bg-slate-800 cursor-pointer">
+                                <p class="text-[10px] text-slate-400 mt-1.5">الحد الأقصى 2MB — الصيغ: PNG, JPG, WEBP</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- الأيقونة المصغرة -->
+                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-extrabold text-slate-800">أيقونة المكتب (Icon / Favicon)</p>
+                                <p class="text-[11px] text-slate-400">تظهر في شريط التطبيق العلوي وأيقونة التبويب بالمتصفح (مربعة 1:1)</p>
+                            </div>
+                            <button type="button" x-show="iconPreview" x-cloak
+                                    @click="iconPreview = ''; removeIcon = true; $refs.iconInput.value = ''"
+                                    class="text-[11px] font-bold text-rose-600 hover:underline">حذف</button>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <div class="w-20 h-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                                <template x-if="iconPreview">
+                                    <img :src="iconPreview" alt="Icon Preview" class="w-full h-full object-contain p-1.5">
+                                </template>
+                                <template x-if="!iconPreview">
+                                    <span class="material-symbols-outlined text-3xl text-slate-300">apps</span>
+                                </template>
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" name="icon" x-ref="iconInput" accept="image/png,image/jpeg,image/webp,image/x-icon"
+                                       @change="previewFile($event, 'icon')"
+                                       class="block w-full text-xs text-slate-600 file:ml-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-white hover:file:bg-slate-800 cursor-pointer">
+                                <p class="text-[10px] text-slate-400 mt-1.5">الحد الأقصى 1MB — الصيغ: PNG, JPG, WEBP, ICO</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ألوان الهوية + معاينة حية -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-center pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">اللون الأساسي (Primary)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" x-model="primaryColor"
+                                   class="w-11 h-11 rounded-xl border border-slate-200 cursor-pointer bg-white p-1 shrink-0">
+                            <input type="text" name="primary_color" x-model="primaryColor" dir="ltr" maxlength="7"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">اللون الثانوي (Secondary)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" x-model="secondaryColor"
+                                   class="w-11 h-11 rounded-xl border border-slate-200 cursor-pointer bg-white p-1 shrink-0">
+                            <input type="text" name="secondary_color" x-model="secondaryColor" dir="ltr" maxlength="7"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                        </div>
+                    </div>
+
+                    <!-- معاينة حية لشريط التطبيق -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">معاينة حية للتطبيق</label>
+                        <div class="rounded-2xl p-3 flex items-center justify-between gap-2 shadow-sm border border-slate-200"
+                             :style="{ backgroundColor: primaryColor }">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center overflow-hidden shrink-0">
+                                    <template x-if="iconPreview || logoPreview">
+                                        <img :src="iconPreview || logoPreview" class="w-full h-full object-contain p-0.5 bg-white rounded-lg">
+                                    </template>
+                                    <template x-if="!iconPreview && !logoPreview">
+                                        <span class="material-symbols-outlined text-base" :style="{ color: secondaryColor }">local_shipping</span>
+                                    </template>
+                                </div>
+                                <span class="text-xs font-extrabold text-white truncate">{{ $office->name }}</span>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-lg text-[10px] font-black shrink-0"
+                                  :style="{ backgroundColor: secondaryColor, color: primaryColor }">زر أساسي</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- قوالب ألوان جاهزة -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] font-bold text-slate-500 ml-1">ألوان جاهزة:</span>
+                    <template x-for="pr in presets" :key="pr.name">
+                        <button type="button"
+                                @click="primaryColor = pr.primary; secondaryColor = pr.secondary"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors">
+                            <span class="w-3.5 h-3.5 rounded-full border border-white shadow-xs" :style="{ backgroundColor: pr.primary }"></span>
+                            <span class="w-3.5 h-3.5 rounded-full border border-white shadow-xs -mr-1.5" :style="{ backgroundColor: pr.secondary }"></span>
+                            <span x-text="pr.name"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- 2. بطاقة موقع الفرع وأرقام التواصل -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5">
+                <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+                        <span class="material-symbols-outlined text-xl">location_on</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">موقع الفرع وأرقام التواصل (تظهر في السندات)</h3>
+                        <p class="text-xs text-slate-500">يُستخدم موقع الفرع ورقم الاستلام تلقائياً كـ «موقع التسليم» عندما ترسل الفروع الشريكة طروداً إلى هذا المكتب</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">الوصف التعريفي (السطر الأول تحت اسم المكتب)</label>
+                        <input type="text" name="tagline_primary"
+                               value="{{ old('tagline_primary', $pModel?->tagline_primary ?? \App\Models\OfficeProfile::DEFAULT_TAGLINE_1) }}"
+                               placeholder="لإرسال واستقبال الطرود والرسائل"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">الوصف التعريفي (السطر الثاني)</label>
+                        <input type="text" name="tagline_secondary"
+                               value="{{ old('tagline_secondary', $pModel?->tagline_secondary ?? \App\Models\OfficeProfile::DEFAULT_TAGLINE_2) }}"
+                               placeholder="من وإلى مختلف المحافظات"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 mb-2">عنوان وموقع الفرع التفصيلي</label>
+                        <input type="text" name="branch_address"
+                               value="{{ old('branch_address', $pModel?->branch_address) }}"
+                               placeholder="مثال: صنعاء - باب اليمن أمام فرزة تعز جوار الكريمي"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">رقم المدير والشكاوى (في السند)</label>
+                        <input type="text" name="complaints_phone" dir="ltr"
+                               value="{{ old('complaints_phone', $pModel?->complaints_phone) }}"
+                               placeholder="{{ $office->manager_phone ?: $office->whatsapp_sender_phone }}"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">رقم التواصل لموقع التسليم (للفروع الشريكة)</label>
+                        <input type="text" name="delivery_phone" dir="ltr"
+                               value="{{ old('delivery_phone', $pModel?->delivery_phone) }}"
+                               placeholder="{{ $office->whatsapp_sender_phone }}"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">أرقام خدمة الإرسال (السطر الأول)</label>
+                        <input type="text" name="dispatch_phone_1" dir="ltr"
+                               value="{{ old('dispatch_phone_1', $pModel?->dispatch_phone_1) }}"
+                               placeholder="مثال: 771961061 - 777950051"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">أرقام خدمة الإرسال الإضافية (السطر الثاني - اختياري)</label>
+                        <input type="text" name="dispatch_phone_2" dir="ltr"
+                               value="{{ old('dispatch_phone_2', $pModel?->dispatch_phone_2) }}"
+                               placeholder="مثال: 777880006 - 777880005"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. بطاقة إعدادات السند والشروط والأحكام -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5">
+                <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                            <span class="material-symbols-outlined text-xl">gavel</span>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900">عناوين السند والشروط والأحكام</h3>
+                            <p class="text-xs text-slate-500">تخصيص عنوان السند والعبارة الدعائية وبنود الشروط التي تُطبع أسفل كل سند</p>
+                        </div>
+                    </div>
+
+                    <button type="button" @click="resetTerms()"
+                            class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors">
+                        استعادة الشروط الافتراضية
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">عنوان السند</label>
+                        <input type="text" name="receipt_title"
+                               value="{{ old('receipt_title', $pModel?->receipt_title ?? \App\Models\OfficeProfile::DEFAULT_RECEIPT_TITLE) }}"
+                               placeholder="سند إرسال"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">العبارة الدعائية (الشعار النصي)</label>
+                        <input type="text" name="slogan"
+                               value="{{ old('slogan', $pModel?->slogan ?? \App\Models\OfficeProfile::DEFAULT_SLOGAN) }}"
+                               placeholder="رسالتك في أيدٍ أمينة"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-2">نص التذييل (أسفل اليسار)</label>
+                        <input type="text" name="footer_text"
+                               value="{{ old('footer_text', $pModel?->footer_text ?? \App\Models\OfficeProfile::DEFAULT_FOOTER_TEXT) }}"
+                               placeholder="نظام مُرسَل للطرود"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                    </div>
+                </div>
+
+                <!-- قائمة الشروط والأحكام الديناميكية -->
+                <div class="space-y-2.5 pt-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-extrabold text-slate-700">بنود الشروط والأحكام (تُطبع في أسفل السند):</label>
+                        <button type="button" @click="addTerm()"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary text-white text-[11px] font-bold hover:bg-slate-800 transition-colors">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            <span>إضافة شرط</span>
+                        </button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <template x-for="(term, idx) in terms" :key="idx">
+                            <div class="flex items-center gap-2">
+                                <input type="text" name="receipt_terms[]" x-model="terms[idx]"
+                                       placeholder="اكتب نص الشرط..."
+                                       class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:bg-white focus:border-secondary outline-none">
+                                <button type="button" @click="removeTerm(idx)" title="حذف البند"
+                                        class="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 transition-colors">
+                                    <span class="material-symbols-outlined text-base">delete</span>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- التبويب 3: إعدادات وقالب الـ SMS          -->
         <!-- ========================================== -->
         <div x-show="activeTab === 'sms'" x-cloak class="space-y-6">
             <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
@@ -426,7 +772,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- التبويب 3: إعدادات وجلسة الواتساب المباشرة -->
+        <!-- التبويب 4: إعدادات وجلسة الواتساب المباشرة -->
         <!-- ========================================== -->
         <div x-show="activeTab === 'whatsapp'" x-cloak class="space-y-6">
             
@@ -593,7 +939,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- التبويب 4: الأمان وكلمة المرور وحالة الحساب -->
+        <!-- التبويب 5: الأمان وكلمة المرور وحالة الحساب -->
         <!-- ========================================== -->
         <div x-show="activeTab === 'security'" x-cloak class="space-y-6">
             <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">

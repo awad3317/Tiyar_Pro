@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\HasOfficeFeatures;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 class Office extends Authenticatable
 {
     use Notifiable, HasOfficeFeatures;
+
+    /** @var array<string, mixed>|null */
+    protected ?array $runtimeProfileCache = null;
 
     protected $fillable = [
         'name',
@@ -74,6 +78,31 @@ class Office extends Authenticatable
         return !empty($this->whatsapp_base_url) && !empty($this->whatsapp_api_key);
     }
 
+    public function profile(): HasOne
+    {
+        return $this->hasOne(OfficeProfile::class, 'office_id');
+    }
+
+    /**
+     * جلب هوية المكتب الكاملة (مكيشة في الذاكرة + الكاش الدائم بدون استعلامات مكررة).
+     *
+     * @return array<string, mixed>
+     */
+    public function getResolvedProfile(): array
+    {
+        if ($this->runtimeProfileCache !== null) {
+            return $this->runtimeProfileCache;
+        }
+
+        return $this->runtimeProfileCache = OfficeProfile::resolvedForOffice($this);
+    }
+
+    public function clearProfileCache(): void
+    {
+        $this->runtimeProfileCache = null;
+        OfficeProfile::forgetCache((int) $this->id);
+    }
+
     public function parcels(): HasMany
     {
         return $this->hasMany(Parcel::class, 'office_id');
@@ -127,26 +156,22 @@ class Office extends Authenticatable
      */
     public function syncPartnerOffices(array $partnerIds): void
     {
-        $selfId = (int) $this->id;
+        $selfId = (int)$this->id;
         $normalizedIds = array_values(array_unique(array_filter(
-            array_map(static fn ($id) => (int) $id, $partnerIds),
-            static fn (int $id) => $id > 0 && $id !== $selfId
+            array_map(static fn ($id) => (int) $id,$partnerIds),
+            static fn (int $id) =>$id > 0 && $id !==$selfId
         )));
 
-        DB::transaction(function () use ($selfId, $normalizedIds): void {
-            $currentIds = array_map(
+        DB::transaction(function () use ($selfId, $normalizedIds): void {$currentIds = array_map(
                 'intval',
                 $this->partnerOffices()->pluck('offices.id')->all()
             );
 
-            $toAttach = array_diff($normalizedIds, $currentIds);
-            $toDetach = array_diff($currentIds, $normalizedIds);
+            $toAttach = array_diff($normalizedIds, $currentIds);$toDetach = array_diff($currentIds,$normalizedIds);
 
             if (! empty($toAttach)) {
-                $now = now();
-                $rows = [];
-                foreach ($toAttach as $partnerId) {
-                    $rows[] = [
+                $now = now();$rows = [];
+                foreach ($toAttach as $partnerId) {$rows[] = [
                         'office_id'         => $selfId,
                         'partner_office_id' => $partnerId,
                         'created_at'        => $now,

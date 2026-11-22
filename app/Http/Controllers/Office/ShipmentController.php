@@ -758,13 +758,16 @@ class ShipmentController extends Controller
     /**
      * صفحة طباعة سند الطرد الصادر مع الباركود (QR + Barcode).
      */
-    public function printParcelReceipt(OutgoingParcel $outgoingParcel): View
+   public function printParcelReceipt(OutgoingParcel $outgoingParcel): View
     {
         /** @var Office $office */
         $office = Auth::guard('office')->user();
         abort_unless((int) $outgoingParcel->office_id === (int) $office->id, 403);
 
-        $outgoingParcel->load(['office:id,name,branch_name,whatsapp_sender_phone', 'destinationOffice:id,name,branch_name']);
+        $outgoingParcel->load([
+            'office:id,name,branch_name,whatsapp_sender_phone,manager_phone,httpsms_from_phone',
+            'destinationOffice:id,name,branch_name,whatsapp_sender_phone,manager_phone',
+        ]);
 
         return view('office.outgoing_parcels.receipt', compact('office', 'outgoingParcel'));
     }

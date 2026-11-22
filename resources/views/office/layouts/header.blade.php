@@ -1,28 +1,38 @@
 @php
     $office = auth('office')->user();
+    $headerProfile = $office ? $office->getResolvedProfile() : [];
+    $headerBrandIcon = $headerProfile['icon_url'] ?? $headerProfile['logo_url'] ?? null;
 @endphp
 
 <!-- شريط الهيدر الموحد -->
 <header class="bg-primary text-white p-4 sticky top-0 z-30 shadow-md">
     <div class="flex items-center justify-between gap-3">
-        <!-- اسم المكتب والفرع (قائمة منسدلة) -->
+        <!-- شعار واسم المكتب والفرع (قائمة منسدلة) -->
         <div class="min-w-0 flex-1 relative" x-data="{ menuOpen: false }">
-            <button type="button" @click="menuOpen = !menuOpen" 
-                    class="w-full text-right flex items-center gap-1.5 group">
+            <button type="button" @click="menuOpen = !menuOpen"
+                    class="w-full text-right flex items-center gap-2 group">
+                @if ($headerBrandIcon)
+                    <div class="w-9 h-9 rounded-xl bg-white/95 border border-white/20 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                        <img src="{{ $headerBrandIcon }}"
+                             alt="{{ $office->name ?? 'المكتب' }}"
+                             class="w-full h-full object-contain">
+                    </div>
+                @endif
+
                 <div class="min-w-0 flex-1">
                     <h1 class="font-extrabold text-base sm:text-lg leading-tight truncate text-white">
                         {{ $office->name ?? 'المكتب' }}
                     </h1>
-                    <p class="text-xs text-slate-400 truncate mt-0.5">
+                    <p class="text-xs text-slate-300/80 truncate mt-0.5">
                         {{ $office->branch_name ?? 'المركز الرئيسي' }}
                     </p>
                 </div>
-                <span class="material-symbols-outlined text-slate-400 text-sm transition-transform shrink-0"
+                <span class="material-symbols-outlined text-slate-300/80 text-sm transition-transform shrink-0"
                       :class="menuOpen ? 'rotate-180' : ''">expand_more</span>
             </button>
 
             <!-- القائمة المنسدلة -->
-            <div x-show="menuOpen" x-cloak 
+            <div x-show="menuOpen" x-cloak
                  @click.outside="menuOpen = false"
                  x-transition:enter="ease-out duration-150"
                  x-transition:enter-start="opacity-0 -translate-y-2 scale-95"
@@ -31,9 +41,9 @@
                  x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                  x-transition:leave-end="opacity-0 -translate-y-2 scale-95"
                  class="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
-                
+
                 <!-- رابط إعدادات الواتساب -->
-                <a href="{{ route('office.whatsapp.index') }}" 
+                <a href="{{ route('office.whatsapp.index') }}"
                    class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group/item">
                     <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover/item:bg-emerald-100 transition-colors">
                         <span class="material-symbols-outlined text-base">chat</span>
@@ -95,26 +105,26 @@
             @endif
 
             <!-- زر المزامنة اليدوية السريعة -->
-            <button type="button" 
-                    @click="(typeof syncData === 'function') ? syncData() : window.location.reload()" 
+            <button type="button"
+                    @click="(typeof syncData === 'function') ? syncData() : window.location.reload()"
                     title="مزامنة وتحديث البيانات"
-                    class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors">
+                    class="w-8 h-8 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 flex items-center justify-center text-slate-200 hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-[19px]" :class="typeof isSyncing !== 'undefined' && isSyncing ? 'animate-spin text-secondary' : ''">sync</span>
             </button>
 
             <!-- زر تسجيل الخروج المباشر -->
-            <form method="POST" 
-                  action="{{ route('office.logout') }}" 
+            <form method="POST"
+                  action="{{ route('office.logout') }}"
                   class="m-0"
                   x-data="{ isLoggingOut: false }"
                   @submit="isLoggingOut = true">
                 @csrf
-                <button type="submit" 
+                <button type="submit"
                         :disabled="isLoggingOut"
                         title="تسجيل الخروج"
-                        class="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 flex items-center justify-center text-rose-400 transition-colors disabled:opacity-75">
+                        class="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 hover:bg-rose-500/25 flex items-center justify-center text-rose-300 transition-colors disabled:opacity-75">
                     <span x-show="!isLoggingOut" class="material-symbols-outlined text-[19px]">logout</span>
-                    <span x-show="isLoggingOut" x-cloak class="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                    <span x-show="isLoggingOut" x-cloak class="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin"></span>
                 </button>
             </form>
         </div>
@@ -133,11 +143,11 @@
         @yield('header-search')
     @elseif (!empty($showSearch) || request()->routeIs('office.parcels.*') || request()->routeIs('office.favorite_customers.*'))
         <div class="mt-3 relative">
-            <input type="text" 
-                   x-model="search" 
-                   placeholder="{{ $searchPlaceholder ?? 'بحث برقم الهاتف، السند، نوع الطرد...' }}" 
-                   class="w-full bg-slate-800 text-white placeholder-slate-400 text-xs rounded-xl pr-9 pl-4 py-2.5 outline-none border border-slate-700 focus:border-secondary transition-all">
-            <span class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-lg">search</span>
+            <input type="text"
+                   x-model="search"
+                   placeholder="{{ $searchPlaceholder ?? 'بحث برقم الهاتف، السند، نوع الطرد...' }}"
+                   class="w-full bg-white/10 text-white placeholder-slate-300/70 text-xs rounded-xl pr-9 pl-4 py-2.5 outline-none border border-white/15 focus:border-secondary transition-all">
+            <span class="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-300/70 text-lg">search</span>
         </div>
     @endif
 </header>
