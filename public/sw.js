@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v22';
+const CACHE_NAME = 'mursal-pwa-v23';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -12,6 +12,30 @@ const ASSETS_TO_CACHE = [
     'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap',
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js'
 ];
+
+const NAV_TIMEOUT_MS = 1500;
+
+async function matchCachedNavigation(request, pathname) {
+    const exact = await caches.match(request);
+    if (exact) return exact;
+    if (pathname) {
+        const byPath = await caches.match(pathname);
+        if (byPath) return byPath;
+    }
+    return null;
+}
+
+function storeCachedNavigation(request, pathname, networkResponse) {
+    if (!networkResponse || networkResponse.status !== 200) return;
+    const cloneForReq = networkResponse.clone();
+    const cloneForPath = pathname ? networkResponse.clone() : null;
+    caches.open(CACHE_NAME).then((cache) => {
+        cache.put(request, cloneForReq);
+        if (pathname && cloneForPath) {
+            cache.put(pathname, cloneForPath);
+        }
+    }).catch(() => {});
+}
 
 // 1. التثبيت وحفظ الأصول الأساسية
 self.addEventListener('install', (event) => {
@@ -41,7 +65,7 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// 3. الاستجابة السريعة ودعم الأوفلاين
+// 3. الاستجابة السريعة ودعم الأوفلاين الفوري بدون تأخير أول نقرة
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
@@ -58,7 +82,7 @@ self.addEventListener('fetch', (event) => {
     const isAjaxJson = acceptHeader.includes('application/json') ||
         event.request.headers.get('X-Requested-With') === 'XMLHttpRequest';
 
-    // السماح بكاش App Shell لصفحة الشحنات المرسلة (/office/shipments/sent) فقط عند طلب تنقل HTML (Network-First + Cache Fallback)
+    // السماح بكاش App Shell لصفحة الشحنات المرسلة (/office/shipments/sent) فقط عند طلب تنقل HTML
     const isSentShipmentsAppShell =
         event.request.method === 'GET' &&
         !isAjaxJson &&
@@ -80,38 +104,73 @@ self.addEventListener('fetch', (event) => {
         return; // تذهب مباشرة إلى السيرفر بدون كاش
     }
 
-    // لصفحات التنقل (HTML Navigation): Network-First للحصول دائماً على أحدث هيدر وتحديثات، مع الرجوع للكاش عند انقطاع النت
+    // لصفحات التنقل (HTML Navigation): مسار أوفلاين فوري (<5ms) + سباق شبكة بمهلة 1.5 ثانية لمنع تعليق أول تنقل بعد فصل الإنترنت
     if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request)
-                .then((networkResponse) => {
-                    if (networkResponse && networkResponse.status === 200) {
-                        const responseClone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseClone.clone());
-                            if (url.pathname === '/office/shipments/sent') {
-                                cache.put('/office/shipments/sent', responseClone);
-                            }
-                        });
-                    }
-                    return networkResponse;
-                })
-                .catch(() => {
-                    return caches.match(event.request).then((cached) => {
-                        if (cached) return cached;
-                        if (url.pathname === '/office/shipments/sent') {
-                            return caches.match('/office/shipments/sent');
+        event.respondWith((async () => {
+            const cachedShell = await matchCachedNavigation(event.request, url.pathname);
+
+            // أ) إذا كان المتصفح يقرأ حالة عدم الاتصال صراحةً: إرجاع فوري من الكاش بدون استدعاء fetch()
+            if (self.navigator && self.navigator.onLine === false) {
+                if (cachedShell) {
+                    return cachedShell;
+                }
+                return (await caches.match('/office/parcels')) || fetch(event.request);
+            }
+
+            // ب) إذا توفرت نسخة مخبأة (App Shell): سباق الشبكة مع مهلة 1500ms لمنع تعليق أول نقرة عند انقطاع النت الفعلي (Lie-Fi)
+            if (cachedShell) {
+                const networkPromise = fetch(event.request)
+                    .then((networkResponse) => {
+                        if (networkResponse && networkResponse.status === 200) {
+                            storeCachedNavigation(event.request, url.pathname, networkResponse);
                         }
-                        return caches.match('/office/parcels');
+                        return networkResponse;
                     });
-                })
-        );
+
+                const timeoutPromise = new Promise((resolve) => {
+                    setTimeout(() => resolve(null), NAV_TIMEOUT_MS);
+                });
+
+                try {
+                    const winner = await Promise.race([
+                        networkPromise.catch(() => null),
+                        timeoutPromise,
+                    ]);
+
+                    if (winner) {
+                        return winner;
+                    }
+
+                    // تجاوزت الشبكة 1.5 ثانية أو فشلت: تقديم الكاش فوراً مع استمرار تحديث الكاش بالخلفية إن اكتمل الطلب لاحقاً
+                    networkPromise.catch(() => {});
+                    return cachedShell;
+                } catch (_) {
+                    return cachedShell;
+                }
+            }
+
+            // ج) لا توجد نسخة في الكاش بعد: جلب طبيعي من الشبكة مع حفظها
+            try {
+                const networkResponse = await fetch(event.request);
+                if (networkResponse && networkResponse.status === 200) {
+                    storeCachedNavigation(event.request, url.pathname, networkResponse);
+                }
+                return networkResponse;
+            } catch (_) {
+                return (await matchCachedNavigation(event.request, url.pathname))
+                    || (await caches.match('/office/parcels'));
+            }
+        })());
         return;
     }
 
     // للأصول الثابتة (Static Assets): Cache-First
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
+            if (self.navigator && self.navigator.onLine === false && cachedResponse) {
+                return cachedResponse;
+            }
+
             const fetchPromise = fetch(event.request)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
