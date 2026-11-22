@@ -278,6 +278,10 @@
         isWaConnected: {{ $isWaConnected ? 'true' : 'false' }},
         waStatusChecked: false,
         checkWhatsAppStatus() {
+            if (!navigator.onLine) {
+                this.waStatusChecked = true;
+                return;
+            }
             fetch('{{ route('office.whatsapp.status') }}?refresh=1', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             })
