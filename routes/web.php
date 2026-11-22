@@ -146,6 +146,7 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::post('/', [OutgoingParcelController::class, 'store'])->name('store');
                 Route::post('/{outgoingParcel}/dispatch', [OutgoingParcelController::class, 'dispatch'])->name('dispatch');
                 Route::post('/{outgoingParcel}/deliver-external', [OutgoingParcelController::class, 'deliverExternal'])->name('deliver-external');
+                Route::post('/{outgoingParcel}/detach-shipment', [OutgoingParcelController::class, 'detachShipment'])->name('detach-shipment');
                 Route::post('/{outgoingParcel}/cancel', [OutgoingParcelController::class, 'cancel'])->name('cancel');
                 Route::get('/{outgoingParcel}/receipt', [ShipmentController::class, 'printParcelReceipt'])->name('receipt');
             });
@@ -170,6 +171,7 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::get('/{shipment}/print', [ShipmentController::class, 'printSent'])->name('print');
                 Route::post('/{shipment}/dispatch', [ShipmentController::class, 'dispatch'])->name('dispatch');
                 Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel'])->name('cancel');
+                Route::post('/{shipment}/parcels/{outgoingParcel}/detach', [ShipmentController::class, 'detachParcel'])->name('detach-parcel');
             });
 
         // الشحنات المستلمة (متاحة لجميع المكاتب المسجلة)

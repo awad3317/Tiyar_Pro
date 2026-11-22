@@ -305,12 +305,21 @@ class SentShipmentsFeatureTest extends TestCase
 
         $shipment = Shipment::query()->where('office_id', $this->officeA->id)->firstOrFail();
 
-        // إلغاء الطرد الثالث بعد إنشاء الشحنة للتأكد من استبعاده من مجاميع الطباعة
+        // 1. إخراج الطرد الثالث من الشحنة عبر شاشة الشحنة المرسلة ثم إلغاؤه
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.detach-parcel', [$shipment, $cancelledParcel]))
+            ->assertOk()
+            ->assertJson([
+                'ok'        => true,
+                'parcel_id' => $cancelledParcel->id,
+                'status'    => 'pending',
+            ]);
+
         $this->actingAs($this->officeA, 'office')
             ->postJson(route('office.outgoing-parcels.cancel', $cancelledParcel))
             ->assertOk();
 
-        // 1. صفحة الطباعة الرسمية ترجع 200 وتعرض الجدول والمجاميع الصافية والتوقيعات
+        // 2. صفحة الطباعة الرسمية (توأم كشف المحاسب: 8 أعمدة + 3 مربعات مالية + عمودا توقيع) ترجع 200
         $printRes = $this->actingAs($this->officeA, 'office')
             ->get(route('office.shipments.sent.print', $shipment))
             ->assertOk();
@@ -320,30 +329,51 @@ class SentShipmentsFeatureTest extends TestCase
             ->assertSee('سائق الطباعة')
             ->assertSee('771800900')
             ->assertSee('رقم السند')
-            ->assertSee('الوجهة / الفرع')
-            ->assertSee('المستلم ورقم الهاتف')
+            ->assertSee('اسم المستلم')
+            ->assertSee('رقم الجوال')
+            ->assertSee('النوع')
+            ->assertSee('الوجهة')
+            ->assertSee('الدفع')
+            ->assertSee('المبلغ (ر.ي)')
             ->assertSee('مستلم محاسب')
             ->assertSee('مستلم آجل')
-            ->assertSee('قابل للكسر')
+            ->assertDontSee('مستلم ملغي')
             ->assertSee('تسليم عاجل')
-            ->assertSee('2 طرد')
+            ->assertSee('إجمالي طرود الآجل')
+            ->assertSee('إجمالي طرود المحاسب')
+            ->assertSee('الإجمالي الكلي')
             ->assertSee('3,000 ر.ي')
             ->assertSee('5,000 ر.ي')
             ->assertSee('8,000 ر.ي')
             ->assertDontSee('14,000 ر.ي')
             ->assertDontSee('17,000 ر.ي')
-            ->assertSee('توقيع السائق')
             ->assertSee('توقيع الموظف')
-            ->assertSee('الختم الرسمي')
+            ->assertSee('توقيع السائق / المستلم')
+            ->assertDontSee('الختم الرسمي')
             ->assertSee('size: A4 portrait;', false);
 
-        // 2. التحقق من أن صفحة تفاصيل الشحنة تربط بمسار الطباعة الرسمي
+        // 3. صفحة تفاصيل الشحنة تفعّل الطباعة المباشرة (window.print) وتعرض زر «إخراج من الشحنة» للطرود غير المستلمة
         $this->actingAs($this->officeA, 'office')
             ->get(route('office.shipments.sent.show', $shipment))
             ->assertOk()
-            ->assertSee(route('office.shipments.sent.print', $shipment), false);
+            ->assertSee('onclick="window.print()"', false)
+            ->assertSee('إخراج من الشحنة')
+            ->assertSee('توقيع السائق / المستلم');
 
-        // 3. مكتب آخر لا يستطيع طباعة شحنة لا تخصه (403)
+        // 4. بعد استلام الطرد الأول بالفرع B، يُرفض إخراجه من صفحة الشحنة بـ 422
+        $this->actingAs($this->officeB, 'office')
+            ->postJson(route('office.transit-parcels.receive', $paidParcel))
+            ->assertOk();
+
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.detach-parcel', [$shipment, $paidParcel]))
+            ->assertStatus(422)
+            ->assertJson([
+                'ok'      => false,
+                'message' => 'لا يمكن إخراج الطرد لأنه تم استلامه بالفعل من الفرع المستلم.',
+            ]);
+
+        // 5. مكتب آخر لا يستطيع طباعة شحنة لا تخصه (403)
         $this->officeB->syncFeaturesStatus(['sent_shipments']);
         $this->officeB->refreshFeaturesCache();
 

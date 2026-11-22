@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Office\StoreOutgoingParcelRequest;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
+use App\Models\Shipment;
 use App\Services\OutgoingParcelService;
+use App\Services\ShipmentService;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
@@ -251,6 +253,58 @@ class OutgoingParcelController extends Controller
                     'ok'      => false,
                     'message' => $e->getMessage(),
                 ], 422);
+            }
+
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function detachShipment(Request $request, OutgoingParcel $outgoingParcel, ShipmentService $shipmentService)
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+
+        if ((int) $outgoingParcel->office_id !== (int) $office->id) {
+            abort(403, 'غير مصرح لك بإدارة هذا الطرد.');
+        }
+
+        try {
+            if (! $outgoingParcel->shipment_id) {
+                throw new DomainException('هذا الطرد غير مرتبط بأي شحنة حالياً.');
+            }
+
+            $shipment = Shipment::query()->findOrFail($outgoingParcel->shipment_id);
+            $updated = $shipmentService->detachParcel($shipment, $outgoingParcel, $office);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $updated = $updated->fresh(self::EAGER_RELATIONS) ?? $updated->load(self::EAGER_RELATIONS);
+
+                return response()
+                    ->json([
+                        'ok'        => true,
+                        'message'   => 'تم إخراج الطرد من الشحنة وإعادته إلى (في الانتظار) بنجاح.',
+                        'parcel_id' => $updated->id,
+                        'status'    => $updated->status->value,
+                        'counts'    => $this->getStatusCounts($office),
+                        'parcel'    => $this->formatParcelJson($updated),
+                        'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                    ])
+                    ->withHeaders(self::NO_CACHE_HEADERS);
+            }
+
+            return redirect()
+                ->back()
+                ->with('success', 'تم إخراج الطرد من الشحنة وإعادته إلى (في الانتظار) بنجاح.');
+        } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()
+                    ->json([
+                        'ok'      => false,
+                        'message' => $e->getMessage(),
+                    ], 422)
+                    ->withHeaders(self::NO_CACHE_HEADERS);
             }
 
             return redirect()

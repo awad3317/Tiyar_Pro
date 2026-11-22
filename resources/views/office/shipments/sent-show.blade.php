@@ -12,7 +12,17 @@
         $activeDeferredTotal = round((float) $activeParcels->filter(fn ($p) => ($p->payment_type instanceof \App\Enums\OutgoingPaymentType ? $p->payment_type : \App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type)) === \App\Enums\OutgoingPaymentType::DEFERRED)->sum('cod_amount'), 2);
         $activeGrandTotal = round($activePaidTotal + $activeDeferredTotal, 2);
 
-        $canDispatch = $shipment->status === \App\Enums\ShipmentStatus::DRAFT;
+        $shipmentAllowsDetach = in_array(
+            $shipment->status,
+            [
+                \App\Enums\ShipmentStatus::DRAFT,
+                \App\Enums\ShipmentStatus::IN_TRANSIT,
+                \App\Enums\ShipmentStatus::PARTIALLY_RECEIVED,
+            ],
+            true,
+        );
+
+        $canDispatch = $shipment->status === \App\Enums\ShipmentStatus::DRAFT && $activeParcels->isNotEmpty();
         $canCancel =
             in_array(
                 $shipment->status,
@@ -31,11 +41,11 @@
 
     @push('styles')
         <style>
-            @page {
-                size: A4 portrait;
-                margin: 10mm;
-            }
             @media print {
+                @page {
+                    size: A4 portrait;
+                    margin: 10mm;
+                }
                 html, body {
                     height: auto !important;
                     min-height: 0 !important;
@@ -57,8 +67,7 @@
                 table.print-table tfoot {
                     display: table-footer-group;
                 }
-                table.print-table tr,
-                .print-avoid-break {
+                table.print-table tr {
                     break-inside: avoid;
                     page-break-inside: avoid;
                 }
@@ -66,9 +75,42 @@
         </style>
     @endpush
 
-    <main class="flex-1 p-3.5 space-y-3.5 print:hidden" x-data="{ confirmModal: { open: false, type: '', url: '', submitting: false } }">
+    <main class="flex-1 p-3.5 space-y-3.5 print:hidden"
+          x-data="{
+              detachModal: { open: false, url: '#', receipt: '', packageType: '', destination: '', submitting: false },
+              openDetachModal(data) {
+                  this.detachModal = {
+                      open: true,
+                      url: data.url,
+                      receipt: data.receipt || '',
+                      packageType: data.packageType || '',
+                      destination: data.destination || '',
+                      submitting: false,
+                  };
+              },
+              closeDetachModal() {
+                  if (this.detachModal.submitting) return;
+                  this.detachModal.open = false;
+              }
+          }"
+          @keydown.escape.window="closeDetachModal()">
 
-        {{-- شريط علوي للرجوع والطباعة --}}
+        {{-- رسائل النجاح والخطأ --}}
+        @if (session('success'))
+            <div class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 no-print">
+                <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                <span class="flex-1">{{ session('success') }}</span>
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2 no-print">
+                <span class="material-symbols-outlined text-base text-rose-600">error</span>
+                <span class="flex-1">{{ session('error') }}</span>
+            </div>
+        @endif
+
+        {{-- شريط علوي للرجوع والطباعة المباشرة (مطابق لتطبيق المحاسب) --}}
         <div class="flex items-center justify-between gap-2 no-print">
             <a href="{{ route('office.shipments.sent.index') }}"
                 class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-primary">
@@ -76,11 +118,11 @@
                 <span>الشحنات المرسلة</span>
             </a>
 
-            <a href="{{ route('office.shipments.sent.print', $shipment) }}"
-                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:bg-slate-800">
+            <button type="button" onclick="window.print()"
+                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:bg-slate-800 active:scale-95 transition-all">
                 <span class="material-symbols-outlined text-base">print</span>
                 <span>طباعة الكشف</span>
-            </a>
+            </button>
         </div>
 
         {{-- بطاقة ملخص الكشف --}}
@@ -172,18 +214,25 @@
         {{-- جدول/بطاقات الطرود داخل الشحنة --}}
         <div class="space-y-2">
             <h3 class="text-xs font-extrabold text-slate-700 px-1">
-                الطرود المضمومة ({{ $shipment->parcels->count() }})
+                الطرود المضمومة ({{ $activeParcels->count() }})
             </h3>
 
-            @foreach ($shipment->parcels as $parcel)
+            @forelse ($activeParcels as $parcel)
                 @php
                     $paymentEnum =
                         $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
                             ? $parcel->payment_type
                             : \App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ??
                                 \App\Enums\OutgoingPaymentType::PAID;
+                    $isReceived =
+                        $parcel->status === \App\Enums\OutgoingParcelStatus::RECEIVED
+                        || $parcel->linked_incoming_parcel_id !== null;
+                    $canDetachParcel =
+                        $shipmentAllowsDetach
+                        && ! $isReceived
+                        && $parcel->status !== \App\Enums\OutgoingParcelStatus::DELIVERED;
                 @endphp
-                <div class="bg-white border border-slate-200 rounded-2xl p-3 space-y-1.5 text-xs">
+                <div class="bg-white border {{ $parcel->status->cardBorderClass() }} rounded-2xl p-3 space-y-2 text-xs">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
@@ -204,7 +253,7 @@
                             </a>
                             <span
                                 class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold {{ $parcel->status->badgeClass() }}">
-                                {{ $parcel->status->label() }}
+                                {{ $isReceived ? 'تم الاستلام' : $parcel->status->label() }}
                             </span>
                         </div>
                     </div>
@@ -219,13 +268,83 @@
                             {{ $paymentEnum->label() }}: {{ number_format((float) ($parcel->cod_amount ?? 0)) }} ر.ي
                         </span>
                     </div>
+
+                    @if ($canDetachParcel)
+                        <div class="pt-1 border-t border-slate-100 flex justify-end no-print">
+                            <button type="button"
+                                @click="openDetachModal(@js([
+                                    'url'         => route('office.shipments.sent.detach-parcel', [$shipment, $parcel]),
+                                    'receipt'     => $parcel->receipt_number,
+                                    'packageType' => $parcel->package_type,
+                                    'destination' => $parcel->destinationLabel(),
+                                ]))"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-bold transition-colors active:scale-95">
+                                <span class="material-symbols-outlined text-sm">link_off</span>
+                                <span>إخراج من الشحنة</span>
+                            </button>
+                        </div>
+                    @endif
                 </div>
-            @endforeach
+            @empty
+                <div class="bg-white border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs font-bold text-slate-400">
+                    لا توجد طرود فعّالة متبقية داخل هذه الشحنة.
+                </div>
+            @endforelse
+        </div>
+
+        {{-- مودال تأكيد إخراج طرد من الشحنة --}}
+        <div x-show="detachModal.open"
+             x-cloak
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 no-print">
+            <div class="fixed inset-0 bg-slate-950/60" @click="closeDetachModal()"></div>
+
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 flex flex-col gap-4 text-right">
+                <button type="button" @click="closeDetachModal()" :disabled="detachModal.submitting"
+                        class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+
+                <div class="text-center pt-1">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mb-3">
+                        <span class="material-symbols-outlined text-3xl">link_off</span>
+                    </div>
+                    <h3 class="text-base font-extrabold text-slate-800">إخراج الطرد من الشحنة</h3>
+                    <p class="text-xs text-slate-500 mt-1">سيتم فك ارتباط الطرد وإعادته إلى قائمة (في الانتظار).</p>
+                </div>
+
+                <div class="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">رقم السند:</span>
+                        <span class="font-mono font-bold text-slate-800" x-text="'#' + detachModal.receipt"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">النوع:</span>
+                        <span class="font-bold text-slate-700" x-text="detachModal.packageType"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">الوجهة:</span>
+                        <span class="font-bold text-amber-700 truncate max-w-[180px]" x-text="detachModal.destination"></span>
+                    </div>
+                </div>
+
+                <form method="POST" :action="detachModal.url" @submit="detachModal.submitting = true" class="flex flex-col gap-2">
+                    @csrf
+                    <button type="submit" :disabled="detachModal.submitting"
+                            class="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-lg shadow-amber-600/25 flex items-center justify-center gap-1.5 disabled:opacity-50">
+                        <span class="material-symbols-outlined text-base">link_off</span>
+                        <span x-text="detachModal.submitting ? 'جاري الإخراج...' : 'تأكيد الإخراج من الشحنة'"></span>
+                    </button>
+                    <button type="button" @click="closeDetachModal()" :disabled="detachModal.submitting"
+                            class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">
+                        تراجع
+                    </button>
+                </form>
+            </div>
         </div>
 
     </main>
 
-    {{-- قالب الطباعة الرسمي A4 عند الطباعة المباشرة (Ctrl+P) من صفحة التفاصيل --}}
+    {{-- قالب الطباعة الرسمي A4 (يظهر فقط عند الطباعة المباشرة — توأم كشف المحاسب تماماً) --}}
     <div class="hidden print:block w-full bg-white">
         @include('office.shipments.partials.sent-manifest-document', [
             'office'   => $office,

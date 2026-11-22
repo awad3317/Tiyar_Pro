@@ -166,8 +166,12 @@ class OutgoingParcelService
                 throw new DomainException('غير مصرح لك بإلغاء هذا الطرد.');
             }
 
-            if ($locked->linked_incoming_parcel_id !== null) {
+            if ($locked->linked_incoming_parcel_id !== null || $locked->status === OutgoingParcelStatus::RECEIVED) {
                 throw new DomainException('لا يمكن إلغاء طرد تم استلامه وتحويله إلى طرد وارد.');
+            }
+
+            if ($locked->shipment_id !== null) {
+                throw new DomainException('لا يمكن إلغاء الطرد وهو ضمن شحنة؛ يرجى إخراجه من الشحنة أولاً.');
             }
 
             if (! in_array($locked->status, [OutgoingParcelStatus::PENDING, OutgoingParcelStatus::IN_TRANSIT], true)) {

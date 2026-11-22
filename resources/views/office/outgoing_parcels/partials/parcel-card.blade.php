@@ -7,6 +7,7 @@
     $hasSentShipments = $officeUser && $officeUser->hasFeature('sent_shipments');
     $createdAgo = $parcel->created_at?->copy()->locale('ar')->diffForHumans();
     $shipment = $parcel->shipment;
+    $isAttachedToShipment = $parcel->shipment_id !== null;
 
     $modalPayload = [
         'id'              => $parcel->id,
@@ -18,13 +19,19 @@
         'cod_amount'      => number_format((float) ($parcel->cod_amount ?? 0)),
         'recipient_name'  => $parcel->recipient_name,
         'recipient_phone' => $parcel->recipient_phone,
+        'shipment_number' => $shipment?->shipment_number,
     ];
+
     $cancelPayloadJson = json_encode(
         array_merge($modalPayload, ['url' => route('office.outgoing-parcels.cancel', $parcel)]),
         JSON_UNESCAPED_UNICODE
     );
     $deliverPayloadJson = json_encode(
         array_merge($modalPayload, ['url' => route('office.outgoing-parcels.deliver-external', $parcel)]),
+        JSON_UNESCAPED_UNICODE
+    );
+    $detachPayloadJson = json_encode(
+        array_merge($modalPayload, ['url' => route('office.outgoing-parcels.detach-shipment', $parcel)]),
         JSON_UNESCAPED_UNICODE
     );
 @endphp
@@ -71,7 +78,7 @@
                         <span class="font-mono">{{ number_format((float) ($parcel->cod_amount ?? 0)) }} ر.ي</span>
                     </span>
 
-                    @if($parcel->shipment_id && $shipment)
+                    @if($isAttachedToShipment && $shipment)
                         <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-[10px] font-mono font-bold whitespace-nowrap">
                             <span class="material-symbols-outlined text-[12px]">local_shipping</span>
                             <span>شحنة #{{ $shipment->shipment_number }}</span>
@@ -128,10 +135,10 @@
         @endif
     </div>
 
-    {{-- شريط الإجراءات السفلي (إرسال الطرود يتم حصراً عبر الشحنات) --}}
+    {{-- شريط الإجراءات السفلي (إلغاء الطرد محصور بالطرود الحرة غير المرتبطة بشحنة، ويجب الإخراج أولاً) --}}
     @if ($parcel->status === \App\Enums\OutgoingParcelStatus::PENDING)
         <div class="mt-3 flex items-center gap-2">
-            @if ($parcel->shipment_id === null)
+            @if (! $isAttachedToShipment)
                 @if ($hasSentShipments)
                     <a href="{{ route('office.shipments.sent.index') }}"
                        class="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95">
@@ -146,6 +153,14 @@
                         <span>ضم إلى شحنة</span>
                     </button>
                 @endif
+
+                <button type="button"
+                        data-card-action="cancel"
+                        data-action-payload="{{ $cancelPayloadJson }}"
+                        class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
+                    <span class="material-symbols-outlined text-sm">cancel</span>
+                    <span>إلغاء</span>
+                </button>
             @else
                 @if ($hasSentShipments)
                     <a href="{{ route('office.shipments.sent.show', $parcel->shipment_id) }}"
@@ -159,15 +174,15 @@
                         <span class="truncate">مُضاف للشحنة #{{ $shipment?->shipment_number ?? '...' }} (بانتظار الإرسال)</span>
                     </div>
                 @endif
-            @endif
 
-            <button type="button"
-                    data-card-action="cancel"
-                    data-action-payload="{{ $cancelPayloadJson }}"
-                    class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                <span class="material-symbols-outlined text-sm">cancel</span>
-                <span>إلغاء</span>
-            </button>
+                <button type="button"
+                        data-card-action="detach"
+                        data-action-payload="{{ $detachPayloadJson }}"
+                        class="py-2 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
+                    <span class="material-symbols-outlined text-sm">link_off</span>
+                    <span>إخراج من الشحنة</span>
+                </button>
+            @endif
         </div>
 
     @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::IN_TRANSIT)
@@ -187,13 +202,23 @@
                 </div>
             @endif
 
-            <button type="button"
-                    data-card-action="cancel"
-                    data-action-payload="{{ $cancelPayloadJson }}"
-                    class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                <span class="material-symbols-outlined text-sm">cancel</span>
-                <span>إلغاء</span>
-            </button>
+            @if ($isAttachedToShipment)
+                <button type="button"
+                        data-card-action="detach"
+                        data-action-payload="{{ $detachPayloadJson }}"
+                        class="py-2 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
+                    <span class="material-symbols-outlined text-sm">link_off</span>
+                    <span>إخراج من الشحنة</span>
+                </button>
+            @else
+                <button type="button"
+                        data-card-action="cancel"
+                        data-action-payload="{{ $cancelPayloadJson }}"
+                        class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
+                    <span class="material-symbols-outlined text-sm">cancel</span>
+                    <span>إلغاء</span>
+                </button>
+            @endif
         </div>
 
     @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::RECEIVED)

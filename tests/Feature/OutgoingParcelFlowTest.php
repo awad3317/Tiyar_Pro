@@ -350,4 +350,90 @@ class OutgoingParcelFlowTest extends TestCase
             $this->assertNull($shipment->fresh()->dispatched_at);
         }
     }
+
+    public function test_cannot_cancel_parcel_while_attached_to_shipment_and_must_detach_first_before_receipt(): void
+    {
+        $outgoingService = app(OutgoingParcelService::class);
+        $shipmentService = app(ShipmentService::class);
+
+        $p1 = $outgoingService->create($this->officeA, [
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل 1',
+            'sender_phone'          => '771100111',
+            'recipient_name'        => 'مستلم 1',
+            'recipient_phone'       => '772100111',
+            'package_type'          => 'كرتون وسط',
+            'cod_amount'            => 3000,
+            'payment_type'          => 'paid',
+        ]);
+
+        $p2 = $outgoingService->create($this->officeA, [
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل 2',
+            'sender_phone'          => '771200222',
+            'recipient_name'        => 'مستلم 2',
+            'recipient_phone'       => '772200222',
+            'package_type'          => 'كيس كبير',
+            'cod_amount'            => 5000,
+            'payment_type'          => 'deferred',
+        ]);
+
+        // 1. ضم الطردين في شحنة مسودة (draft) → يُرفض الإلغاء المباشر
+        $shipment = $shipmentService->create($this->officeA, [
+            'driver_name'  => 'سائق القواعد',
+            'driver_phone' => '771300333',
+            'parcel_ids'   => [$p1->id, $p2->id],
+            'dispatch_now' => false,
+        ]);
+
+        try {
+            $outgoingService->cancel($p1->fresh(), $this->officeA);
+            $this->fail('Expected DomainException when cancelling parcel attached to draft shipment.');
+        } catch (DomainException $e) {
+            $this->assertSame('لا يمكن إلغاء الطرد وهو ضمن شحنة؛ يرجى إخراجه من الشحنة أولاً.', $e->getMessage());
+        }
+
+        // 2. إرسال الشحنة (in_transit) → ما زال الإلغاء المباشر مرفوضاً
+        $shipment = $shipmentService->dispatch($shipment, $this->officeA);
+
+        try {
+            $outgoingService->cancel($p1->fresh(), $this->officeA);
+            $this->fail('Expected DomainException when cancelling parcel attached to in_transit shipment.');
+        } catch (DomainException $e) {
+            $this->assertSame('لا يمكن إلغاء الطرد وهو ضمن شحنة؛ يرجى إخراجه من الشحنة أولاً.', $e->getMessage());
+        }
+
+        // 3. إخراج الطرد الأول من الشحنة يعيده إلى pending ويفك ارتباطه ويحدث مجاميع الشحنة
+        $detached = $shipmentService->detachParcel($shipment, $p1->fresh(), $this->officeA);
+        $this->assertNull($detached->shipment_id);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $detached->status);
+        $this->assertNull($detached->dispatched_at);
+
+        $shipment->refresh();
+        $this->assertSame(1, $shipment->parcels_count);
+        $this->assertEquals(0.0, (float) $shipment->total_paid_amount);
+        $this->assertEquals(5000.0, (float) $shipment->total_deferred_amount);
+        $this->assertEquals(5000.0, (float) $shipment->total_amount);
+
+        // الآن يُسمح بإلغاء الطرد الأول بعد إخراجه
+        $cancelled = $outgoingService->cancel($detached, $this->officeA);
+        $this->assertSame(OutgoingParcelStatus::CANCELLED, $cancelled->status);
+
+        // 4. استلام الطرد الثاني بالفرع المستلم → يُمنع إخراجه أو إلغاؤه بشكل نهائي
+        $outgoingService->receiveAtDestination($p2->fresh(), $this->officeB);
+
+        try {
+            $shipmentService->detachParcel($shipment->fresh(), $p2->fresh(), $this->officeA);
+            $this->fail('Expected DomainException when detaching an already received parcel.');
+        } catch (DomainException $e) {
+            $this->assertSame('لا يمكن إخراج الطرد لأنه تم استلامه بالفعل من الفرع المستلم.', $e->getMessage());
+        }
+
+        try {
+            $outgoingService->cancel($p2->fresh(), $this->officeA);
+            $this->fail('Expected DomainException when cancelling an already received parcel.');
+        } catch (DomainException $e) {
+            $this->assertSame('لا يمكن إلغاء طرد تم استلامه وتحويله إلى طرد وارد.', $e->getMessage());
+        }
+    }
 }

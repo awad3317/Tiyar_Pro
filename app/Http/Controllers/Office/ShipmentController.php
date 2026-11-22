@@ -248,6 +248,38 @@ class ShipmentController extends Controller
     }
 
     /**
+     * إخراج طرد واحد غير مستلم من الشحنة وإعادته إلى حالة (في الانتظار).
+     */
+    public function detachParcel(Request $request, Shipment $shipment, OutgoingParcel $outgoingParcel): JsonResponse|RedirectResponse
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+        abort_unless((int) $shipment->office_id === (int) $office->id, 403);
+
+        try {
+            $updated = $this->shipmentService->detachParcel($shipment, $outgoingParcel, $office);
+            $msg = "تم إخراج الطرد (سند #{$updated->receipt_number}) من الشحنة وإعادته إلى (في الانتظار).";
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'        => true,
+                    'message'   => $msg,
+                    'parcel_id' => $updated->id,
+                    'status'    => $updated->status->value,
+                ]);
+            }
+
+            return back()->with('success', $msg);
+        } catch (DomainException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
+            }
+
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * شاشة الشحنات المستلمة (القادمة لهذا المكتب من فروع شريكة — يعرض فقط طرود هذا المكتب داخل كل شحنة).
      */
     public function receivedIndex(Request $request): View

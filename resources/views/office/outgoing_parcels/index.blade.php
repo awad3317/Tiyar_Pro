@@ -601,7 +601,7 @@
             </div>
         </div>
 
-        {{-- 5. مودال التأكيد الموحّد لإجراءات الطرد الصادر (تسليم خارجي / إلغاء) --}}
+        {{-- 5. مودال التأكيد الموحّد لإجراءات الطرد الصادر (إخراج من الشحنة / تسليم خارجي / إلغاء) --}}
         <div x-show="actionModal.open"
              x-cloak
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
@@ -879,7 +879,7 @@
                     return;
                 }
 
-                if (action === 'cancel' || action === 'deliver') {
+                if (action === 'cancel' || action === 'deliver' || action === 'detach') {
                     const rawPayload = btn.getAttribute('data-action-payload');
                     if (!rawPayload) return;
                     try {
@@ -959,6 +959,29 @@
             },
 
             get actionModalMeta() {
+                if (this.actionModal.type === 'detach') {
+                    const shipNum = this.actionModal.parcel?.shipment_number;
+                    return {
+                        icon: 'link_off',
+                        iconBoxClass: 'bg-amber-50 border-amber-200 text-amber-600',
+                        destTextClass: 'text-amber-700',
+                        title: 'إخراج الطرد من الشحنة',
+                        subtitle: shipNum
+                            ? `هل أنت متأكد من إخراج هذا الطرد من الشحنة #${shipNum} وإعادته إلى (في الانتظار)؟`
+                            : 'هل أنت متأكد من إخراج هذا الطرد من الشحنة وإعادته إلى (في الانتظار)؟',
+                        noticeIcon: 'info',
+                        noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800',
+                        noticeIconClass: 'text-amber-600',
+                        noticeLabel: 'ملاحظة: ',
+                        noticeText: 'سيُفك ارتباط الطرد من الشحنة ويعود إلى قائمة (في الانتظار)، وبعدها يمكنك إلغاؤه أو ضمه إلى شحنة أخرى.',
+                        confirmBtnClass: 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25',
+                        confirmLabel: 'تأكيد الإخراج من الشحنة',
+                        submittingLabel: 'جاري الإخراج...',
+                        successFallback: 'تم إخراج الطرد من الشحنة بنجاح.',
+                        errorFallback: 'تعذر إخراج الطرد من الشحنة.',
+                    };
+                }
+
                 if (this.actionModal.type === 'deliver') {
                     return {
                         icon: 'check_circle',

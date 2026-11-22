@@ -213,6 +213,107 @@ class ShipmentService
     }
 
     /**
+     * إخراج طرد واحد من الشحنة وإعادته إلى حالة (في الانتظار) قبل استلامه من الفرع المستلم،
+     * مع قفل الصف لمنع التضارب اللحظي وإعادة حساب مجاميع وحالة الشحنة.
+     */
+    public function detachParcel(Shipment $shipment, OutgoingParcel $parcel, Office $office): OutgoingParcel
+    {
+        return DB::transaction(function () use ($shipment, $parcel, $office): OutgoingParcel {
+            // قفل الطرد أولاً بنفس ترتيب القفل في receiveAtDestination لمنع أي Deadlock أو سباق استلام
+            $lockedParcel = OutgoingParcel::query()
+                ->whereKey($parcel->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $lockedParcel->office_id !== (int) $office->id) {
+                throw new DomainException('غير مصرح لك بإخراج هذا الطرد من الشحنة.');
+            }
+
+            if ((string) $lockedParcel->shipment_id !== (string) $shipment->id) {
+                throw new DomainException('هذا الطرد غير مرتبط بهذه الشحنة.');
+            }
+
+            if (
+                $lockedParcel->linked_incoming_parcel_id !== null
+                || $lockedParcel->status === OutgoingParcelStatus::RECEIVED
+            ) {
+                throw new DomainException('لا يمكن إخراج الطرد لأنه تم استلامه بالفعل من الفرع المستلم.');
+            }
+
+            if ($lockedParcel->status === OutgoingParcelStatus::DELIVERED) {
+                throw new DomainException('لا يمكن إخراج طرد تم تسليمه بالفعل.');
+            }
+
+            if ($lockedParcel->status === OutgoingParcelStatus::CANCELLED) {
+                throw new DomainException('لا يمكن إخراج طرد ملغي.');
+            }
+
+            $lockedShipment = Shipment::query()
+                ->whereKey($shipment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $lockedShipment->office_id !== (int) $office->id) {
+                throw new DomainException('غير مصرح لك بإدارة هذه الشحنة.');
+            }
+
+            if (! in_array($lockedShipment->status, [
+                ShipmentStatus::DRAFT,
+                ShipmentStatus::IN_TRANSIT,
+                ShipmentStatus::PARTIALLY_RECEIVED,
+            ], true)) {
+                throw new DomainException('لا يمكن إخراج طرد من شحنة مكتملة الاستلام أو ملغاة.');
+            }
+
+            $lockedParcel->update([
+                'shipment_id'   => null,
+                'status'        => OutgoingParcelStatus::PENDING,
+                'dispatched_at' => null,
+            ]);
+
+            // إعادة حساب عدد الطرود ومجاميع الشحنة ووجهاتها بعد الإخراج
+            $remainingParcels = OutgoingParcel::with('destinationOffice:id,name,branch_name')
+                ->where('shipment_id', $lockedShipment->id)
+                ->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                ->get();
+
+            $totalPaid = 0.0;
+            $totalDeferred = 0.0;
+            $destinations = [];
+
+            foreach ($remainingParcels as $p) {
+                $amount = (float) ($p->cod_amount ?? 0);
+                if ($p->payment_type === OutgoingPaymentType::DEFERRED) {
+                    $totalDeferred += $amount;
+                } else {
+                    $totalPaid += $amount;
+                }
+
+                $destLabel = $p->destinationLabel();
+                if ($destLabel !== '' && ! in_array($destLabel, $destinations, true)) {
+                    $destinations[] = $destLabel;
+                }
+            }
+
+            $lockedShipment->update([
+                'parcels_count'         => $remainingParcels->count(),
+                'total_paid_amount'     => round($totalPaid, 2),
+                'total_deferred_amount' => round($totalDeferred, 2),
+                'total_amount'          => round($totalPaid + $totalDeferred, 2),
+                'destinations_summary'  => $destinations,
+            ]);
+
+            if ($remainingParcels->isNotEmpty()) {
+                Shipment::syncStatusById($lockedShipment->id);
+            }
+
+            $parcel->refresh();
+
+            return $lockedParcel;
+        });
+    }
+
+    /**
      * البحث عن طرد بالباركود (UUID أو رقم السند) لضمّه أثناء إنشاء الشحنة.
      */
     public function findParcelForSendingScan(Office $office, string $rawCode): OutgoingParcel

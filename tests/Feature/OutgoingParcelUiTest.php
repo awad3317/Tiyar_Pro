@@ -756,4 +756,152 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('border-emerald-300', $deliveredCardHtml);
         $this->assertStringNotContainsString('data-card-action="cancel"', $deliveredCardHtml);
     }
+
+    public function test_detach_before_cancel_ajax_ui_flow_and_immutability_after_receipt(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $p1 = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل فك 1',
+            'sender_phone'          => '771111001',
+            'recipient_name'        => 'مستلم فك 1',
+            'recipient_phone'       => '772222001',
+            'package_type'          => 'كرتون فك 1',
+            'receipt_number'        => '21',
+            'cod_amount'            => 4000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $p2 = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل فك 2',
+            'sender_phone'          => '771111002',
+            'recipient_name'        => 'مستلم فك 2',
+            'recipient_phone'       => '772222002',
+            'package_type'          => 'كيس فك 2',
+            'receipt_number'        => '22',
+            'cod_amount'            => 6000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        // 1. ضم الطردين في شحنة مسودة (draft)
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.shipments.sent.store'), [
+                'driver_name'  => 'سائق الفك',
+                'driver_phone' => '771888777',
+                'parcel_ids'   => [$p1->id, $p2->id],
+                'dispatch_now' => false,
+            ])
+            ->assertStatus(201);
+
+        $shipment = Shipment::query()->where('office_id', $this->senderOffice->id)->latest('created_at')->firstOrFail();
+
+        // البطاقة تُخفي زر الإلغاء وتعرض زر «إخراج من الشحنة»
+        $draftListHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('data-card-action="detach"', $draftListHtml);
+        $this->assertStringContainsString('إخراج من الشحنة', $draftListHtml);
+        $this->assertStringNotContainsString('data-card-action="cancel"', $draftListHtml);
+
+        // محاولة الإلغاء عبر AJAX أثناء الارتباط بالشحنة تُرفض بـ 422
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $p1))
+            ->assertStatus(422)
+            ->assertJson([
+                'ok'      => false,
+                'message' => 'لا يمكن إلغاء الطرد وهو ضمن شحنة؛ يرجى إخراجه من الشحنة أولاً.',
+            ]);
+
+        // 2. إرسال الشحنة → يظهر الطردان لدى الفرع المستهدف في «في الطريق»
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.shipments.sent.dispatch', $shipment))
+            ->assertOk();
+
+        $this->actingAs($this->targetOffice, 'office')
+            ->get(route('office.transit-parcels.index'))
+            ->assertOk()
+            ->assertSee('مستلم فك 1')
+            ->assertSee('مستلم فك 2');
+
+        // 3. إخراج الطرد الأول من الشحنة عبر AJAX (وهو في الطريق قبل الاستلام)
+        $detachRes = $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.detach-shipment', $p1))
+            ->assertOk()
+            ->assertJson([
+                'ok'        => true,
+                'parcel_id' => $p1->id,
+                'status'    => 'pending',
+                'counts'    => [
+                    'all'        => 2,
+                    'pending'    => 1,
+                    'in_transit' => 1,
+                    'received'   => 0,
+                ],
+            ]);
+
+        $detachedHtml = (string) $detachRes->json('card_html');
+        $this->assertStringContainsString('data-outgoing-parcel-id="' . $p1->id . '"', $detachedHtml);
+        $this->assertStringContainsString('ضم إلى شحنة', $detachedHtml);
+        $this->assertStringContainsString('data-card-action="cancel"', $detachedHtml);
+        $this->assertStringNotContainsString('data-card-action="detach"', $detachedHtml);
+
+        $p1->refresh();
+        $this->assertNull($p1->shipment_id);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $p1->status);
+        $this->assertNull($p1->dispatched_at);
+
+        // يختفي الطرد الأول فوراً من قائمة «في الطريق» لدى الفرع المستهدف
+        $this->actingAs($this->targetOffice, 'office')
+            ->get(route('office.transit-parcels.index'))
+            ->assertOk()
+            ->assertDontSee('مستلم فك 1')
+            ->assertSee('مستلم فك 2');
+
+        // الآن ينجح إلغاء الطرد الأول بعد إخراجه من الشحنة
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $p1))
+            ->assertOk()
+            ->assertJson([
+                'ok'        => true,
+                'parcel_id' => $p1->id,
+                'status'    => 'cancelled',
+                'counts'    => [
+                    'pending'   => 0,
+                    'cancelled' => 1,
+                ],
+            ]);
+
+        // 4. استلام الطرد الثاني بالفرع المستهدف → يُمنع إخراجه أو إلغاؤه وتختفي كل الأزرار من بطاقته
+        $this->actingAs($this->targetOffice, 'office')
+            ->postJson(route('office.transit-parcels.receive', $p2))
+            ->assertOk();
+
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.detach-shipment', $p2))
+            ->assertStatus(422)
+            ->assertJson([
+                'ok'      => false,
+                'message' => 'لا يمكن إخراج الطرد لأنه تم استلامه بالفعل من الفرع المستلم.',
+            ]);
+
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.outgoing-parcels.cancel', $p2))
+            ->assertStatus(422);
+
+        $afterReceiptHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index', ['status' => 'received']))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('مستلم فك 2', $afterReceiptHtml);
+        $this->assertStringNotContainsString('data-card-action="detach"', $afterReceiptHtml);
+        $this->assertStringNotContainsString('data-card-action="cancel"', $afterReceiptHtml);
+    }
 }
