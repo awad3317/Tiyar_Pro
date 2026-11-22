@@ -18,6 +18,7 @@ class OutgoingParcelController extends Controller
     private const SELECT_COLUMNS = [
         'id',
         'office_id',
+        'shipment_id',
         'destination_office_id',
         'external_office_name',
         'sender_name',
@@ -37,6 +38,12 @@ class OutgoingParcelController extends Controller
         'created_at',
     ];
 
+    private const EAGER_RELATIONS = [
+        'destinationOffice:id,name,branch_name',
+        'linkedIncomingParcel:id,status,delivered_at',
+        'shipment:id,shipment_number,status',
+    ];
+
     public function index(Request $request)
     {
         /** @var Office $office */
@@ -51,10 +58,7 @@ class OutgoingParcelController extends Controller
         $query = OutgoingParcel::query()
             ->select(self::SELECT_COLUMNS)
             ->where('office_id', $office->id)
-            ->with([
-                'destinationOffice:id,name,branch_name',
-                'linkedIncomingParcel:id,status,delivered_at',
-            ]);
+            ->with(self::EAGER_RELATIONS);
 
         $allowedStatuses = array_map(
             static fn (OutgoingParcelStatus $s) => $s->value,
@@ -125,7 +129,7 @@ class OutgoingParcelController extends Controller
             $created = $service->create($office, $validated);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $created->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+                $created->load(self::EAGER_RELATIONS);
 
                 return response()->json([
                     'ok'        => true,
@@ -167,7 +171,7 @@ class OutgoingParcelController extends Controller
             $updated = $service->markInTransit($outgoingParcel, $office);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+                $updated->load(self::EAGER_RELATIONS);
 
                 return response()->json([
                     'ok'        => true,
@@ -208,7 +212,7 @@ class OutgoingParcelController extends Controller
             $updated = $service->markExternalDelivered($outgoingParcel, $office);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+                $updated->load(self::EAGER_RELATIONS);
 
                 return response()->json([
                     'ok'        => true,
@@ -249,7 +253,7 @@ class OutgoingParcelController extends Controller
             $updated = $service->cancel($outgoingParcel, $office);
 
             if ($request->expectsJson() || $request->ajax()) {
-                $updated->load(['destinationOffice:id,name,branch_name', 'linkedIncomingParcel:id,status,delivered_at']);
+                $updated->load(self::EAGER_RELATIONS);
 
                 return response()->json([
                     'ok'        => true,

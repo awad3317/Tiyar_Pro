@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Enums\OutgoingParcelStatus;
 use App\Enums\OutgoingPaymentType;
 use App\Enums\ParcelStatus;
+use App\Enums\ShipmentStatus;
 use App\Models\Feature;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
 use App\Models\Parcel;
+use App\Models\Shipment;
 use App\Services\OutgoingParcelService;
+use App\Services\ShipmentService;
 use Database\Seeders\FeatureSeeder;
 use DomainException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -155,13 +158,46 @@ class OutgoingParcelFlowTest extends TestCase
         ]);
         $this->assertSame('1', $outgoingOfficeB->receipt_number);
 
-        // 2. المكتب أ يحوّل الطرد الأول (آجل) إلى في الطريق (in_transit)
-        $outgoing = $service->markInTransit($outgoing, $this->officeA);
+        // 2. يُمنع تحويل الطرد بشكل فردي إلى (في الطريق)؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل
+        try {
+            $service->markInTransit($outgoing, $this->officeA);
+            $this->fail('Expected DomainException when dispatching an outgoing parcel individually.');
+        } catch (DomainException $e) {
+            $this->assertSame(
+                'لا يمكن تحويل الطرد إلى "في الطريق" بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.',
+                $e->getMessage()
+            );
+        }
+        $this->assertSame(OutgoingParcelStatus::PENDING, $outgoing->fresh()->status);
+        $this->assertNull($outgoing->fresh()->dispatched_at);
 
+        // 3. ضم الطردين في كشف شحنة (مسودة أولاً) ثم إرسال الشحنة بالكامل
+        $shipmentService = app(ShipmentService::class);
+        $shipment = $shipmentService->create($this->officeA, [
+            'driver_name'  => 'سائق الخط السريع',
+            'driver_phone' => '771555666',
+            'parcel_ids'   => [$outgoing->id, $outgoingSecond->id],
+            'dispatch_now' => false,
+        ]);
+
+        $this->assertSame(ShipmentStatus::DRAFT, $shipment->status);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $outgoing->fresh()->status);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $outgoingSecond->fresh()->status);
+        $this->assertSame($shipment->id, $outgoing->fresh()->shipment_id);
+
+        // إرسال الشحنة يحوّل جميع طرودها دفعة واحدة إلى in_transit مع dispatched_at
+        $shipment = $shipmentService->dispatch($shipment, $this->officeA);
+        $this->assertSame(ShipmentStatus::IN_TRANSIT, $shipment->status);
+        $this->assertNotNull($shipment->dispatched_at);
+
+        $outgoing->refresh();
+        $outgoingSecond->refresh();
         $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $outgoing->status);
         $this->assertNotNull($outgoing->dispatched_at);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $outgoingSecond->status);
+        $this->assertNotNull($outgoingSecond->dispatched_at);
 
-        // 3. المكتب ب يستلم الطرد الآجل → ينتقل المبلغ (5500) إلى parcels.cod_amount لتحصيله عند التسليم
+        // 4. المكتب ب يستلم الطرد الآجل → ينتقل المبلغ (5500) إلى parcels.cod_amount لتحصيله عند التسليم
         $incomingParcel = $service->receiveAtDestination($outgoing, $this->officeB);
 
         $this->assertInstanceOf(Parcel::class, $incomingParcel);
@@ -179,15 +215,15 @@ class OutgoingParcelFlowTest extends TestCase
         ]);
         $this->assertEquals(5500.0, (float) $incomingParcel->cod_amount);
 
-        // التحقق من تحديث الطرد الصادر وربطه بالطرد الوارد
+        // التحقق من تحديث الطرد الصادر وربطه بالطرد الوارد وحالة الشحنة (استلام جزئي)
         $outgoing->refresh();
         $this->assertSame(OutgoingParcelStatus::RECEIVED, $outgoing->status);
         $this->assertNotNull($outgoing->received_at);
         $this->assertSame($incomingParcel->id, $outgoing->linked_incoming_parcel_id);
         $this->assertSame($incomingParcel->id, $outgoing->linkedIncomingParcel->id);
+        $this->assertSame(ShipmentStatus::PARTIALLY_RECEIVED, $shipment->fresh()->status);
 
-        // 4. استلام الطرد الثاني (محاسب - paid) → يجب أن يصبح parcels.cod_amount = null لعدم التحصيل مرتين
-        $service->markInTransit($outgoingSecond, $this->officeA);
+        // 5. استلام الطرد الثاني (محاسب - paid) → يجب أن يصبح parcels.cod_amount = null وتكتمل الشحنة
         $paidIncomingParcel = $service->receiveAtDestination($outgoingSecond, $this->officeB);
 
         $this->assertNull($paidIncomingParcel->cod_amount);
@@ -197,6 +233,7 @@ class OutgoingParcelFlowTest extends TestCase
             'receipt_number' => '2',
             'cod_amount'     => null,
         ]);
+        $this->assertSame(ShipmentStatus::RECEIVED, $shipment->fresh()->status);
 
         // التحقق من تشغيل مسار إشعار الوصول (httpSMS)
         $this->assertSame('pending', $incomingParcel->sms_status);
@@ -206,6 +243,7 @@ class OutgoingParcelFlowTest extends TestCase
     public function test_receiving_same_outgoing_parcel_twice_fails_without_creating_duplicate(): void
     {
         $service = app(OutgoingParcelService::class);
+        $shipmentService = app(ShipmentService::class);
 
         $outgoing = $service->create($this->officeA, [
             'destination_office_id' => $this->officeB->id,
@@ -220,7 +258,13 @@ class OutgoingParcelFlowTest extends TestCase
 
         $this->assertSame('1', $outgoing->receipt_number);
 
-        $service->markInTransit($outgoing, $this->officeA);
+        $shipmentService->create($this->officeA, [
+            'driver_name'  => 'سائق الاستلام',
+            'driver_phone' => '771666777',
+            'parcel_ids'   => [$outgoing->id],
+            'dispatch_now' => true,
+        ]);
+        $outgoing->refresh();
 
         $firstParcel = $service->receiveAtDestination($outgoing, $this->officeB);
         $countAfterFirst = Parcel::query()
@@ -252,6 +296,7 @@ class OutgoingParcelFlowTest extends TestCase
     public function test_cancelling_outgoing_parcel_after_received_is_rejected(): void
     {
         $service = app(OutgoingParcelService::class);
+        $shipmentService = app(ShipmentService::class);
 
         $outgoing = $service->create($this->officeA, [
             'destination_office_id' => $this->officeB->id,
@@ -263,7 +308,14 @@ class OutgoingParcelFlowTest extends TestCase
             'payment_type'          => 'paid',
         ]);
 
-        $service->markInTransit($outgoing, $this->officeA);
+        $shipmentService->create($this->officeA, [
+            'driver_name'  => 'سائق الإلغاء',
+            'driver_phone' => '771777888',
+            'parcel_ids'   => [$outgoing->id],
+            'dispatch_now' => true,
+        ]);
+        $outgoing->refresh();
+
         $service->receiveAtDestination($outgoing, $this->officeB);
 
         $this->expectException(DomainException::class);
@@ -274,6 +326,28 @@ class OutgoingParcelFlowTest extends TestCase
             $outgoing->refresh();
             $this->assertSame(OutgoingParcelStatus::RECEIVED, $outgoing->status);
             $this->assertNull($outgoing->cancelled_at);
+        }
+    }
+
+    public function test_empty_draft_shipment_cannot_be_dispatched(): void
+    {
+        $shipment = Shipment::create([
+            'office_id'       => $this->officeA->id,
+            'shipment_number' => '999900001',
+            'driver_name'     => 'سائق شحنة فارغة',
+            'driver_phone'    => '771888999',
+            'parcels_count'   => 0,
+            'status'          => ShipmentStatus::DRAFT,
+        ]);
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('لا يمكن إرسال شحنة فارغة');
+
+        try {
+            app(ShipmentService::class)->dispatch($shipment, $this->officeA);
+        } finally {
+            $this->assertSame(ShipmentStatus::DRAFT, $shipment->fresh()->status);
+            $this->assertNull($shipment->fresh()->dispatched_at);
         }
     }
 }

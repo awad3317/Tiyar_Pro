@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Enums\OutgoingParcelStatus;
 use App\Enums\OutgoingPaymentType;
 use App\Enums\ParcelStatus;
+use App\Enums\ShipmentStatus;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
 use App\Models\Parcel;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Services\OutgoingParcelService;
+use App\Services\ShipmentService;
 use Database\Seeders\FeatureSeeder;
 use DomainException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -92,7 +95,7 @@ class OutgoingParcelUiTest extends TestCase
 
     public function test_office_with_feature_can_view_page_create_internal_and_external_parcels_and_dispatch_them(): void
     {
-        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
         $this->senderOffice->refreshFeaturesCache();
 
         // 1. استعراض صفحة الصادر
@@ -189,19 +192,55 @@ class OutgoingParcelUiTest extends TestCase
             ->firstOrFail();
         $this->assertSame('1', $targetOfficeOutgoing->receipt_number);
 
-        // 4. شحن الطردين (تحويلهما إلى in_transit)
+        // التحقق من تصميم البطاقة الجديد: زر "ضم إلى شحنة" بدون زر الشحن الفردي وبدون تكرار شارة الحالة
+        $listHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->assertSee('ضم إلى شحنة')
+            ->assertDontSee('شحن (في الطريق)')
+            ->getContent();
+        $this->assertStringContainsString('border-amber-300', $listHtml);
+
+        // 4. رفض الشحن الفردي المباشر عبر POST /outgoing-parcels/{id}/dispatch
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.dispatch', $internalParcel))
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'لا يمكن تحويل الطرد إلى "في الطريق" بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.');
 
+        $this->assertSame(OutgoingParcelStatus::PENDING, $internalParcel->fresh()->status);
+
+        // 5. ضم الطردين في شحنة (مسودة) ثم إرسال الشحنة بالكامل
         $this->actingAs($this->senderOffice, 'office')
-            ->post(route('office.outgoing-parcels.dispatch', $externalParcel))
+            ->post(route('office.shipments.sent.store'), [
+                'driver_name'  => 'سائق النقليات',
+                'driver_phone' => '771444555',
+                'parcel_ids'   => [$internalParcel->id, $externalParcel->id],
+                'dispatch_now' => false,
+            ])
             ->assertRedirect();
 
-        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $internalParcel->fresh()->status);
-        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $externalParcel->fresh()->status);
+        $shipment = Shipment::query()->where('office_id', $this->senderOffice->id)->latest('created_at')->firstOrFail();
+        $this->assertSame(ShipmentStatus::DRAFT, $shipment->status);
 
-        // 5. تأكيد تسليم الطرد الخارجي
+        // بطاقة الطرد المضاف لمسودة الشحنة تعرض شارة الشحنة وحالة انتظار الإرسال
+        $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->assertSee("شحنة #{$shipment->shipment_number}")
+            ->assertSee("مُضاف للشحنة #{$shipment->shipment_number} (بانتظار الإرسال)");
+
+        // إرسال الشحنة يحوّل الطردين معاً إلى in_transit
+        $this->actingAs($this->senderOffice, 'office')
+            ->post(route('office.shipments.sent.dispatch', $shipment))
+            ->assertRedirect();
+
+        $this->assertSame(ShipmentStatus::IN_TRANSIT, $shipment->fresh()->status);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $internalParcel->fresh()->status);
+        $this->assertNotNull($internalParcel->fresh()->dispatched_at);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $externalParcel->fresh()->status);
+        $this->assertNotNull($externalParcel->fresh()->dispatched_at);
+
+        // 6. تأكيد تسليم الطرد الخارجي
         $this->actingAs($this->senderOffice, 'office')
             ->post(route('office.outgoing-parcels.deliver-external', $externalParcel))
             ->assertRedirect();
@@ -240,7 +279,8 @@ class OutgoingParcelUiTest extends TestCase
         $this->actingAs($this->targetOffice, 'office')
             ->get(route('office.dashboard'))
             ->assertOk()
-            ->assertSee('لديك 1 طرد قادم في الطريق — اضغط للاستلام');
+            ->assertSee('شحنات قادمة')
+            ->assertSee('مراجعة واستلام');
 
         // المكتب الثالث غير المعني لا يرى الطرد ولا يرى البانر
         $this->actingAs($this->thirdOffice, 'office')
@@ -252,7 +292,7 @@ class OutgoingParcelUiTest extends TestCase
         $this->actingAs($this->thirdOffice, 'office')
             ->get(route('office.dashboard'))
             ->assertOk()
-            ->assertDontSee('طرد قادم في الطريق — اضغط للاستلام');
+            ->assertDontSee('مراجعة واستلام');
 
         // محاولة المكتب الثالث استلام الطرد تُرفض بـ 403
         $this->actingAs($this->thirdOffice, 'office')
@@ -472,7 +512,7 @@ class OutgoingParcelUiTest extends TestCase
 
     public function test_json_ajax_endpoints_and_query_counts_are_optimized(): void
     {
-        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
         $this->senderOffice->refreshFeaturesCache();
 
         $p1 = OutgoingParcel::create([
@@ -527,21 +567,29 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('مستلم أجاكس 1', $ajaxFilterResponse->json('html'));
         $this->assertLessThanOrEqual(5, $outgoingAjaxQueries);
 
-        // 2. شحن الطرد الأول عبر AJAX (POST dispatch) بدون إعادة تحميل الصفحة
+        // 2. رفض الشحن الفردي المباشر عبر AJAX (POST dispatch) بـ 422
         $this->actingAs($this->senderOffice, 'office')
             ->postJson(route('office.outgoing-parcels.dispatch', $p1))
-            ->assertOk()
+            ->assertStatus(422)
             ->assertJson([
-                'ok'     => true,
-                'counts' => [
-                    'pending'    => 1,
-                    'in_transit' => 1,
-                ],
-                'parcel' => [
-                    'id'     => $p1->id,
-                    'status' => 'in_transit',
-                ],
+                'ok'      => false,
+                'message' => 'لا يمكن تحويل الطرد إلى "في الطريق" بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.',
             ]);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $p1->fresh()->status);
+
+        // إرسال الطرد الأول عبر كشف شحنة (AJAX POST shipments.sent.store)
+        $this->actingAs($this->senderOffice, 'office')
+            ->postJson(route('office.shipments.sent.store'), [
+                'driver_name'  => 'سائق أجاكس',
+                'driver_phone' => '771222333',
+                'parcel_ids'   => [$p1->id],
+                'dispatch_now' => true,
+            ])
+            ->assertStatus(201)
+            ->assertJson(['ok' => true]);
+
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $p1->fresh()->status);
+        $this->assertNotNull($p1->fresh()->dispatched_at);
 
         // 3. إلغاء الطرد الثاني عبر AJAX (POST cancel) بدون إعادة تحميل الصفحة
         $this->actingAs($this->senderOffice, 'office')

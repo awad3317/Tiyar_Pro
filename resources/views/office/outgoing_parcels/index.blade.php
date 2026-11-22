@@ -599,7 +599,7 @@
             </div>
         </div>
 
-        {{-- 5. مودال التأكيد الموحّد لإجراءات الطرد الصادر (شحن / تسليم خارجي / إلغاء) --}}
+        {{-- 5. مودال التأكيد الموحّد لإجراءات الطرد الصادر (تسليم خارجي / إلغاء) --}}
         <div x-show="actionModal.open"
              x-cloak
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
@@ -758,7 +758,7 @@
 
             actionModal: {
                 open: false,
-                type: 'dispatch', // 'dispatch' | 'deliver' | 'cancel'
+                type: 'cancel', // 'deliver' | 'cancel'
                 submitting: false,
                 url: '#',
                 parcel: null,
@@ -914,30 +914,6 @@
             },
 
             get actionModalMeta() {
-                const isExternal = Boolean(this.actionModal.parcel?.is_external);
-
-                if (this.actionModal.type === 'dispatch') {
-                    return {
-                        icon: 'local_shipping',
-                        iconBoxClass: 'bg-sky-50 border-sky-100 text-sky-600',
-                        destTextClass: 'text-sky-700',
-                        title: 'تأكيد شحن الطرد',
-                        subtitle: 'هل أنت متأكد من شحن هذا الطرد وتحويل حالته إلى (في الطريق)؟',
-                        noticeIcon: 'info',
-                        noticeBoxClass: 'bg-sky-50 border-sky-200/80 text-sky-800',
-                        noticeIconClass: 'text-sky-600',
-                        noticeLabel: 'ملاحظة: ',
-                        noticeText: isExternal
-                            ? 'سيتم تحويل الطرد إلى (في الطريق) نحو المكتب الخارجي، ويمكنك تأكيد تسليمه لاحقاً.'
-                            : 'سيظهر الطرد مباشرة في قائمة (في الطريق) لدى الفرع المستلم ليتسنى له استلامه.',
-                        confirmBtnClass: 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/25',
-                        confirmLabel: 'تأكيد الشحن (في الطريق)',
-                        submittingLabel: 'جاري الشحن...',
-                        successFallback: 'تم شحن الطرد وتحويله إلى (في الطريق) بنجاح.',
-                        errorFallback: 'تعذر شحن الطرد.',
-                    };
-                }
-
                 if (this.actionModal.type === 'deliver') {
                     return {
                         icon: 'check_circle',
@@ -978,7 +954,7 @@
             },
 
             openActionModal(type, parcelData) {
-                this.actionModal.type = type || 'dispatch';
+                this.actionModal.type = type || 'cancel';
                 this.actionModal.parcel = parcelData || null;
                 this.actionModal.url = parcelData?.url || parcelData?.cancel_url || '#';
                 this.actionModal.submitting = false;

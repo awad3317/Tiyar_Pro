@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
+use App\Enums\ShipmentStatus;
 use App\Models\Feature;
 use App\Models\Office;
+use App\Models\OutgoingParcel;
+use App\Models\Shipment;
 use Database\Seeders\FeatureSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -139,5 +144,102 @@ class SentShipmentsFeatureTest extends TestCase
         $this->actingAs($this->officeA, 'office')
             ->get(route('office.shipments.sent.index'))
             ->assertStatus(403);
+    }
+
+    public function test_dispatching_draft_shipment_cascades_in_transit_to_all_parcels_and_blocks_empty_shipment(): void
+    {
+        $this->officeA->syncPartnerOffices([$this->officeB->id]);
+        $this->officeA->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->officeA->refreshFeaturesCache();
+
+        $p1 = OutgoingParcel::create([
+            'office_id'             => $this->officeA->id,
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل شحنة 1',
+            'sender_phone'          => '771100200',
+            'recipient_name'        => 'مستلم شحنة 1',
+            'recipient_phone'       => '772100200',
+            'package_type'          => 'كرتون أبيض وسط',
+            'receipt_number'        => '1',
+            'cod_amount'            => 5000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        $p2 = OutgoingParcel::create([
+            'office_id'             => $this->officeA->id,
+            'destination_office_id' => $this->officeB->id,
+            'sender_name'           => 'مرسل شحنة 2',
+            'sender_phone'          => '771300400',
+            'recipient_name'        => 'مستلم شحنة 2',
+            'recipient_phone'       => '772300400',
+            'package_type'          => 'كيس أزرق صغير',
+            'receipt_number'        => '2',
+            'cod_amount'            => 3000,
+            'payment_type'          => OutgoingPaymentType::PAID,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        // 1. إنشاء شحنة بحالة مسودة (draft) تضم الطردين
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.store'), [
+                'driver_name'  => 'سائق الاختبار',
+                'driver_phone' => '771500600',
+                'parcel_ids'   => [$p1->id, $p2->id],
+                'dispatch_now' => false,
+            ])
+            ->assertStatus(201)
+            ->assertJson(['ok' => true]);
+
+        $shipment = Shipment::query()->where('office_id', $this->officeA->id)->firstOrFail();
+        $this->assertSame(ShipmentStatus::DRAFT, $shipment->status);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $p1->fresh()->status);
+        $this->assertSame(OutgoingParcelStatus::PENDING, $p2->fresh()->status);
+
+        // 2. إرسال الشحنة يحدّث الشحنة وجميع طرودها ذرياً إلى in_transit
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.dispatch', $shipment))
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $shipment->refresh();
+        $p1->refresh();
+        $p2->refresh();
+
+        $this->assertSame(ShipmentStatus::IN_TRANSIT, $shipment->status);
+        $this->assertNotNull($shipment->dispatched_at);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $p1->status);
+        $this->assertNotNull($p1->dispatched_at);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $p2->status);
+        $this->assertNotNull($p2->dispatched_at);
+
+        // 3. تظهر الطرود والشحنة فوراً لدى الفرع المستلم في شاشة في الطريق وشاشة الشحنات المستلمة
+        $this->actingAs($this->officeB, 'office')
+            ->get(route('office.transit-parcels.index'))
+            ->assertOk()
+            ->assertSee('مستلم شحنة 1')
+            ->assertSee('مستلم شحنة 2');
+
+        $this->actingAs($this->officeB, 'office')
+            ->get(route('office.shipments.received.index'))
+            ->assertOk()
+            ->assertSee($shipment->shipment_number);
+
+        // 4. منع إرسال شحنة فارغة (0 طرود)
+        $emptyShipment = Shipment::create([
+            'office_id'       => $this->officeA->id,
+            'shipment_number' => '999900099',
+            'driver_name'     => 'سائق فارغ',
+            'driver_phone'    => '771900800',
+            'parcels_count'   => 0,
+            'status'          => ShipmentStatus::DRAFT,
+        ]);
+
+        $this->actingAs($this->officeA, 'office')
+            ->postJson(route('office.shipments.sent.dispatch', $emptyShipment))
+            ->assertStatus(422)
+            ->assertJson(['ok' => false]);
+
+        $this->assertSame(ShipmentStatus::DRAFT, $emptyShipment->fresh()->status);
     }
 }

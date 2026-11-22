@@ -110,33 +110,11 @@ class OutgoingParcelService
     }
 
     /**
-     * تحويل الطرد الصادر من pending إلى in_transit.
+     * يُمنع تحويل الطرد الصادر إلى (في الطريق) بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.
      */
     public function markInTransit(OutgoingParcel $parcel, Office $office): OutgoingParcel
     {
-        return DB::transaction(function () use ($parcel, $office): OutgoingParcel {
-            $locked = OutgoingParcel::query()
-                ->whereKey($parcel->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            if ((int) $locked->office_id !== (int) $office->id) {
-                throw new DomainException('غير مصرح لك بتعديل حالة هذا الطرد.');
-            }
-
-            if ($locked->status !== OutgoingParcelStatus::PENDING) {
-                throw new DomainException('يمكن تحويل الطرد إلى (في الطريق) من حالة (في الانتظار) فقط.');
-            }
-
-            $locked->update([
-                'status'        => OutgoingParcelStatus::IN_TRANSIT,
-                'dispatched_at' => now(),
-            ]);
-
-            $parcel->refresh();
-
-            return $locked;
-        });
+        throw new DomainException('لا يمكن تحويل الطرد إلى "في الطريق" بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.');
     }
 
     /**
@@ -200,6 +178,10 @@ class OutgoingParcelService
                 'status'       => OutgoingParcelStatus::CANCELLED,
                 'cancelled_at' => now(),
             ]);
+
+            if ($locked->shipment_id) {
+                Shipment::syncStatusById($locked->shipment_id);
+            }
 
             $parcel->refresh();
 

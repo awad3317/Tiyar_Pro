@@ -26,9 +26,20 @@ enum OutgoingParcelStatus: string
         return match ($this) {
             self::PENDING    => 'bg-amber-100 text-amber-800 border-amber-200',
             self::IN_TRANSIT => 'bg-sky-100 text-sky-800 border-sky-200',
-            self::RECEIVED   => 'bg-indigo-100 text-indigo-800 border-indigo-200',
+            self::RECEIVED   => 'bg-emerald-100 text-emerald-800 border-emerald-200',
             self::DELIVERED  => 'bg-emerald-100 text-emerald-800 border-emerald-200',
             self::CANCELLED  => 'bg-rose-100 text-rose-800 border-rose-200',
+        };
+    }
+
+    public function cardBorderClass(): string
+    {
+        return match ($this) {
+            self::PENDING    => 'border-amber-300',
+            self::IN_TRANSIT => 'border-sky-300',
+            self::RECEIVED   => 'border-emerald-300',
+            self::DELIVERED  => 'border-emerald-300',
+            self::CANCELLED  => 'border-rose-300',
         };
     }
 

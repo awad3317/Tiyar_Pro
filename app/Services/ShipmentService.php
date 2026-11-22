@@ -132,6 +132,16 @@ class ShipmentService
                 throw new DomainException('يمكن شحن الكشف من حالة (قيد التجهيز) فقط.');
             }
 
+            $pendingParcelsCount = OutgoingParcel::query()
+                ->where('shipment_id', $locked->id)
+                ->where('status', OutgoingParcelStatus::PENDING->value)
+                ->lockForUpdate()
+                ->count();
+
+            if ($pendingParcelsCount === 0) {
+                throw new DomainException('لا يمكن إرسال شحنة فارغة؛ يجب أن تحتوي الشحنة على طرد واحد على الأقل بحالة (في الانتظار).');
+            }
+
             $now = now();
             OutgoingParcel::query()
                 ->where('shipment_id', $locked->id)
