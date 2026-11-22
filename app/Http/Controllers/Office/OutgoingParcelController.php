@@ -45,6 +45,12 @@ class OutgoingParcelController extends Controller
         'shipment:id,shipment_number,status',
     ];
 
+    private const NO_CACHE_HEADERS = [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma'        => 'no-cache',
+        'Vary'          => 'Accept, X-Requested-With',
+    ];
+
     public function index(Request $request)
     {
         /** @var Office $office */
@@ -85,7 +91,7 @@ class OutgoingParcelController extends Controller
         }
 
         $counts = $this->getStatusCounts($office);
-        $parcels = $query->latest('created_at')->paginate(20)->withQueryString();
+        $parcels = $query->latest('created_at')->paginate(20)->appends($request->except(['_t', 'page']));
 
         // استجابة JSON خفيفة للبحث والتصفية الفورية بدون إعادة تحميل الصفحة أو استعلام الفروع مجدداً
         if ($request->expectsJson() || $request->ajax()) {
@@ -97,7 +103,7 @@ class OutgoingParcelController extends Controller
                     'counts'        => $counts,
                     'html'          => view('office.outgoing_parcels.partials.cards-list', compact('parcels'))->render(),
                 ])
-                ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                ->withHeaders(self::NO_CACHE_HEADERS);
         }
 
         $destinationOffices = $office->partnerOffices()
@@ -106,14 +112,16 @@ class OutgoingParcelController extends Controller
             ->orderBy('offices.branch_name')
             ->get(['offices.id', 'offices.name', 'offices.branch_name']);
 
-        return view('office.outgoing_parcels.index', compact(
-            'office',
-            'parcels',
-            'counts',
-            'destinationOffices',
-            'statusFilter',
-            'search'
-        ));
+        return response()
+            ->view('office.outgoing_parcels.index', compact(
+                'office',
+                'parcels',
+                'counts',
+                'destinationOffices',
+                'statusFilter',
+                'search'
+            ))
+            ->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     public function store(StoreOutgoingParcelRequest $request, OutgoingParcelService $service)
@@ -144,7 +152,7 @@ class OutgoingParcelController extends Controller
                         'parcel'    => $this->formatParcelJson($created),
                         'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $created])->render(),
                     ], 201)
-                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                    ->withHeaders(self::NO_CACHE_HEADERS);
             }
 
             return redirect()
@@ -231,7 +239,7 @@ class OutgoingParcelController extends Controller
                         'parcel'    => $this->formatParcelJson($updated),
                         'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
                     ])
-                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                    ->withHeaders(self::NO_CACHE_HEADERS);
             }
 
             return redirect()
@@ -276,7 +284,7 @@ class OutgoingParcelController extends Controller
                         'parcel'    => $this->formatParcelJson($updated),
                         'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
                     ])
-                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                    ->withHeaders(self::NO_CACHE_HEADERS);
             }
 
             return redirect()

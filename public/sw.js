@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v17';
+const CACHE_NAME = 'mursal-pwa-v18';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب وطلبات AJAX/JSON الحية
+    // استثناء طلبات غير GET وطلبات الدخول والخروج والـ API والواتساب وطلبات AJAX/JSON الحية ومسارات الصادر والشحنات (Online-First)
     const acceptHeader = event.request.headers.get('Accept') || '';
     const isAjaxJson = acceptHeader.includes('application/json') ||
         event.request.headers.get('X-Requested-With') === 'XMLHttpRequest';
@@ -59,6 +59,9 @@ self.addEventListener('fetch', (event) => {
     if (
         event.request.method !== 'GET' ||
         isAjaxJson ||
+        url.pathname.startsWith('/office/outgoing-parcels') ||
+        url.pathname.startsWith('/office/transit-parcels') ||
+        url.pathname.startsWith('/office/shipments') ||
         url.pathname.includes('/login') ||
         url.pathname.includes('/logout') ||
         url.pathname.includes('/api/') ||

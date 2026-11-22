@@ -670,8 +670,9 @@ class OutgoingParcelUiTest extends TestCase
 
         // 1. التصفية على in_transit تُرجع فقط طرد in_transit لكن عدادات KPI تبقى غير مفلترة (pending = 1 و in_transit = 1)
         $filterRes = $this->actingAs($this->senderOffice, 'office')
-            ->getJson(route('office.outgoing-parcels.index', ['status' => 'in_transit']))
+            ->getJson(route('office.outgoing-parcels.index', ['status' => 'in_transit', '_t' => '1700000000000']))
             ->assertOk()
+            ->assertHeader('Pragma', 'no-cache')
             ->assertJson([
                 'ok'            => true,
                 'status_filter' => 'in_transit',
@@ -684,6 +685,23 @@ class OutgoingParcelUiTest extends TestCase
                     'cancelled'  => 0,
                 ],
             ]);
+
+        $this->assertStringContainsString('no-store', (string) $filterRes->headers->get('Cache-Control'));
+        $this->assertStringContainsString('Accept', (string) $filterRes->headers->get('Vary'));
+        $this->assertStringContainsString('X-Requested-With', (string) $filterRes->headers->get('Vary'));
+
+        // التحقق من ترويسات منع الكاش أيضاً على استجابات HTML للصادر وفي الطريق
+        $htmlRes = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->assertHeader('Pragma', 'no-cache');
+        $this->assertStringContainsString('no-store', (string) $htmlRes->headers->get('Cache-Control'));
+
+        $transitHtmlRes = $this->actingAs($this->targetOffice, 'office')
+            ->get(route('office.transit-parcels.index'))
+            ->assertOk()
+            ->assertHeader('Pragma', 'no-cache');
+        $this->assertStringContainsString('no-store', (string) $transitHtmlRes->headers->get('Cache-Control'));
 
         $filterHtml = (string) $filterRes->json('html');
         $this->assertStringContainsString('مستلم في الطريق', $filterHtml);

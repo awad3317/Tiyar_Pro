@@ -32,6 +32,12 @@ class IncomingTransitParcelController extends Controller
         'created_at',
     ];
 
+    private const NO_CACHE_HEADERS = [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma'        => 'no-cache',
+        'Vary'          => 'Accept, X-Requested-With',
+    ];
+
     public function index(Request $request)
     {
         /** @var Office $office */
@@ -45,7 +51,19 @@ class IncomingTransitParcelController extends Controller
             ->latest('dispatched_at')
             ->get();
 
-        return view('office.transit_parcels.index', compact('office', 'transitParcels'));
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()
+                ->json([
+                    'ok'              => true,
+                    'remaining_count' => $transitParcels->count(),
+                    'parcels'         => $transitParcels,
+                ])
+                ->withHeaders(self::NO_CACHE_HEADERS);
+        }
+
+        return response()
+            ->view('office.transit_parcels.index', compact('office', 'transitParcels'))
+            ->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     public function receive(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)

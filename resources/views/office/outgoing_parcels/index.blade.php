@@ -920,11 +920,14 @@
                 }
 
                 const qs = params.toString();
-                const url = qs ? `${this.baseUrl}?${qs}` : this.baseUrl;
+                const cleanUrl = qs ? `${this.baseUrl}?${qs}` : this.baseUrl;
+                const fetchParams = new URLSearchParams(params);
+                fetchParams.set('_t', String(Date.now()));
+                const fetchUrl = `${this.baseUrl}?${fetchParams.toString()}`;
 
                 this.isFetching = true;
                 try {
-                    const res = await fetch(url, {
+                    const res = await fetch(fetchUrl, {
                         cache: 'no-store',
                         headers: {
                             'Accept': 'application/json',
@@ -944,7 +947,7 @@
                                 window.Alpine.initTree(this.$refs.cardsContainer);
                             }
                         }
-                        window.history.replaceState({}, '', url);
+                        window.history.replaceState({}, '', cleanUrl);
                     }
                 } catch (err) {
                     if (err.name !== 'AbortError') {
