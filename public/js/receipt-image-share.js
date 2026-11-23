@@ -1,19 +1,23 @@
 /**
  * مُرسَل برو - التقاط سند الطرد الصادر كصورة PNG عالية الدقة ومشاركتها مباشرة من المتصفح
- * يعتمد على html-to-image (محرك Chrome/SVG الأصلي) للحفاظ على تواصل الحروف العربية RTL
- * وتخطيط CSS Grid والباركود ورمز QR بدقة 2x بدون أي حزم خادم.
+ * - يعمل عبر html-to-image (UMD browser bundle: window.htmlToImage.toBlob) داخل سياق الـ iframe نفسه.
+ * - محصّن ضد أخطاء CORS/الخطوط (إعادة محاولة تلقائية مع skipFonts: true).
+ * - محصّن ضد انتهاء مهلة التفاعل (NotAllowedError) على Android Chrome عبر مودال «صورة السند جاهزة» للمشاركة الفورية بضغطة جديدة.
  */
 (function (global) {
     'use strict';
 
-    const HTML_TO_IMAGE_LOCAL_SRC = '/js/html-to-image.min.js?v=1';
+    const HTML_TO_IMAGE_LOCAL_SRC = '/js/html-to-image.min.js?v=27';
     const HTML_TO_IMAGE_CDN_SRC = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js';
+    const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     const IFRAME_LOAD_TIMEOUT_MS = 12000;
     const FONT_WAIT_TIMEOUT_MS = 2500;
     const IMAGE_WAIT_TIMEOUT_MS = 2500;
-    const QR_SETTLE_DELAY_MS = 240;
+    const QR_SETTLE_DELAY_MS = 250;
+    const MODAL_ID = 'mursal-receipt-share-modal';
 
     let activeCaptureLock = false;
+    let activeModalCleanup = null;
 
     function dispatchToast(message, type) {
         global.dispatchEvent(new CustomEvent('office-toast', {
@@ -78,12 +82,13 @@
 
         try {
             await loadScriptIntoDoc(iframeDoc, HTML_TO_IMAGE_LOCAL_SRC);
-        } catch (_) {
+        } catch (localErr) {
+            console.warn('[ReceiptShare] Local html-to-image failed, trying CDN:', localErr);
             await loadScriptIntoDoc(iframeDoc, HTML_TO_IMAGE_CDN_SRC);
         }
 
         if (!iframeWin || !iframeWin.htmlToImage || typeof iframeWin.htmlToImage.toBlob !== 'function') {
-            throw new Error('htmlToImage library unavailable inside capture iframe');
+            throw new Error('window.htmlToImage.toBlob is unavailable inside capture iframe');
         }
 
         return iframeWin.htmlToImage;
@@ -94,7 +99,7 @@
         if (!imgs.length) return;
 
         await Promise.all(imgs.map(function (img) {
-            if (img.complete && img.naturalWidth > 0) {
+            if (img.complete) {
                 return Promise.resolve();
             }
 
@@ -121,7 +126,6 @@
             ]);
         }
 
-        // انتظار اكتمال توليد رمز QR (qrcodejs ينشئ <img> أو <canvas> داخل .qr-wrapper)
         const qrWrapper = sheetEl.querySelector('.qr-wrapper');
         if (qrWrapper) {
             const deadline = Date.now() + 1000;
@@ -134,17 +138,24 @@
         await delay(QR_SETTLE_DELAY_MS);
     }
 
-    function createOffscreenIframe(receiptUrl) {
+    function createHiddenCaptureHost(receiptUrl) {
         return new Promise(function (resolve, reject) {
+            // حاوية 1x1 داخل نطاق الرؤية (خلف الصفحة وغير مرئية) لمنع تجميد requestAnimationFrame في Android Chrome
+            // مع الحفاظ على أبعاد مكتبية حقيقية 820x900 داخل الـ iframe دون أي تمرير أفقي
+            const host = document.createElement('div');
+            host.setAttribute('aria-hidden', 'true');
+            host.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;z-index:-9999;';
+
             const iframe = document.createElement('iframe');
             iframe.setAttribute('aria-hidden', 'true');
             iframe.setAttribute('tabindex', '-1');
-            iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:820px;height:900px;border:0;opacity:0;pointer-events:none;';
+            iframe.style.cssText = 'width:820px;height:900px;border:0;display:block;';
 
             let settled = false;
             const timer = setTimeout(function () {
                 if (settled) return;
                 settled = true;
+                if (host.parentNode) host.remove();
                 reject(new Error('Receipt iframe load timeout'));
             }, IFRAME_LOAD_TIMEOUT_MS);
 
@@ -152,19 +163,79 @@
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
-                resolve(iframe);
+                resolve({ host: host, iframe: iframe });
             };
 
             iframe.onerror = function () {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
+                if (host.parentNode) host.remove();
                 reject(new Error('Receipt iframe load failed'));
             };
 
-            document.body.appendChild(iframe);
+            host.appendChild(iframe);
+            document.body.appendChild(host);
             iframe.src = receiptUrl;
         });
+    }
+
+    function captureFilter(node) {
+        if (!node || node.nodeType !== 1) return true;
+        // استبعاد الصور المكسورة (naturalWidth === 0) حتى لا تفشل عملية التحويل
+        if (node.tagName === 'IMG' && node.complete && node.naturalWidth === 0) {
+            return false;
+        }
+        return true;
+    }
+
+    async function captureReceiptBlob(htmlToImage, sheetEl) {
+        const baseOptions = {
+            pixelRatio: 2,
+            backgroundColor: '#ffffff',
+            cacheBust: false,
+            preferredFontFormat: 'woff2',
+            imagePlaceholder: TRANSPARENT_PIXEL,
+            filter: captureFilter,
+            style: {
+                margin: '0',
+                boxShadow: 'none',
+                transform: 'none',
+            },
+        };
+
+        try {
+            const primaryBlob = await htmlToImage.toBlob(sheetEl, baseOptions);
+            if (primaryBlob && primaryBlob.size > 0) {
+                return primaryBlob;
+            }
+            throw new Error('Primary capture returned empty blob');
+        } catch (primaryErr) {
+            console.warn('[ReceiptShare] Primary capture failed, retrying with skipFonts:', primaryErr);
+        }
+
+        try {
+            const noFontsBlob = await htmlToImage.toBlob(sheetEl, Object.assign({}, baseOptions, {
+                skipFonts: true,
+            }));
+            if (noFontsBlob && noFontsBlob.size > 0) {
+                return noFontsBlob;
+            }
+            throw new Error('skipFonts capture returned empty blob');
+        } catch (skipFontsErr) {
+            console.warn('[ReceiptShare] 2x skipFonts capture failed, retrying at 1.5x:', skipFontsErr);
+        }
+
+        const lowMemBlob = await htmlToImage.toBlob(sheetEl, Object.assign({}, baseOptions, {
+            pixelRatio: 1.5,
+            skipFonts: true,
+        }));
+
+        if (!lowMemBlob || lowMemBlob.size === 0) {
+            throw new Error('Generated PNG blob is empty');
+        }
+
+        return lowMemBlob;
     }
 
     function triggerPngDownload(blob, fileName) {
@@ -180,6 +251,141 @@
         }, 5000);
     }
 
+    function canNativeShareFile(file) {
+        try {
+            return Boolean(
+                typeof navigator !== 'undefined' &&
+                typeof navigator.share === 'function' &&
+                typeof navigator.canShare === 'function' &&
+                navigator.canShare({ files: [file] })
+            );
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function closeReadyModal() {
+        if (typeof activeModalCleanup === 'function') {
+            const fn = activeModalCleanup;
+            activeModalCleanup = null;
+            fn();
+        }
+    }
+
+    function openReceiptReadyModal(blob, file, safeNum, fileName) {
+        closeReadyModal();
+
+        const previewUrl = URL.createObjectURL(blob);
+        const supportsShare = canNativeShareFile(file);
+
+        const overlay = document.createElement('div');
+        overlay.id = MODAL_ID;
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('dir', 'rtl');
+        overlay.className = 'fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-3 sm:p-4';
+
+        overlay.innerHTML =
+            '<div data-modal-backdrop class="fixed inset-0 bg-slate-950/65 backdrop-blur-[1px]"></div>' +
+            '<div class="relative z-10 w-full max-w-md bg-white rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 flex flex-col gap-3.5 text-right max-h-[90vh]">' +
+                '<div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">' +
+                    '<div class="flex items-center gap-2 min-w-0">' +
+                        '<span class="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">' +
+                            '<span class="material-symbols-outlined text-lg">image</span>' +
+                        '</span>' +
+                        '<div class="min-w-0">' +
+                            '<h3 class="text-sm font-extrabold text-slate-800 leading-tight">صورة السند جاهزة</h3>' +
+                            '<p class="text-[11px] font-bold text-slate-500 font-mono truncate">سند #' + safeNum + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<button type="button" data-modal-close title="إغلاق" aria-label="إغلاق" ' +
+                        'class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center shrink-0 transition-colors">' +
+                        '<span class="material-symbols-outlined text-base">close</span>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="rounded-2xl border border-slate-200 bg-slate-50 p-2 overflow-auto max-h-[52vh] flex items-center justify-center">' +
+                    '<img data-modal-preview alt="معاينة صورة السند" class="w-full h-auto rounded-xl shadow-xs bg-white block" />' +
+                '</div>' +
+                '<div class="flex flex-col sm:flex-row items-stretch gap-2 pt-0.5">' +
+                    (supportsShare
+                        ? '<button type="button" data-modal-share ' +
+                              'class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-extrabold shadow-md shadow-emerald-600/25 flex items-center justify-center gap-1.5 transition-all">' +
+                              '<span class="material-symbols-outlined text-base">share</span>' +
+                              '<span>مشاركة عبر واتساب</span>' +
+                          '</button>'
+                        : '') +
+                    '<button type="button" data-modal-download ' +
+                        'class="' + (supportsShare ? 'sm:w-auto' : 'flex-1') + ' py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 active:scale-[0.98] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all">' +
+                        '<span class="material-symbols-outlined text-base text-secondary">download</span>' +
+                        '<span>حفظ الصورة</span>' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+
+        const imgEl = overlay.querySelector('[data-modal-preview]');
+        if (imgEl) {
+            imgEl.src = previewUrl;
+        }
+
+        const onKeyDown = function (e) {
+            if (e.key === 'Escape') {
+                closeReadyModal();
+            }
+        };
+
+        activeModalCleanup = function () {
+            document.removeEventListener('keydown', onKeyDown);
+            if (overlay.parentNode) {
+                overlay.remove();
+            }
+            URL.revokeObjectURL(previewUrl);
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+
+        const backdrop = overlay.querySelector('[data-modal-backdrop]');
+        if (backdrop) {
+            backdrop.addEventListener('click', closeReadyModal);
+        }
+
+        const closeBtn = overlay.querySelector('[data-modal-close]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeReadyModal);
+        }
+
+        const shareBtn = overlay.querySelector('[data-modal-share]');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', async function () {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'سند إرسال #' + safeNum,
+                    });
+                    closeReadyModal();
+                } catch (shareErr) {
+                    if (shareErr && shareErr.name === 'AbortError') {
+                        return;
+                    }
+                    console.error('[ReceiptShare] Modal share failed:', shareErr);
+                    triggerPngDownload(blob, fileName);
+                    dispatchToast('تم تحميل صورة السند بنجاح.', 'success');
+                    closeReadyModal();
+                }
+            });
+        }
+
+        const downloadBtn = overlay.querySelector('[data-modal-download]');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', function () {
+                triggerPngDownload(blob, fileName);
+                dispatchToast('تم تحميل صورة السند بنجاح.', 'success');
+                closeReadyModal();
+            });
+        }
+
+        document.body.appendChild(overlay);
+    }
+
     async function shareReceiptAsImage(receiptUrl, receiptNumber, triggerBtn) {
         if (!receiptUrl) return;
 
@@ -191,10 +397,12 @@
         activeCaptureLock = true;
         setButtonBusy(triggerBtn, true);
 
-        let iframe = null;
+        let hostEl = null;
 
         try {
-            iframe = await createOffscreenIframe(receiptUrl);
+            const created = await createHiddenCaptureHost(receiptUrl);
+            hostEl = created.host;
+            const iframe = created.iframe;
             const iframeWin = iframe.contentWindow;
             const iframeDoc = iframe.contentDocument;
 
@@ -210,7 +418,6 @@
                 throw new Error('Receipt sheet element not found');
             }
 
-            // ضمان إلغاء أي تصغير نسبي قبل الالتقاط
             const stageEl = iframeDoc.querySelector('.sheet-stage');
             if (stageEl) {
                 stageEl.style.transform = 'none';
@@ -220,41 +427,12 @@
             const htmlToImage = await ensureHtmlToImageInIframe(iframeWin, iframeDoc);
             await waitForQrAndFonts(iframeDoc, sheetEl);
 
-            const captureOptions = {
-                pixelRatio: 2,
-                backgroundColor: '#ffffff',
-                cacheBust: true,
-                style: {
-                    margin: '0',
-                    boxShadow: 'none',
-                    transform: 'none',
-                },
-            };
-
-            let blob = null;
-            try {
-                blob = await htmlToImage.toBlob(sheetEl, captureOptions);
-            } catch (_) {
-                // محاولة احتياطية بدون تضمين الخطوط الخارجية إذا تعذر جلب CSS الخطوط
-                blob = await htmlToImage.toBlob(sheetEl, Object.assign({}, captureOptions, {
-                    skipFonts: true,
-                }));
-            }
-
-            if (!blob || blob.size === 0) {
-                throw new Error('Generated PNG blob is empty');
-            }
-
+            const blob = await captureReceiptBlob(htmlToImage, sheetEl);
             const safeNum = sanitizeReceiptNumber(receiptNumber);
             const fileName = 'سند-إرسال-' + safeNum + '.png';
             const file = new File([blob], fileName, { type: 'image/png' });
 
-            if (
-                typeof navigator !== 'undefined' &&
-                typeof navigator.share === 'function' &&
-                typeof navigator.canShare === 'function' &&
-                navigator.canShare({ files: [file] })
-            ) {
+            if (canNativeShareFile(file)) {
                 try {
                     await navigator.share({
                         files: [file],
@@ -265,17 +443,24 @@
                     if (shareErr && shareErr.name === 'AbortError') {
                         return;
                     }
+                    if (shareErr && shareErr.name === 'NotAllowedError') {
+                        console.warn('[ReceiptShare] Direct navigator.share gesture expired (NotAllowedError); opening ready modal.');
+                        openReceiptReadyModal(blob, file, safeNum, fileName);
+                        return;
+                    }
+                    console.warn('[ReceiptShare] Direct navigator.share failed; opening ready modal:', shareErr);
+                    openReceiptReadyModal(blob, file, safeNum, fileName);
+                    return;
                 }
             }
 
-            triggerPngDownload(blob, fileName);
-            dispatchToast('تم تحميل صورة السند بنجاح.', 'success');
+            openReceiptReadyModal(blob, file, safeNum, fileName);
         } catch (err) {
-            console.error('Receipt PNG capture/share failed:', err);
+            console.error('[ReceiptShare]', err);
             notifyError('تعذر تجهيز صورة السند للمشاركة، يرجى المحاولة مجدداً.');
         } finally {
-            if (iframe && iframe.parentNode) {
-                iframe.remove();
+            if (hostEl && hostEl.parentNode) {
+                hostEl.remove();
             }
             activeCaptureLock = false;
             setButtonBusy(triggerBtn, false);

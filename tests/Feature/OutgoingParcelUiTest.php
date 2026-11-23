@@ -959,7 +959,7 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('printReceipt(url)', $indexHtml);
         $this->assertStringContainsString('data-card-action="share-receipt-image"', $indexHtml);
         $this->assertStringContainsString('data-receipt-number="404"', $indexHtml);
-        $this->assertStringContainsString('receipt-image-share.js?v=1', $indexHtml);
+        $this->assertStringContainsString('receipt-image-share.js?v=27', $indexHtml);
         $this->assertStringContainsString('shareReceiptAsImage(', $indexHtml);
 
         // 2. صفحة السند تدعم التحجيم التناسبي للجوال + طباعة 1/1 بدون صفحة فارغة + معامل auto_print=1

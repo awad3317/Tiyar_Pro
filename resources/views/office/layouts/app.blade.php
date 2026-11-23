@@ -27,7 +27,7 @@
     <link rel="apple-touch-icon" href="{{ $brandIconUrl }}">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 
-    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="{{ asset('js/tailwind.js') }}"></script>
     <script>
         tailwind.config = {
@@ -43,7 +43,7 @@
     </script>
     <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
     <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
-    <script src="{{ asset('js/receipt-image-share.js') }}?v=1"></script>
+    <script src="{{ asset('js/receipt-image-share.js') }}?v=27"></script>
 
     <style>
         :root {

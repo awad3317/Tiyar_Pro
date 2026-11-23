@@ -1,74 +1,74 @@
 @php
     $parcel = $outgoingParcel ?? $parcel ?? null;
-    $office = $office ?? $parcel?->office ?? auth('office')->user() ?? rescue(fn () => \App\Models\Office::first(), null, false);
+    $office = $office ?? $parcel?->office ?? auth('office')->user() ?? rescue(fn() => \App\Models\Office::first(), null, false);
     $destOffice = $parcel?->destinationOffice;
 
     // جلب هوية المكتب المرسل وهوية الفرع المستلم الشريك (من الكاش الدائم)
     $senderProfile = $office ? $office->getResolvedProfile() : [
-        'logo_url'          => null,
-        'icon_url'          => null,
-        'primary_color'     => \App\Models\OfficeProfile::DEFAULT_PRIMARY_COLOR,
-        'secondary_color'   => \App\Models\OfficeProfile::DEFAULT_SECONDARY_COLOR,
-        'tagline_primary'   => \App\Models\OfficeProfile::DEFAULT_TAGLINE_1,
+        'logo_url' => null,
+        'icon_url' => null,
+        'primary_color' => \App\Models\OfficeProfile::DEFAULT_PRIMARY_COLOR,
+        'secondary_color' => \App\Models\OfficeProfile::DEFAULT_SECONDARY_COLOR,
+        'tagline_primary' => \App\Models\OfficeProfile::DEFAULT_TAGLINE_1,
         'tagline_secondary' => \App\Models\OfficeProfile::DEFAULT_TAGLINE_2,
-        'branch_address'    => '',
-        'complaints_phone'  => '',
-        'dispatch_phone_1'  => '',
-        'dispatch_phone_2'  => '',
-        'delivery_phone'    => '',
-        'receipt_title'     => \App\Models\OfficeProfile::DEFAULT_RECEIPT_TITLE,
-        'slogan'            => \App\Models\OfficeProfile::DEFAULT_SLOGAN,
-        'receipt_terms'     => \App\Models\OfficeProfile::DEFAULT_TERMS,
-        'footer_text'       => \App\Models\OfficeProfile::DEFAULT_FOOTER_TEXT,
+        'branch_address' => '',
+        'complaints_phone' => '',
+        'dispatch_phone_1' => '',
+        'dispatch_phone_2' => '',
+        'delivery_phone' => '',
+        'receipt_title' => \App\Models\OfficeProfile::DEFAULT_RECEIPT_TITLE,
+        'slogan' => \App\Models\OfficeProfile::DEFAULT_SLOGAN,
+        'receipt_terms' => \App\Models\OfficeProfile::DEFAULT_TERMS,
+        'footer_text' => \App\Models\OfficeProfile::DEFAULT_FOOTER_TEXT,
     ];
     $destProfile = $destOffice ? $destOffice->getResolvedProfile() : null;
 
     // ألوان وشعار هوية المكتب المرسل
-    $brandPrimary   = $senderProfile['primary_color'] ?? '#041627';
+    $brandPrimary = $senderProfile['primary_color'] ?? '#041627';
     $brandSecondary = $senderProfile['secondary_color'] ?? '#fe9d20';
-    $brandLogoUrl   = $senderProfile['logo_url'] ?? $senderProfile['icon_url'] ?? null;
-    $brandIconUrl   = $senderProfile['icon_url'] ?? $senderProfile['logo_url'] ?? asset('icons/icon-192.png');
+    $brandLogoUrl = $senderProfile['logo_url'] ?? $senderProfile['icon_url'] ?? null;
+    $brandIconUrl = $senderProfile['icon_url'] ?? $senderProfile['logo_url'] ?? asset('icons/icon-192.png');
 
     // بيانات المكتب المرسل
-    $officeName     = $office_name ?? request('office_name', $office?->name ?? 'مكتب مُرسَل');
-    $tagline1       = $tagline1 ?? request('tagline1', $senderProfile['tagline_primary']);
-    $tagline2       = $tagline2 ?? request('tagline2', $senderProfile['tagline_secondary']);
-    $managerPhone   = $manager_phone ?? request('manager_phone', $senderProfile['complaints_phone']);
+    $officeName = $office_name ?? request('office_name', $office?->name ?? 'مكتب مُرسَل');
+    $tagline1 = $tagline1 ?? request('tagline1', $senderProfile['tagline_primary']);
+    $tagline2 = $tagline2 ?? request('tagline2', $senderProfile['tagline_secondary']);
+    $managerPhone = $manager_phone ?? request('manager_phone', $senderProfile['complaints_phone']);
     $dispatchPhone1 = $dispatch_phone1 ?? request('dispatch_phone1', $senderProfile['dispatch_phone_1']);
     $dispatchPhone2 = $dispatch_phone2 ?? request('dispatch_phone2', $senderProfile['dispatch_phone_2']);
-    $officeAddress  = $address ?? request('address', $senderProfile['branch_address']);
+    $officeAddress = $address ?? request('address', $senderProfile['branch_address']);
 
     // بيانات الطرد الصادر والسند
-    $parcelUuid     = (string) ($parcel?->id ?? '');
-    $receiptNumber  = (string) ($receipt_number ?? request('receipt_number', $parcel?->receipt_number ?? '0000'));
-    $createdTime    = $parcel?->created_at ?? now();
-    $dateStr        = $date ?? request('date', $createdTime->format('Y/m/d'));
-    $timeStr        = $time ?? request('time', $createdTime->format('H:i'));
+    $parcelUuid = (string) ($parcel?->id ?? '');
+    $receiptNumber = (string) ($receipt_number ?? request('receipt_number', $parcel?->receipt_number ?? '0000'));
+    $createdTime = $parcel?->created_at ?? now();
+    $dateStr = $date ?? request('date', $createdTime->format('Y/m/d'));
+    $timeStr = $time ?? request('time', $createdTime->format('H:i'));
 
     $destinationLabel = ($parcel && method_exists($parcel, 'destinationLabel'))
         ? $parcel->destinationLabel()
         : ($parcel?->destination ?? '');
-    $destination    = $destination ?? request('destination', $destOffice?->branch_name ?: $destinationLabel ?: '—');
+    $destination = $destination ?? request('destination', $destOffice?->branch_name ?: $destinationLabel ?: '—');
 
     $paymentEnum = $parcel?->payment_type instanceof \App\Enums\OutgoingPaymentType
         ? $parcel->payment_type
         : (\App\Enums\OutgoingPaymentType::tryFrom((string) ($parcel?->payment_type ?? '')) ?? \App\Enums\OutgoingPaymentType::PAID);
 
-    $isDeferred   = $paymentEnum === \App\Enums\OutgoingPaymentType::DEFERRED;
+    $isDeferred = $paymentEnum === \App\Enums\OutgoingPaymentType::DEFERRED;
     $rawCodAmount = (float) ($parcel?->cod_amount ?? 0);
     $formattedCod = number_format($rawCodAmount);
 
     $defaultAmountText = $isDeferred
         ? ($rawCodAmount > 0 ? "آجل ({$formattedCod} ر.ي)" : 'آجل')
         : ($rawCodAmount > 0 ? "محاسب ({$formattedCod} ر.ي)" : 'محاسب نقداً');
-    $amountDisplay  = $amount ?? request('amount', $defaultAmountText);
+    $amountDisplay = $amount ?? request('amount', $defaultAmountText);
 
-    $recipientName  = $recipient_name ?? request('recipient_name', $parcel?->recipient_name ?: 'بدون اسم');
+    $recipientName = $recipient_name ?? request('recipient_name', $parcel?->recipient_name ?: 'بدون اسم');
     $recipientPhone = $recipient_phone ?? request('recipient_phone', $parcel?->recipient_phone ?? '');
-    $senderName     = $sender_name ?? request('sender_name', $parcel?->sender_name ?? '—');
-    $senderPhone    = $sender_phone ?? request('sender_phone', $parcel?->sender_phone ?? '');
-    $packageType    = $package_type ?? request('package_type', $parcel?->package_type ?? 'طرد');
-    $parcelNotes    = trim((string) ($parcel?->notes ?? ''));
+    $senderName = $sender_name ?? request('sender_name', $parcel?->sender_name ?? '—');
+    $senderPhone = $sender_phone ?? request('sender_phone', $parcel?->sender_phone ?? '');
+    $packageType = $package_type ?? request('package_type', $parcel?->package_type ?? 'طرد');
+    $parcelNotes = trim((string) ($parcel?->notes ?? ''));
 
     // موقع ورقم التسليم: يُسحب تلقائياً من ملف هوية الفرع المستلم الشريك إن وُجد
     $resolvedDeliveryLoc = $destinationLabel ?: $destination;
@@ -79,50 +79,147 @@
             : ($destOffice->name . ' - ' . $destAddr);
     }
 
-    $deliveryLoc    = $delivery_location ?? request('delivery_location', $resolvedDeliveryLoc);
-    $deliveryPhone  = $delivery_phone ?? request('delivery_phone', $destProfile['delivery_phone'] ?? '');
+    $deliveryLoc = $delivery_location ?? request('delivery_location', $resolvedDeliveryLoc);
+    $deliveryPhone = $delivery_phone ?? request('delivery_phone', $destProfile['delivery_phone'] ?? '');
 
     // نوع السند والنسخة والتذييل والشروط
-    $receiptTitle   = $receipt_title ?? request('title', $senderProfile['receipt_title']);
-    $copyType       = $copy_type ?? request('copy', 'خاص بالمكتب');
-    $employeeName   = $employee_name ?? request('employee', $office?->name ?? 'المكتب الرئيسي');
-    $slogan         = $slogan ?? request('slogan', $senderProfile['slogan']);
-    $footerText     = $footer_text ?? request('footer_text', $senderProfile['footer_text']);
-    $terms          = ! empty($senderProfile['receipt_terms'])
+    $receiptTitle = $receipt_title ?? request('title', $senderProfile['receipt_title']);
+    $copyType = $copy_type ?? request('copy', 'خاص بالمكتب');
+    $employeeName = $employee_name ?? request('employee', $office?->name ?? 'المكتب الرئيسي');
+    $slogan = $slogan ?? request('slogan', $senderProfile['slogan']);
+    $footerText = $footer_text ?? request('footer_text', $senderProfile['footer_text']);
+    $terms = !empty($senderProfile['receipt_terms'])
         ? $senderProfile['receipt_terms']
         : \App\Models\OfficeProfile::DEFAULT_TERMS;
 
     // تعريف النسختين داخل نفس الصفحة دون الحاجة لأي ملف جزئي
     $copies = [
         [
-            'card_id'    => 'receiptCard1',
+            'card_id' => 'receiptCard1',
             'receipt_id' => 'receipt-1',
-            'label'      => $copyType,
-            'hidden'     => false,
+            'label' => $copyType,
+            'hidden' => false,
         ],
         [
-            'card_id'    => 'receiptCard2',
+            'card_id' => 'receiptCard2',
             'receipt_id' => 'receipt-2',
-            'label'      => ($copyType === 'خاص بالمكتب' ? 'نسخة العميل' : 'خاص بالمكتب'),
-            'hidden'     => true,
+            'label' => ($copyType === 'خاص بالمكتب' ? 'نسخة العميل' : 'خاص بالمكتب'),
+            'hidden' => true,
         ],
     ];
 
     // مولد باركود خطي 1D قياسي (Code 128) كمتجه SVG نقي بدون أي مكتبات خارجية
     if (!function_exists('renderCode128Svg')) {
-        function renderCode128Svg(string $text, int $height = 26, float $scale = 1.2): string {
+        function renderCode128Svg(string $text, int $height = 26, float $scale = 1.2): string
+        {
             $patterns = [
-                '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
-                '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
-                '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
-                '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
-                '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
-                '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
-                '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
-                '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
-                '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
-                '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
-                '114131','311141','411131','211412','211214','211232','2331112'
+                '212222',
+                '222122',
+                '222221',
+                '121223',
+                '121322',
+                '131222',
+                '122213',
+                '122312',
+                '132212',
+                '221213',
+                '221312',
+                '231212',
+                '112232',
+                '122132',
+                '122231',
+                '113222',
+                '123122',
+                '123221',
+                '223211',
+                '221132',
+                '221231',
+                '213212',
+                '223112',
+                '312131',
+                '311222',
+                '321122',
+                '321221',
+                '312212',
+                '322112',
+                '322211',
+                '212123',
+                '212321',
+                '232121',
+                '111323',
+                '131123',
+                '131321',
+                '112313',
+                '132113',
+                '132311',
+                '211313',
+                '231113',
+                '231311',
+                '112133',
+                '112331',
+                '132131',
+                '113123',
+                '113321',
+                '133121',
+                '313121',
+                '211331',
+                '231131',
+                '213113',
+                '213311',
+                '213131',
+                '311123',
+                '311321',
+                '331121',
+                '312113',
+                '312311',
+                '332111',
+                '314111',
+                '221411',
+                '431111',
+                '111224',
+                '111422',
+                '121124',
+                '121421',
+                '141122',
+                '141221',
+                '112214',
+                '112412',
+                '122114',
+                '122411',
+                '142112',
+                '142211',
+                '241211',
+                '221114',
+                '413111',
+                '241112',
+                '134111',
+                '111242',
+                '121142',
+                '121241',
+                '114212',
+                '124112',
+                '124211',
+                '411212',
+                '421112',
+                '421211',
+                '212141',
+                '214121',
+                '412121',
+                '111143',
+                '111341',
+                '131141',
+                '114113',
+                '114311',
+                '411113',
+                '411311',
+                '113141',
+                '114131',
+                '311141',
+                '411131',
+                '211412',
+                '211214',
+                '211232',
+                '2331112'
             ];
 
             $text = trim($text) !== '' ? trim($text) : '0000';
@@ -134,7 +231,8 @@
 
             for ($i = 0; $i < $len; $i++) {
                 $val = ord($text[$i]) - 32;
-                if ($val < 0 || $val > 95) $val = 0;
+                if ($val < 0 || $val > 95)
+                    $val = 0;
                 $encoded[] = $patterns[$val];
                 $checksum += $val * ($i + 1);
             }
@@ -146,7 +244,7 @@
             foreach ($encoded as $p) {
                 $isBar = true;
                 for ($k = 0; $k < strlen($p); $k++) {
-                    $w = (int)$p[$k];
+                    $w = (int) $p[$k];
                     $modules .= str_repeat($isBar ? '1' : '0', $w);
                     $isBar = !$isBar;
                 }
@@ -172,6 +270,7 @@
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -180,7 +279,7 @@
     <title>{{ $receiptTitle }} #{{ $receiptNumber }} - {{ $officeName }}</title>
 
     <!-- خطوط عربية وتنسيق Tailwind المحلي -->
-    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="{{ asset('js/tailwind.js') }}"></script>
     <script>
         tailwind.config = {
@@ -204,8 +303,12 @@
 
     <style>
         :root {
-            --office-primary: {{ $brandPrimary }};
-            --office-secondary: {{ $brandSecondary }};
+            --office-primary:
+                {{ $brandPrimary }}
+            ;
+            --office-secondary:
+                {{ $brandSecondary }}
+            ;
         }
 
         * {
@@ -223,8 +326,13 @@
             padding: 0;
         }
 
-        .dir-ltr { direction: ltr !important; }
-        .dir-rtl { direction: rtl !important; }
+        .dir-ltr {
+            direction: ltr !important;
+        }
+
+        .dir-rtl {
+            direction: rtl !important;
+        }
 
         /* حاوية التحجيم التناسبي للمعاينة على الجوال (بدون أي قص أفقي) */
         .preview-scale-shell {
@@ -367,7 +475,8 @@
             position: relative;
         }
 
-        .cut-line::before, .cut-line::after {
+        .cut-line::before,
+        .cut-line::after {
             content: "";
             flex: 1;
             border-bottom: 2px dashed #94a3b8;
@@ -378,13 +487,16 @@
             padding: 10px 12px !important;
             border-radius: 10px !important;
         }
+
         body.thermal-mode .receipt-header {
             grid-template-columns: 1fr !important;
             gap: 8px !important;
         }
+
         body.thermal-mode .receipt-header .header-col {
             text-align: center !important;
         }
+
         body.thermal-mode .invoice-table td {
             display: block;
             width: 100% !important;
@@ -394,7 +506,9 @@
 
         /* تحسينات الطباعة الفعلية (ورقة 1/1 حادة بدون أي صفحة ثانية فارغة) */
         @media print {
-            html, body {
+
+            html,
+            body {
                 height: auto !important;
                 min-height: 0 !important;
                 margin: 0 !important;
@@ -496,6 +610,7 @@
         }
     </style>
 </head>
+
 <body class="min-h-screen" x-data="receiptPreviewPage()" x-init="init()">
 
     <!-- شريط التحكم العلوي (يختفي تماماً عند الطباعة) -->
@@ -536,7 +651,8 @@
                 <button type="button" @click="togglePaperSize()" id="paperSizeBtn"
                     class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 text-white flex items-center gap-1 transition-colors">
                     <span class="material-symbols-outlined text-sm text-secondary">receipt_long</span>
-                    <span id="paperSizeLabel" x-text="isThermal ? 'قياس حراري (80mm)' : 'قياس A4 / A5'">قياس A4 / A5</span>
+                    <span id="paperSizeLabel" x-text="isThermal ? 'قياس حراري (80mm)' : 'قياس A4 / A5'">قياس A4 /
+                        A5</span>
                 </button>
             </div>
 
@@ -582,7 +698,8 @@
                                 @if ($brandLogoUrl)
                                     <img src="{{ $brandLogoUrl }}" alt="" class="w-full h-full object-contain">
                                 @else
-                                    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                                    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                        class="w-full h-full">
                                         <path d="M60 12L106 36V84L60 108L14 84V36L60 12Z" fill="{{ $brandPrimary }}" />
                                         <path d="M60 12L106 36L60 60L14 36L60 12Z" fill="{{ $brandSecondary }}" />
                                         <path d="M64 32L44 64H58L54 90L76 56H62L64 32Z" fill="#ffffff" />
@@ -610,13 +727,17 @@
                                 <div class="header-col flex flex-col items-center justify-center text-center gap-1.5 px-1">
                                     <div class="w-11 h-11 flex items-center justify-center">
                                         @if ($brandLogoUrl)
-                                            <img src="{{ $brandLogoUrl }}" alt="{{ $officeName }}" class="max-w-full max-h-full object-contain">
+                                            <img src="{{ $brandLogoUrl }}" alt="{{ $officeName }}"
+                                                class="max-w-full max-h-full object-contain">
                                         @else
-                                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10">
-                                                <path d="M32 6L56 19V45L32 58L8 45V19L32 6Z" fill="{{ $brandPrimary }}" stroke="#0f172a" stroke-width="2" />
+                                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                                class="w-10 h-10">
+                                                <path d="M32 6L56 19V45L32 58L8 45V19L32 6Z" fill="{{ $brandPrimary }}"
+                                                    stroke="#0f172a" stroke-width="2" />
                                                 <path d="M32 6L56 19L32 32L8 19L32 6Z" fill="#2563eb" />
                                                 <path d="M56 19V45L32 58V32L56 19Z" fill="#ef4444" />
-                                                <path d="M34 15L22 35H31L29 49L42 29H33L34 15Z" fill="{{ $brandSecondary }}" stroke="{{ $brandPrimary }}" stroke-width="1.5" stroke-linejoin="round" />
+                                                <path d="M34 15L22 35H31L29 49L42 29H33L34 15Z" fill="{{ $brandSecondary }}"
+                                                    stroke="{{ $brandPrimary }}" stroke-width="1.5" stroke-linejoin="round" />
                                             </svg>
                                         @endif
                                     </div>
@@ -635,8 +756,10 @@
                                 <div class="header-col min-w-0 text-left space-y-1">
                                     @if ($managerPhone)
                                         <div class="flex items-center justify-between gap-2 text-[11px]">
-                                            <span class="text-slate-500 font-bold shrink-0 whitespace-nowrap">المدير والشكاوى:</span>
-                                            <span class="editable-field font-mono font-extrabold text-slate-900 inline-flex items-center gap-1 dir-ltr whitespace-nowrap shrink-0">
+                                            <span class="text-slate-500 font-bold shrink-0 whitespace-nowrap">المدير
+                                                والشكاوى:</span>
+                                            <span
+                                                class="editable-field font-mono font-extrabold text-slate-900 inline-flex items-center gap-1 dir-ltr whitespace-nowrap shrink-0">
                                                 <span>{{ $managerPhone }}</span>
                                                 <span class="material-symbols-outlined text-[13px] text-rose-800">call</span>
                                             </span>
@@ -645,8 +768,10 @@
 
                                     @if ($dispatchPhone1)
                                         <div class="flex items-center justify-between gap-2 text-[11px]">
-                                            <span class="text-slate-500 font-bold shrink-0 whitespace-nowrap">خدمة الإرسال:</span>
-                                            <span class="editable-field font-mono font-extrabold text-slate-900 inline-flex items-center gap-1 dir-ltr whitespace-nowrap shrink-0">
+                                            <span class="text-slate-500 font-bold shrink-0 whitespace-nowrap">خدمة
+                                                الإرسال:</span>
+                                            <span
+                                                class="editable-field font-mono font-extrabold text-slate-900 inline-flex items-center gap-1 dir-ltr whitespace-nowrap shrink-0">
                                                 <span>{{ $dispatchPhone1 }}</span>
                                                 <span class="material-symbols-outlined text-[13px] text-rose-800">call</span>
                                             </span>
@@ -655,38 +780,45 @@
 
                                     @if ($dispatchPhone2)
                                         <div class="text-left">
-                                            <span class="editable-field font-mono font-bold text-[10.5px] text-slate-600 dir-ltr inline-block whitespace-nowrap">
+                                            <span
+                                                class="editable-field font-mono font-bold text-[10.5px] text-slate-600 dir-ltr inline-block whitespace-nowrap">
                                                 {{ $dispatchPhone2 }}
                                             </span>
                                         </div>
                                     @endif
 
                                     @if ($officeAddress)
-                                        <p class="editable-field text-[11px] font-extrabold text-slate-700 text-right border-t border-slate-100 pt-1 leading-snug">
+                                        <p
+                                            class="editable-field text-[11px] font-extrabold text-slate-700 text-right border-t border-slate-100 pt-1 leading-snug">
                                             {{ $officeAddress }}
                                         </p>
                                     @endif
 
                                     {{-- التاريخ والوقت --}}
-                                    <div class="flex items-center justify-between gap-2 pt-0.5 text-[11px] font-mono font-bold text-slate-700">
+                                    <div
+                                        class="flex items-center justify-between gap-2 pt-0.5 text-[11px] font-mono font-bold text-slate-700">
                                         <span class="inline-flex items-center gap-1 dir-ltr whitespace-nowrap">
-                                            <span class="material-symbols-outlined text-[13px] text-rose-700">calendar_month</span>
+                                            <span
+                                                class="material-symbols-outlined text-[13px] text-rose-700">calendar_month</span>
                                             <span class="editable-field">{{ $dateStr }}</span>
                                         </span>
                                         <span class="inline-flex items-center gap-1 dir-ltr whitespace-nowrap">
                                             <span class="editable-field">{{ $timeStr }}</span>
-                                            <span class="material-symbols-outlined text-[13px] text-slate-500">schedule</span>
+                                            <span
+                                                class="material-symbols-outlined text-[13px] text-slate-500">schedule</span>
                                         </span>
                                     </div>
 
                                     {{-- كبسولة رقم السند بلون الهوية الأساسي + الباركود الخطي --}}
                                     <div class="flex items-center justify-between gap-2 pt-1">
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-primary text-white font-mono font-black text-xs shrink-0 dir-ltr whitespace-nowrap">
+                                        <span
+                                            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-primary text-white font-mono font-black text-xs shrink-0 dir-ltr whitespace-nowrap">
                                             <span class="material-symbols-outlined text-[13px] text-secondary">tag</span>
                                             <span class="editable-field receipt-number-input">{{ $receiptNumber }}</span>
                                         </span>
 
-                                        <div class="barcode-wrapper overflow-hidden flex items-center justify-end min-w-0" title="باركود رقم السند">
+                                        <div class="barcode-wrapper overflow-hidden flex items-center justify-end min-w-0"
+                                            title="باركود رقم السند">
                                             {!! $barcodeSvg !!}
                                         </div>
                                     </div>
@@ -699,12 +831,15 @@
                                     <tbody>
                                         <tr>
                                             <td class="w-7/12 text-right">
-                                                <span class="text-xs font-bold text-slate-500 ml-1">المحافظة / الوجهة:</span>
-                                                <span class="editable-field text-sm font-black text-slate-900">{{ $destination }}</span>
+                                                <span class="text-xs font-bold text-slate-500 ml-1">المحافظة /
+                                                    الوجهة:</span>
+                                                <span
+                                                    class="editable-field text-sm font-black text-slate-900">{{ $destination }}</span>
                                             </td>
                                             <td class="w-5/12 text-left whitespace-nowrap">
                                                 <span class="text-xs font-bold text-slate-500 ml-1">المبلغ:</span>
-                                                <span class="editable-field text-sm font-black {{ $isDeferred ? 'text-amber-800' : 'text-slate-900' }}">
+                                                <span
+                                                    class="editable-field text-sm font-black {{ $isDeferred ? 'text-amber-800' : 'text-slate-900' }}">
                                                     {{ $amountDisplay }}
                                                 </span>
                                             </td>
@@ -713,12 +848,14 @@
                                         <tr>
                                             <td class="text-right">
                                                 <span class="text-xs font-bold text-slate-500 ml-1">اسم المستلم:</span>
-                                                <span class="editable-field text-sm font-black text-slate-900">{{ $recipientName }}</span>
+                                                <span
+                                                    class="editable-field text-sm font-black text-slate-900">{{ $recipientName }}</span>
                                             </td>
                                             <td class="text-left whitespace-nowrap">
                                                 <span class="phone-badge">
                                                     <span class="editable-field">{{ $recipientPhone }}</span>
-                                                    <span class="material-symbols-outlined text-[15px] text-rose-800">call</span>
+                                                    <span
+                                                        class="material-symbols-outlined text-[15px] text-rose-800">call</span>
                                                 </span>
                                             </td>
                                         </tr>
@@ -726,12 +863,14 @@
                                         <tr>
                                             <td class="text-right">
                                                 <span class="text-xs font-bold text-slate-500 ml-1">اسم المرسل:</span>
-                                                <span class="editable-field text-sm font-black text-slate-900">{{ $senderName }}</span>
+                                                <span
+                                                    class="editable-field text-sm font-black text-slate-900">{{ $senderName }}</span>
                                             </td>
                                             <td class="text-left whitespace-nowrap">
                                                 <span class="phone-badge">
                                                     <span class="editable-field">{{ $senderPhone }}</span>
-                                                    <span class="material-symbols-outlined text-[15px] text-rose-800">call</span>
+                                                    <span
+                                                        class="material-symbols-outlined text-[15px] text-rose-800">call</span>
                                                 </span>
                                             </td>
                                         </tr>
@@ -740,8 +879,10 @@
                                             <td colspan="2" class="text-right">
                                                 <div class="flex items-center justify-between gap-2 flex-wrap">
                                                     <div>
-                                                        <span class="text-xs font-bold text-slate-500 ml-1">نوع الرسالة:</span>
-                                                        <span class="editable-field text-sm font-black text-slate-900">{{ $packageType }}</span>
+                                                        <span class="text-xs font-bold text-slate-500 ml-1">نوع
+                                                            الرسالة:</span>
+                                                        <span
+                                                            class="editable-field text-sm font-black text-slate-900">{{ $packageType }}</span>
                                                     </div>
                                                     @if ($parcelNotes)
                                                         <div class="text-xs font-bold text-slate-600">
@@ -757,15 +898,18 @@
                                             <td colspan="2" class="pt-2 pb-2">
                                                 <div class="flex items-center justify-between gap-3 flex-wrap">
                                                     <div class="text-right min-w-0 flex-1">
-                                                        <span class="block text-[11px] font-bold text-slate-500">موقع التسليم:</span>
-                                                        <span class="editable-field text-xs sm:text-sm font-black text-slate-900 leading-snug block mt-0.5">
+                                                        <span class="block text-[11px] font-bold text-slate-500">موقع
+                                                            التسليم:</span>
+                                                        <span
+                                                            class="editable-field text-xs sm:text-sm font-black text-slate-900 leading-snug block mt-0.5">
                                                             {{ $deliveryLoc }}
                                                         </span>
                                                     </div>
 
                                                     @if ($deliveryPhone)
                                                         <div class="shrink-0">
-                                                            <span class="delivery-phone-badge editable-field">{{ $deliveryPhone }}</span>
+                                                            <span
+                                                                class="delivery-phone-badge editable-field">{{ $deliveryPhone }}</span>
                                                         </div>
                                                     @endif
                                                 </div>
@@ -776,7 +920,8 @@
                             </div>
 
                             {{-- 3. الشروط والأحكام + رمز QR السريع (UUID) --}}
-                            <div class="receipt-terms-row relative z-10 mt-2 pt-2 border-t-2 border-primary flex items-center justify-between gap-4">
+                            <div
+                                class="receipt-terms-row relative z-10 mt-2 pt-2 border-t-2 border-primary flex items-center justify-between gap-4">
                                 <ul class="space-y-0.5 text-[11px] font-bold text-slate-600 leading-relaxed min-w-0 flex-1">
                                     @foreach ($terms as $term)
                                         <li class="editable-field">{{ $term }}</li>
@@ -784,7 +929,8 @@
                                 </ul>
 
                                 @if ($parcelUuid)
-                                    <div class="qr-box shrink-0 flex flex-col items-center justify-center p-1.5 border border-slate-300 rounded-lg bg-white">
+                                    <div
+                                        class="qr-box shrink-0 flex flex-col items-center justify-center p-1.5 border border-slate-300 rounded-lg bg-white">
                                         <div class="qr-wrapper" data-uuid="{{ $parcelUuid }}"></div>
                                         <span class="text-[8.5px] font-mono text-slate-500 mt-1 leading-none">مسح سريع</span>
                                     </div>
@@ -792,7 +938,8 @@
                             </div>
 
                             {{-- 4. التذييل السفلي --}}
-                            <div class="receipt-footer-row relative z-10 mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between gap-2 text-xs">
+                            <div
+                                class="receipt-footer-row relative z-10 mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between gap-2 text-xs">
                                 <div class="text-right whitespace-nowrap">
                                     <span class="text-slate-500 font-bold">الموظف:</span>
                                     <span class="editable-field font-black text-slate-900 mr-0.5">{{ $employeeName }}</span>
@@ -802,7 +949,8 @@
                                     "{{ $slogan }}"
                                 </div>
 
-                                <div class="editable-field text-left text-[11px] font-bold text-slate-400 whitespace-nowrap">
+                                <div
+                                    class="editable-field text-left text-[11px] font-bold text-slate-400 whitespace-nowrap">
                                     {{ $footerText }}
                                 </div>
                             </div>
@@ -970,17 +1118,17 @@
 
         function generateCode128Js(code) {
             const patterns = [
-                '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
-                '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
-                '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
-                '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
-                '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
-                '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
-                '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
-                '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
-                '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
-                '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
-                '114131','311141','411131','211412','211214','211232','2331112'
+                '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
+                '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132',
+                '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211',
+                '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313',
+                '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331',
+                '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111',
+                '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+                '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
+                '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141',
+                '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141',
+                '114131', '311141', '411131', '211412', '211214', '211232', '2331112'
             ];
 
             const startB = 104;
@@ -1048,4 +1196,5 @@
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </body>
+
 </html>
