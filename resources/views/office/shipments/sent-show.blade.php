@@ -189,7 +189,7 @@
         </div>
 
         {{-- جدول/بطاقات الطرود داخل الشحنة --}}
-        <div class="space-y-2">
+        <div class="space-y-2" @click="handleParcelListClick($event)">
             <h3 class="text-xs font-extrabold text-slate-700 px-1">
                 الطرود المضمومة ({{ $activeParcels->count() }})
             </h3>
@@ -223,7 +223,7 @@
                             </p>
                         </div>
 
-                        <div class="flex items-center gap-1 shrink-0">
+                        <div class="flex items-center gap-1.5 shrink-0">
                             @if ($office->hasFeature('outgoing_parcels'))
                                 <button type="button" @click="printReceipt(@js(route('office.outgoing-parcels.receipt', $parcel)))"
                                     title="طباعة فورية للسند" aria-label="طباعة فورية للسند"
@@ -232,18 +232,10 @@
                                 </button>
 
                                 <button type="button"
-                                    @click="sendReceiptWhatsApp(@js(route('office.outgoing-parcels.send-receipt-whatsapp', $parcel)), @js((string) $parcel->id), $el)"
-                                    title="إرسال السند PDF للمستلم عبر واتساب" aria-label="إرسال السند PDF عبر واتساب"
-                                    class="no-print w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200/90 flex items-center justify-center transition-colors disabled:opacity-50">
-                                    <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current" aria-hidden="true">
-                                        <path
-                                            d="M12.03 2C6.51 2 2.04 6.47 2.04 11.99c0 1.76.46 3.48 1.34 4.99L2 22l5.16-1.35a9.95 9.95 0 0 0 4.87 1.24h.01c5.52 0 9.99-4.47 9.99-9.99A9.93 9.93 0 0 0 19.1 4.9 9.92 9.92 0 0 0 12.03 2Zm5.82 14.17c-.24.68-1.41 1.3-1.95 1.38-.5.08-1.13.11-1.82-.11-.42-.14-.96-.31-1.65-.61-2.9-1.25-4.79-4.18-4.94-4.38-.14-.19-1.18-1.57-1.18-2.99 0-1.43.75-2.13 1.01-2.42.27-.29.58-.36.77-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.32-.29.49-.14.17-.3.38-.43.51-.15.14-.3.3-.13.59.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.45.29.15.46.12.63-.07.17-.19.73-.85.92-1.14.19-.29.39-.24.66-.14.27.1 1.7.8 1.99.95.29.14.48.21.55.33.08.12.08.7-.16 1.38Z" />
-                                    </svg>
-                                </button>
-
-                                <button type="button"
-                                    @click="shareReceiptPdf(@js(route('office.outgoing-parcels.receipt-pdf', $parcel)), @js((string) $parcel->receipt_number), @js((string) $parcel->id), $el)"
-                                    title="مشاركة أو حفظ السند PDF" aria-label="مشاركة السند PDF"
+                                    data-card-action="share-receipt-image"
+                                    data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
+                                    data-receipt-number="{{ $parcel->receipt_number }}"
+                                    title="مشاركة صورة السند" aria-label="مشاركة صورة السند"
                                     class="no-print w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200/90 flex items-center justify-center transition-colors disabled:opacity-50">
                                     <span class="material-symbols-outlined text-[15px]">share</span>
                                 </button>
@@ -401,23 +393,14 @@
             return {
                 cancelModal: { open: false, submitting: false },
                 detachModal: { open: false, url: '#', receipt: '', packageType: '', destination: '', submitting: false },
-                receiptBusy: {},
 
-                notifyToast(message, isError = false) {
-                    window.dispatchEvent(new CustomEvent('office-toast', {
-                        detail: { message, type: isError ? 'error' : 'success' }
-                    }));
-                },
-
-                setReceiptBtnLoading(btn, isLoading) {
+                handleParcelListClick(event) {
+                    const btn = event.target?.closest('[data-card-action="share-receipt-image"]');
                     if (!btn) return;
-                    if (isLoading) {
-                        if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
-                        btn.disabled = true;
-                        btn.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>';
-                    } else {
-                        if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
-                        btn.disabled = false;
+                    const receiptUrl = btn.getAttribute('data-receipt-url');
+                    const receiptNumber = btn.getAttribute('data-receipt-number') || '';
+                    if (receiptUrl && typeof window.shareReceiptAsImage === 'function') {
+                        window.shareReceiptAsImage(receiptUrl, receiptNumber, btn);
                     }
                 },
 
@@ -451,112 +434,6 @@
                         iframe.src = url;
                     } catch (e) {
                         window.open(fallbackUrl, '_blank');
-                    }
-                },
-
-                async sendReceiptWhatsApp(url, parcelId, btn) {
-                    if (!url) return;
-                    if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
-                    const lockKey = 'wa:' + parcelId;
-                    if (this.receiptBusy[lockKey]) return;
-
-                    this.receiptBusy[lockKey] = true;
-                    this.setReceiptBtnLoading(btn, true);
-
-                    try {
-                        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            cache: 'no-store',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRF-TOKEN': token,
-                            },
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok || !data.ok) {
-                            this.notifyToast(data.message || 'تعذر إرسال السند عبر واتساب، يرجى المحاولة لاحقاً.', true);
-                            return;
-                        }
-                        this.notifyToast(data.message || 'تم إرسال السند كملف PDF للمستلم عبر واتساب بنجاح.', false);
-                    } catch (err) {
-                        if (typeof window.notifyNetworkError === 'function') {
-                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
-                        } else {
-                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
-                        }
-                    } finally {
-                        this.receiptBusy[lockKey] = false;
-                        this.setReceiptBtnLoading(btn, false);
-                    }
-                },
-
-                async shareReceiptPdf(url, receiptNumber, parcelId, btn) {
-                    if (!url) return;
-                    if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
-                    const lockKey = 'pdf:' + parcelId;
-                    if (this.receiptBusy[lockKey]) return;
-
-                    this.receiptBusy[lockKey] = true;
-                    this.setReceiptBtnLoading(btn, true);
-
-                    try {
-                        const res = await fetch(url, {
-                            method: 'GET',
-                            cache: 'no-store',
-                            headers: {
-                                'Accept': 'application/pdf',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
-                        if (!res.ok) {
-                            const errData = await res.json().catch(() => ({}));
-                            this.notifyToast(errData.message || 'تعذر تجهيز ملف PDF للسند حالياً.', true);
-                            return;
-                        }
-                        const blob = await res.blob();
-                        const safeNum = String(receiptNumber || 'parcel').replace(/[^\w\u0600-\u06FF-]+/g, '') || 'parcel';
-                        const fileName = 'سند-إرسال-' + safeNum + '.pdf';
-                        const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
-
-                        if (
-                            typeof navigator !== 'undefined' &&
-                            typeof navigator.share === 'function' &&
-                            typeof navigator.canShare === 'function' &&
-                            navigator.canShare({ files: [pdfFile] })
-                        ) {
-                            try {
-                                await navigator.share({
-                                    files: [pdfFile],
-                                    title: 'سند إرسال #' + safeNum,
-                                    text: 'سند إرسال طرد #' + safeNum,
-                                });
-                                return;
-                            } catch (shareErr) {
-                                if (shareErr && shareErr.name === 'AbortError') return;
-                            }
-                        }
-
-                        const objUrl = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = objUrl;
-                        a.download = fileName;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
-                        this.notifyToast('تم تحميل ملف السند PDF بنجاح.', false);
-                    } catch (err) {
-                        if (typeof window.notifyNetworkError === 'function') {
-                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
-                        } else {
-                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
-                        }
-                    } finally {
-                        this.receiptBusy[lockKey] = false;
-                        this.setReceiptBtnLoading(btn, false);
                     }
                 },
 

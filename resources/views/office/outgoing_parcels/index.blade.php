@@ -811,6 +811,15 @@
                     return;
                 }
 
+                if (action === 'share-receipt-image') {
+                    const receiptUrl = btn.getAttribute('data-receipt-url');
+                    const receiptNumber = btn.getAttribute('data-receipt-number') || '';
+                    if (receiptUrl && typeof window.shareReceiptAsImage === 'function') {
+                        window.shareReceiptAsImage(receiptUrl, receiptNumber, btn);
+                    }
+                    return;
+                }
+
                 if (action === 'locked-shipments') {
                     this.notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true);
                     return;

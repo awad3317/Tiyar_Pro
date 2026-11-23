@@ -43,6 +43,7 @@
     </script>
     <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
     <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
+    <script src="{{ asset('js/receipt-image-share.js') }}?v=1"></script>
 
     <style>
         :root {
