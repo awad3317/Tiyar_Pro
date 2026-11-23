@@ -9,18 +9,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
 use App\Models\Shipment;
-use App\Services\OutgoingParcelReceiptPdfService;
 use App\Services\ShipmentService;
-use App\Services\WhatsAppService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
@@ -774,124 +770,6 @@ class ShipmentController extends Controller
         ]);
 
         return view('office.outgoing_parcels.receipt', compact('office', 'outgoingParcel'));
-    }
-
-    /**
-     * توليد وتنزيل/بث سند الطرد الصادر كملف PDF عربي RTL (للمشاركة أو التحميل).
-     */
-    public function downloadParcelReceiptPdf(
-        OutgoingParcel $outgoingParcel,
-        OutgoingParcelReceiptPdfService $pdfService
-    ): Response {
-        /** @var Office $office */
-        $office = Auth::guard('office')->user();
-        abort_unless((int) $outgoingParcel->office_id === (int) $office->id, 403);
-
-        $pdfBytes = $pdfService->generate($outgoingParcel);
-        $filename = $pdfService->filename($outgoingParcel);
-
-        return response($pdfBytes, 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $filename . '"',
-            'Content-Length'      => (string) strlen($pdfBytes),
-            'Cache-Control'       => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma'              => 'no-cache',
-        ]);
-    }
-
-    /**
-     * توليد سند الطرد الصادر كملف PDF وإرساله مباشرة للمستلم عبر خدمة واتساب المكتب (Evolution Go).
-     */
-    public function sendParcelReceiptWhatsApp(
-        OutgoingParcel $outgoingParcel,
-        OutgoingParcelReceiptPdfService $pdfService,
-        WhatsAppService $whatsAppService
-    ): JsonResponse {
-        /** @var Office $office */
-        $office = Auth::guard('office')->user();
-        abort_unless((int) $outgoingParcel->office_id === (int) $office->id, 403);
-
-        $recipientPhone = trim((string) ($outgoingParcel->recipient_phone ?? ''));
-        if ($recipientPhone === '') {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'لا يوجد رقم هاتف مسجل للمستلم على هذا الطرد.',
-            ], 422);
-        }
-
-        if (! $whatsAppService->isOfficeConnected($office)) {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'يرجى ربط وتفعيل واتساب المكتب أولاً من إعدادات الواتساب.',
-            ], 422);
-        }
-
-        try {
-            $outgoingParcel->loadMissing([
-                'office:id,name,branch_name,whatsapp_sender_phone,manager_phone,httpsms_from_phone',
-                'destinationOffice:id,name,branch_name,whatsapp_sender_phone,manager_phone',
-            ]);
-
-            $pdfBytes = $pdfService->generate($outgoingParcel);
-            $filename = $pdfService->filename($outgoingParcel);
-
-            $officeLabel = trim($office->name . ($office->branch_name ? " ({$office->branch_name})" : ''));
-            $destinationLabel = $outgoingParcel->destinationLabel();
-            $receiptNum = trim((string) ($outgoingParcel->receipt_number ?: $outgoingParcel->id));
-            $caption = "سند إرسال طرد #{$receiptNum} من {$officeLabel} إلى {$destinationLabel}";
-
-            $result = $whatsAppService
-                ->forOffice($office)
-                ->sendDocument($recipientPhone, $pdfBytes, $filename, $caption, 'application/pdf');
-
-            if (empty($result['success']) || ! empty($result['error'])) {
-                $rawError = strtolower((string) ($result['message'] ?? data_get($result, 'data.error', '')));
-
-                Log::error('Failed to send outgoing parcel receipt PDF via WhatsApp', [
-                    'office_id'  => $office->id,
-                    'parcel_id'  => $outgoingParcel->id,
-                    'recipient'  => $recipientPhone,
-                    'wa_result'  => $result,
-                ]);
-
-                if (
-                    str_contains($rawError, 'not logged')
-                    || str_contains($rawError, 'disconnected')
-                    || str_contains($rawError, 'not connected')
-                    || str_contains($rawError, 'no session')
-                ) {
-                    Cache::put('whatsapp_status_office_' . $office->id, 'offline', now()->addMinutes(15));
-
-                    return response()->json([
-                        'ok'      => false,
-                        'message' => 'يرجى ربط وتفعيل واتساب المكتب أولاً من إعدادات الواتساب.',
-                    ], 422);
-                }
-
-                return response()->json([
-                    'ok'      => false,
-                    'message' => 'تعذر إرسال السند عبر واتساب حالياً، يرجى المحاولة لاحقاً.',
-                ], 502);
-            }
-
-            Cache::put('whatsapp_status_office_' . $office->id, 'online', now()->addMinutes(15));
-
-            return response()->json([
-                'ok'      => true,
-                'message' => 'تم إرسال السند كملف PDF للمستلم عبر واتساب بنجاح.',
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('Exception while sending outgoing parcel receipt PDF via WhatsApp', [
-                'office_id' => $office->id,
-                'parcel_id' => $outgoingParcel->id,
-                'error'     => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'ok'      => false,
-                'message' => 'حدث خطأ أثناء تجهيز أو إرسال السند عبر واتساب، يرجى المحاولة مجدداً.',
-            ], 500);
-        }
     }
 
     protected function resolveOfficeShipment(Office $office, string $shipmentRef, string $clientUuid = ''): ?Shipment

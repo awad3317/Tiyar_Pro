@@ -191,11 +191,10 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // ب) عزل تام عن مسارات تطبيق المحاسب المستقل (/accountant) ولوحة الأدمن (/admin) وسندات الـ PDF/واتساب الحية
+    // ب) عزل تام عن مسارات تطبيق المحاسب المستقل (/accountant) ولوحة الأدمن (/admin)
     if (
         url.pathname.startsWith('/accountant') ||
-        url.pathname.startsWith('/admin') ||
-        /^\/office\/outgoing-parcels\/[^/]+\/receipt(?:\/|$)/.test(url.pathname)
+        url.pathname.startsWith('/admin')
     ) {
         return;
     }

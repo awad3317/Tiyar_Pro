@@ -689,7 +689,6 @@
             isFetching: false,
             _abortController: null,
             actionLoading: {},
-            receiptBusy: {},
 
             actionModal: {
                 open: false,
@@ -812,16 +811,6 @@
                     return;
                 }
 
-                if (action === 'send-receipt-whatsapp') {
-                    this.sendReceiptWhatsApp(btn);
-                    return;
-                }
-
-                if (action === 'share-receipt-pdf') {
-                    this.shareReceiptPdf(btn);
-                    return;
-                }
-
                 if (action === 'locked-shipments') {
                     this.notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true);
                     return;
@@ -895,147 +884,6 @@
                     iframe.src = url;
                 } catch (e) {
                     window.open(fallbackUrl, '_blank');
-                }
-            },
-
-            setReceiptBtnLoading(btn, isLoading) {
-                if (!btn) return;
-                if (isLoading) {
-                    if (!btn.dataset.origHtml) {
-                        btn.dataset.origHtml = btn.innerHTML;
-                    }
-                    btn.disabled = true;
-                    btn.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>';
-                } else {
-                    if (btn.dataset.origHtml) {
-                        btn.innerHTML = btn.dataset.origHtml;
-                    }
-                    btn.disabled = false;
-                }
-            },
-
-            async sendReceiptWhatsApp(btn) {
-                const url = btn?.getAttribute('data-whatsapp-url');
-                const parcelId = btn?.getAttribute('data-parcel-id') || url;
-                if (!url || !parcelId) return;
-
-                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
-                    return;
-                }
-
-                const lockKey = 'wa:' + parcelId;
-                if (this.receiptBusy[lockKey]) return;
-
-                this.receiptBusy[lockKey] = true;
-                this.setReceiptBtnLoading(btn, true);
-
-                try {
-                    const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        cache: 'no-store',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': token,
-                        },
-                    });
-
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok || !data.ok) {
-                        this.notifyToast(data.message || 'تعذر إرسال السند عبر واتساب، يرجى المحاولة لاحقاً.', true);
-                        return;
-                    }
-
-                    this.notifyToast(data.message || 'تم إرسال السند كملف PDF للمستلم عبر واتساب بنجاح.', false);
-                } catch (err) {
-                    if (typeof window.notifyNetworkError === 'function') {
-                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
-                    } else {
-                        this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
-                    }
-                } finally {
-                    this.receiptBusy[lockKey] = false;
-                    this.setReceiptBtnLoading(btn, false);
-                }
-            },
-
-            async shareReceiptPdf(btn) {
-                const url = btn?.getAttribute('data-pdf-url');
-                const receiptNumber = String(btn?.getAttribute('data-receipt-number') || '').trim();
-                const parcelId = btn?.getAttribute('data-parcel-id') || url;
-                if (!url || !parcelId) return;
-
-                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
-                    return;
-                }
-
-                const lockKey = 'pdf:' + parcelId;
-                if (this.receiptBusy[lockKey]) return;
-
-                this.receiptBusy[lockKey] = true;
-                this.setReceiptBtnLoading(btn, true);
-
-                try {
-                    const res = await fetch(url, {
-                        method: 'GET',
-                        cache: 'no-store',
-                        headers: {
-                            'Accept': 'application/pdf',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-
-                    if (!res.ok) {
-                        const errData = await res.json().catch(() => ({}));
-                        this.notifyToast(errData.message || 'تعذر تجهيز ملف PDF للسند حالياً.', true);
-                        return;
-                    }
-
-                    const blob = await res.blob();
-                    const safeNum = (receiptNumber || 'parcel').replace(/[^\w\u0600-\u06FF-]+/g, '') || 'parcel';
-                    const fileName = 'سند-إرسال-' + safeNum + '.pdf';
-                    const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
-
-                    if (
-                        typeof navigator !== 'undefined' &&
-                        typeof navigator.share === 'function' &&
-                        typeof navigator.canShare === 'function' &&
-                        navigator.canShare({ files: [pdfFile] })
-                    ) {
-                        try {
-                            await navigator.share({
-                                files: [pdfFile],
-                                title: 'سند إرسال #' + safeNum,
-                                text: 'سند إرسال طرد #' + safeNum,
-                            });
-                            return;
-                        } catch (shareErr) {
-                            if (shareErr && shareErr.name === 'AbortError') {
-                                return;
-                            }
-                        }
-                    }
-
-                    const objUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = objUrl;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
-                    this.notifyToast('تم تحميل ملف السند PDF بنجاح.', false);
-                } catch (err) {
-                    if (typeof window.notifyNetworkError === 'function') {
-                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
-                    } else {
-                        this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
-                    }
-                } finally {
-                    this.receiptBusy[lockKey] = false;
-                    this.setReceiptBtnLoading(btn, false);
                 }
             },
 

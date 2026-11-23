@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Office;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -413,102 +412,6 @@ class WhatsAppService
             Log::error("WhatsAppService sendMedia to {$phone} Error: " . $e->getMessage());
             return ['success' => false, 'error' => true, 'message' => $e->getMessage()];
         }
-    }
-
-    /**
-     * إرسال مستند ثنائي (مثل ملف PDF) عبر Evolution Go باستخدام Data URI Base64 على مسار /send/media.
-     */
-    public function sendDocument(
-        string $phone,
-        string $binaryContent,
-        string $filename,
-        ?string $caption = null,
-        string $mimeType = 'application/pdf'
-    ): array {
-        $formattedPhone = $this->formatNumber($phone);
-        if ($formattedPhone === '') {
-            return [
-                'success' => false,
-                'error'   => true,
-                'message' => 'رقم هاتف المستلم غير صالح.',
-            ];
-        }
-
-        if ($binaryContent === '') {
-            return [
-                'success' => false,
-                'error'   => true,
-                'message' => 'محتوى الملف فارغ.',
-            ];
-        }
-
-        try {
-            $payload = [
-                'number'   => $formattedPhone,
-                'type'     => 'document',
-                'url'      => "data:{$mimeType};base64," . base64_encode($binaryContent),
-                'filename' => $filename,
-                'mimetype' => $mimeType,
-            ];
-
-            if ($caption !== null && trim($caption) !== '') {
-                $payload['caption'] = trim($caption);
-            }
-
-            $response = $this->client()->post('/send/media', $payload);
-
-            return $this->handleResponse($response);
-        } catch (Exception $e) {
-            Log::error("WhatsAppService sendDocument to {$phone} Error: " . $e->getMessage());
-
-            return ['success' => false, 'error' => true, 'message' => $e->getMessage()];
-        }
-    }
-
-    /**
-     * التحقق مما إذا كان لدى المكتب جلسة واتساب مهيأة ومتصلة فعلياً في Evolution Go.
-     */
-    public function isOfficeConnected(Office $office, bool $allowLiveCheck = true): bool
-    {
-        if (! $office->hasWhatsAppConfigured()) {
-            return false;
-        }
-
-        $cacheKey = 'whatsapp_status_office_' . $office->id;
-        if (Cache::get($cacheKey) === 'online') {
-            return true;
-        }
-
-        if (! $allowLiveCheck) {
-            return false;
-        }
-
-        $result = $this->forOffice($office)->withConfig(['timeout' => 4])->getStatus();
-
-        if (! empty($result['error']) && ! isset($result['data']['LoggedIn'])) {
-            $rawMsg = strtolower((string) ($result['message'] ?? data_get($result, 'data.error', '')));
-            $isOnline = str_contains($rawMsg, 'already logged') || str_contains($rawMsg, 'already connected');
-            Cache::put($cacheKey, $isOnline ? 'online' : 'offline', now()->addMinutes(15));
-
-            return $isOnline;
-        }
-
-        $isLoggedInRaw = data_get($result, 'data.LoggedIn') ?? data_get($result, 'LoggedIn');
-        if ($isLoggedInRaw !== null) {
-            $isOnline = filter_var($isLoggedInRaw, FILTER_VALIDATE_BOOLEAN);
-        } else {
-            $instanceState = strtolower(trim((string) (
-                data_get($result, 'instance.state')
-                ?? data_get($result, 'data.instance.state')
-                ?? data_get($result, 'state')
-                ?? ''
-            )));
-            $isOnline = in_array($instanceState, ['open', 'connected'], true);
-        }
-
-        Cache::put($cacheKey, $isOnline ? 'online' : 'offline', now()->addMinutes(15));
-
-        return $isOnline;
     }
 
     public function sendButton(string $phone, string $title, string $description, string $footer, array $buttons): array
