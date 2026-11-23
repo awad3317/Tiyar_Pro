@@ -112,7 +112,7 @@
                     <span class="material-symbols-outlined text-[15px]">print</span>
                 </button>
 
-                <button type="button"
+                {{-- <button type="button"
                         data-card-action="share-receipt-image"
                         data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
                         data-receipt-number="{{ $parcel->receipt_number }}"
@@ -120,7 +120,7 @@
                         aria-label="مشاركة صورة السند"
                         class="w-6 h-6 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200/90 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50">
                     <span class="material-symbols-outlined text-[15px]">share</span>
-                </button>
+                </button> --}}
             </div>
         </div>
     </div>
