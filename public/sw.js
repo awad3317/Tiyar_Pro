@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v24';
+const CACHE_NAME = 'mursal-pwa-v25';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 
@@ -191,10 +191,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // ب) عزل تام عن مسارات تطبيق المحاسب المستقل (/accountant) ولوحة الأدمن (/admin)
+    // ب) عزل تام عن مسارات تطبيق المحاسب المستقل (/accountant) ولوحة الأدمن (/admin) وسندات الـ PDF/واتساب الحية
     if (
         url.pathname.startsWith('/accountant') ||
-        url.pathname.startsWith('/admin')
+        url.pathname.startsWith('/admin') ||
+        /^\/office\/outgoing-parcels\/[^/]+\/receipt(?:\/|$)/.test(url.pathname)
     ) {
         return;
     }

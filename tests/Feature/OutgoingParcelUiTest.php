@@ -947,7 +947,7 @@ class OutgoingParcelUiTest extends TestCase
             'status'                => OutgoingParcelStatus::PENDING,
         ]);
 
-        // 1. بطاقة الطرد الصادر تتضمن زر الطباعة المباشرة عبر iframe + رابط معاينة وتعديل السند
+        // 1. بطاقة الطرد الصادر تتضمن زر الطباعة المباشرة عبر iframe + زري واتساب ومشاركة PDF (بدون زر المعاينة المحذوف)
         $indexHtml = $this->actingAs($this->senderOffice, 'office')
             ->get(route('office.outgoing-parcels.index'))
             ->assertOk()
@@ -957,7 +957,8 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('data-card-action="print-receipt"', $indexHtml);
         $this->assertStringContainsString('data-receipt-url="' . $receiptUrl . '"', $indexHtml);
         $this->assertStringContainsString('printReceipt(url)', $indexHtml);
-        $this->assertStringContainsString('href="' . $receiptUrl . '"', $indexHtml);
+        $this->assertStringContainsString('data-card-action="send-receipt-whatsapp"', $indexHtml);
+        $this->assertStringContainsString('data-card-action="share-receipt-pdf"', $indexHtml);
 
         // 2. صفحة السند تدعم التحجيم التناسبي للجوال + طباعة 1/1 بدون صفحة فارغة + معامل auto_print=1
         $receiptRes = $this->actingAs($this->senderOffice, 'office')

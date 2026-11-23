@@ -108,17 +108,32 @@
                         data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
                         title="طباعة فورية للسند"
                         aria-label="طباعة فورية للسند"
-                        class="w-6 h-6 rounded-lg bg-primary hover:bg-slate-800 text-secondary border border-primary flex items-center justify-center transition-colors shrink-0">
+                        class="w-7 h-7 rounded-lg bg-primary hover:bg-slate-800 text-secondary border border-primary flex items-center justify-center transition-colors shrink-0">
                     <span class="material-symbols-outlined text-[15px]">print</span>
                 </button>
 
-                {{-- <a href="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
-                   target="_blank"
-                   title="معاينة وتعديل السند (نسختين / حراري)"
-                   aria-label="معاينة وتعديل السند"
-                   class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-primary hover:text-secondary text-slate-600 border border-slate-200/80 flex items-center justify-center transition-colors shrink-0">
-                    <span class="material-symbols-outlined text-[15px]">qr_code_2</span>
-                </a> --}}
+                <button type="button"
+                        data-card-action="send-receipt-whatsapp"
+                        data-whatsapp-url="{{ route('office.outgoing-parcels.send-receipt-whatsapp', $parcel) }}"
+                        data-parcel-id="{{ $parcel->id }}"
+                        title="إرسال السند PDF للمستلم عبر واتساب"
+                        aria-label="إرسال السند PDF عبر واتساب"
+                        class="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200/90 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50">
+                    <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                        <path d="M12.03 2C6.51 2 2.04 6.47 2.04 11.99c0 1.76.46 3.48 1.34 4.99L2 22l5.16-1.35a9.95 9.95 0 0 0 4.87 1.24h.01c5.52 0 9.99-4.47 9.99-9.99A9.93 9.93 0 0 0 19.1 4.9 9.92 9.92 0 0 0 12.03 2Zm5.82 14.17c-.24.68-1.41 1.3-1.95 1.38-.5.08-1.13.11-1.82-.11-.42-.14-.96-.31-1.65-.61-2.9-1.25-4.79-4.18-4.94-4.38-.14-.19-1.18-1.57-1.18-2.99 0-1.43.75-2.13 1.01-2.42.27-.29.58-.36.77-.36.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.32-.29.49-.14.17-.3.38-.43.51-.15.14-.3.3-.13.59.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.45.29.15.46.12.63-.07.17-.19.73-.85.92-1.14.19-.29.39-.24.66-.14.27.1 1.7.8 1.99.95.29.14.48.21.55.33.08.12.08.7-.16 1.38Z"/>
+                    </svg>
+                </button>
+
+                <button type="button"
+                        data-card-action="share-receipt-pdf"
+                        data-pdf-url="{{ route('office.outgoing-parcels.receipt-pdf', $parcel) }}"
+                        data-receipt-number="{{ $parcel->receipt_number }}"
+                        data-parcel-id="{{ $parcel->id }}"
+                        title="مشاركة أو حفظ السند PDF"
+                        aria-label="مشاركة السند PDF"
+                        class="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200/90 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50">
+                    <span class="material-symbols-outlined text-[15px]">share</span>
+                </button>
             </div>
         </div>
     </div>

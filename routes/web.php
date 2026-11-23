@@ -151,6 +151,8 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::post('/{outgoingParcel}/detach-shipment', [OutgoingParcelController::class, 'detachShipment'])->name('detach-shipment');
                 Route::post('/{outgoingParcel}/cancel', [OutgoingParcelController::class, 'cancel'])->name('cancel');
                 Route::get('/{outgoingParcel}/receipt', [ShipmentController::class, 'printParcelReceipt'])->name('receipt');
+                Route::get('/{outgoingParcel}/receipt/pdf', [ShipmentController::class, 'downloadParcelReceiptPdf'])->name('receipt-pdf');
+                Route::post('/{outgoingParcel}/receipt/send-whatsapp', [ShipmentController::class, 'sendParcelReceiptWhatsApp'])->name('send-receipt-whatsapp');
             });
 
         // الطرود القادمة في الطريق إلى هذا المكتب (متاحة لجميع المكاتب المسجلة)
