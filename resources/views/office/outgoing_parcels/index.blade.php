@@ -803,6 +803,14 @@
                 if (!btn) return;
 
                 const action = btn.getAttribute('data-card-action');
+                if (action === 'print-receipt') {
+                    const receiptUrl = btn.getAttribute('data-receipt-url');
+                    if (receiptUrl) {
+                        this.printReceipt(receiptUrl);
+                    }
+                    return;
+                }
+
                 if (action === 'locked-shipments') {
                     this.notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true);
                     return;
@@ -818,6 +826,64 @@
                     } catch (e) {
                         console.warn('Invalid card action payload:', e);
                     }
+                }
+            },
+
+            printReceipt(url) {
+                if (!url) return;
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                    return;
+                }
+                const fallbackUrl = url + (url.includes('?') ? '&' : '?') + 'auto_print=1';
+                try {
+                    let iframe = document.getElementById('outgoing-receipt-print-iframe');
+                    if (iframe) {
+                        iframe.remove();
+                    }
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'outgoing-receipt-print-iframe';
+                    iframe.setAttribute('aria-hidden', 'true');
+                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+
+                    iframe.onload = () => {
+                        const triggerPrint = () => {
+                            setTimeout(() => {
+                                try {
+                                    if (iframe.contentWindow) {
+                                        iframe.contentWindow.focus();
+                                        iframe.contentWindow.print();
+                                    } else {
+                                        window.open(fallbackUrl, '_blank');
+                                    }
+                                } catch (e) {
+                                    window.open(fallbackUrl, '_blank');
+                                }
+                            }, 220);
+                        };
+
+                        try {
+                            const docFonts = iframe.contentDocument?.fonts;
+                            if (docFonts && docFonts.ready) {
+                                Promise.race([
+                                    docFonts.ready,
+                                    new Promise((resolve) => setTimeout(resolve, 600))
+                                ]).then(triggerPrint);
+                            } else {
+                                triggerPrint();
+                            }
+                        } catch (e) {
+                            triggerPrint();
+                        }
+                    };
+
+                    iframe.onerror = () => {
+                        window.open(fallbackUrl, '_blank');
+                    };
+
+                    document.body.appendChild(iframe);
+                    iframe.src = url;
+                } catch (e) {
+                    window.open(fallbackUrl, '_blank');
                 }
             },
 

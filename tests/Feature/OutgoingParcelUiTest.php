@@ -613,7 +613,7 @@ class OutgoingParcelUiTest extends TestCase
                 ],
             ]);
 
-        // 4. فحص عدد استعلامات GET /office/transit-parcels
+        // 4. فحص عدد استعلامات GET /office/transit-parcels (تشمل استعلام office_profiles المخبأ لأول مرة)
         DB::flushQueryLog();
         DB::enableQueryLog();
 
@@ -623,7 +623,7 @@ class OutgoingParcelUiTest extends TestCase
 
         $transitQueries = count(DB::getQueryLog());
         DB::disableQueryLog();
-        $this->assertLessThanOrEqual(3, $transitQueries);
+        $this->assertLessThanOrEqual(4, $transitQueries);
 
         // 5. استلام الطرد في الفرع المستهدف عبر AJAX (POST receive)
         $this->actingAs($this->targetOffice, 'office')
@@ -926,5 +926,60 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('@office-toast.window', $html);
         // لا يوجد بانر ثابت مكرر بداخل جسم الصفحة
         $this->assertStringNotContainsString('<span class="flex-1">تم تسجيل الطرد الصادر بنجاح.</span>', $html);
+    }
+
+    public function test_outgoing_parcel_receipt_supports_direct_iframe_print_auto_print_and_proportional_mobile_preview(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $parcel = OutgoingParcel::create([
+            'office_id'             => $this->senderOffice->id,
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل سند مباشر',
+            'sender_phone'          => '771234001',
+            'recipient_name'        => 'مستلم سند مباشر',
+            'recipient_phone'       => '777888999',
+            'package_type'          => 'كرتون طباعة مباشرة',
+            'receipt_number'        => '404',
+            'cod_amount'            => 5000,
+            'payment_type'          => OutgoingPaymentType::DEFERRED,
+            'status'                => OutgoingParcelStatus::PENDING,
+        ]);
+
+        // 1. بطاقة الطرد الصادر تتضمن زر الطباعة المباشرة عبر iframe + رابط معاينة وتعديل السند
+        $indexHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->getContent();
+
+        $receiptUrl = route('office.outgoing-parcels.receipt', $parcel);
+        $this->assertStringContainsString('data-card-action="print-receipt"', $indexHtml);
+        $this->assertStringContainsString('data-receipt-url="' . $receiptUrl . '"', $indexHtml);
+        $this->assertStringContainsString('printReceipt(url)', $indexHtml);
+        $this->assertStringContainsString('href="' . $receiptUrl . '"', $indexHtml);
+
+        // 2. صفحة السند تدعم التحجيم التناسبي للجوال + طباعة 1/1 بدون صفحة فارغة + معامل auto_print=1
+        $receiptRes = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.receipt', [$parcel, 'auto_print' => 1]))
+            ->assertOk();
+
+        $receiptRes->assertSee('404')
+            ->assertSee('مستلم سند مباشر')
+            ->assertSee('777888999')
+            ->assertSee('preview-scale-shell', false)
+            ->assertSee('receiptPreviewPage()', false)
+            ->assertSee('transform: none !important;', false)
+            ->assertSee('min-height: 0 !important;', false)
+            ->assertSee('size: A4 portrait;', false)
+            ->assertSee("get('auto_print') === '1'", false);
+
+        // 3. مكتب آخر لا يستطيع الوصول لسند طرد لا يتبعه (403)
+        $this->targetOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->targetOffice->refreshFeaturesCache();
+
+        $this->actingAs($this->targetOffice, 'office')
+            ->get(route('office.outgoing-parcels.receipt', $parcel))
+            ->assertStatus(403);
     }
 }

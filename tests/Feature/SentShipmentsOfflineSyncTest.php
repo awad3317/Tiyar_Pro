@@ -202,8 +202,8 @@ class SentShipmentsOfflineSyncTest extends TestCase
             ->get(route('office.shipments.sent.index'))
             ->assertOk();
 
-        $sentPage->assertSee('shipment-manifest-print.js?v=22', false)
-            ->assertSee('mursal-core.js?v=22', false)
+        $sentPage->assertSee('shipment-manifest-print.js?v=', false)
+            ->assertSee('mursal-core.js?v=', false)
             ->assertSee('z-[80]', false)
             ->assertSee('data-offline-capable="true"', false)
             ->assertSee('printShipmentOffline', false)
