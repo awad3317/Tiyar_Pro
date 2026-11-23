@@ -112,13 +112,13 @@
                     <span class="material-symbols-outlined text-[15px]">print</span>
                 </button>
 
-                <a href="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
+                {{-- <a href="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
                    target="_blank"
                    title="معاينة وتعديل السند (نسختين / حراري)"
                    aria-label="معاينة وتعديل السند"
                    class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-primary hover:text-secondary text-slate-600 border border-slate-200/80 flex items-center justify-center transition-colors shrink-0">
                     <span class="material-symbols-outlined text-[15px]">qr_code_2</span>
-                </a>
+                </a> --}}
             </div>
         </div>
     </div>
