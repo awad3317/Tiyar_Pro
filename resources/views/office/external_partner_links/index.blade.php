@@ -40,34 +40,9 @@
                         <span class="material-symbols-outlined text-sm">add_link</span>
                         <span>بوابة الشركاء الخارجيين</span>
                     </div>
-                    <h2 class="text-sm font-extrabold leading-snug">روابط المكاتب الخارجية</h2>
-                    <p class="text-[11px] text-slate-300 leading-relaxed">
-                        أنشئ رابطاً خاصاً لكل مكتب خارجي لا يستخدم النظام ليتمكن من إرسال كشوفات طروده مباشرة إلى مكتبك مع تحكم فوري بالتفعيل أو تغيير الرابط.
-                    </p>
-                </div>
-
-                <button type="button"
-                        @click="openCreateModal()"
-                        class="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-xs transition-colors">
-                    <span class="material-symbols-outlined text-base">add</span>
-                    <span>إضافة مكتب خارجي</span>
-                </button>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 pt-1 text-center">
-                <div class="bg-white/10 rounded-xl py-2 px-1.5 border border-white/10">
-                    <p class="text-[10px] text-slate-300 font-bold">إجمالي الروابط</p>
-                    <p class="text-sm font-mono font-black text-white">{{ $totalLinksCount }}</p>
-                </div>
-                <div class="bg-emerald-500/15 rounded-xl py-2 px-1.5 border border-emerald-400/25">
-                    <p class="text-[10px] text-emerald-200 font-bold">روابط نشطة</p>
-                    <p class="text-sm font-mono font-black text-emerald-300">{{ $activeLinksCount }}</p>
-                </div>
-                <div class="bg-white/10 rounded-xl py-2 px-1.5 border border-white/10">
-                    <p class="text-[10px] text-slate-300 font-bold">شحنات مستقبلة</p>
-                    <p class="text-sm font-mono font-black text-secondary">{{ number_format($totalReceivedShipments) }}</p>
                 </div>
             </div>
+
         </section>
 
         {{-- قائمة الروابط --}}
@@ -94,14 +69,16 @@
                     ];
                 @endphp
 
-                <article class="bg-white border {{ $link->is_active ? 'border-slate-200/90' : 'border-rose-200/80 bg-rose-50/20' }} rounded-2xl p-3.5 shadow-2xs space-y-3">
-                    {{-- رأس البطاقة: الاسم + المدينة + الحالة --}}
+                <article x-data="{ menuOpen: false }"
+                         :class="menuOpen ? 'relative z-30' : 'relative'"
+                         class="bg-white border {{ $link->is_active ? 'border-slate-200/90' : 'border-rose-200/80 bg-rose-50/20' }} rounded-2xl p-3.5 shadow-2xs space-y-3 transition-colors">
+                    {{-- رأس البطاقة: الاسم + المدينة | شارة الحالة + قائمة الثلاث نقاط (⋮) لجميع الإجراءات --}}
                     <div class="flex items-start justify-between gap-2">
-                        <div class="flex items-start gap-2.5 min-w-0">
+                        <div class="flex items-start gap-2.5 min-w-0 flex-1">
                             <span class="w-10 h-10 rounded-xl {{ $link->is_active ? 'bg-primary text-secondary' : 'bg-slate-200 text-slate-500' }} flex items-center justify-center shrink-0">
                                 <span class="material-symbols-outlined text-xl">{{ $link->is_active ? 'link' : 'link_off' }}</span>
                             </span>
-                            <div class="min-w-0">
+                            <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 truncate">{{ $link->partner_name }}</h3>
                                     @if ($link->partner_city)
@@ -118,17 +95,101 @@
                             </div>
                         </div>
 
-                        @if ($link->is_active)
-                            <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold shrink-0 inline-flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                نشط
-                            </span>
-                        @else
-                            <span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-extrabold shrink-0 inline-flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                                موقوف
-                            </span>
-                        @endif
+                        <div class="shrink-0 flex items-center gap-1.5">
+                            @if ($link->is_active)
+                                <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold inline-flex items-center gap-1 whitespace-nowrap">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    نشط
+                                </span>
+                            @else
+                                <span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-extrabold inline-flex items-center gap-1 whitespace-nowrap">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    موقوف
+                                </span>
+                            @endif
+
+                            {{-- قائمة الثلاث نقاط (⋮) الحصرية لجميع إجراءات الرابط --}}
+                            <div class="relative" @click.outside="menuOpen = false" @keydown.escape.window="menuOpen = false">
+                                <button type="button"
+                                        @click="menuOpen = !menuOpen"
+                                        title="إجراءات الرابط"
+                                        aria-label="إجراءات الرابط"
+                                        :aria-expanded="menuOpen ? 'true' : 'false'"
+                                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors shrink-0">
+                                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                </button>
+
+                                <div x-show="menuOpen"
+                                     x-cloak
+                                     x-transition:enter="ease-out duration-150"
+                                     x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                     x-transition:leave="ease-in duration-100"
+                                     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                     x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+                                     class="absolute left-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-40 text-right">
+
+                                    {{-- 1. نسخ الرابط --}}
+                                    <button type="button"
+                                            @click="menuOpen = false; copyPortalLink(@js($portalUrl))"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-primary">content_copy</span>
+                                        <span>نسخ الرابط</span>
+                                    </button>
+
+                                    {{-- 2. مشاركة عبر واتساب --}}
+                                    <a :href="buildWhatsappShareUrl(@js($linkPayload))"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       @click="menuOpen = false"
+                                       class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-emerald-600">chat</span>
+                                        <span>مشاركة عبر واتساب</span>
+                                    </a>
+
+                                    <div class="my-1 border-t border-slate-100"></div>
+
+                                    {{-- 3. تعديل البيانات --}}
+                                    <button type="button"
+                                            @click="menuOpen = false; openEditModal(@js($linkPayload))"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-amber-600">edit</span>
+                                        <span>تعديل البيانات</span>
+                                    </button>
+
+                                    {{-- 4. تغيير الرابط (توليد توكن جديد) --}}
+                                    <button type="button"
+                                            @click="menuOpen = false; openRegenerateModal(@js($linkPayload))"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-sky-600">autorenew</span>
+                                        <span>تغيير الرابط</span>
+                                    </button>
+
+                                    {{-- 5. إيقاف / تفعيل الرابط --}}
+                                    <form method="POST" action="{{ route('office.external-partner-links.toggle-active', $link) }}" class="m-0">
+                                        @csrf
+                                        <button type="submit"
+                                                @click="menuOpen = false"
+                                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                            <span class="material-symbols-outlined text-base {{ $link->is_active ? 'text-amber-600' : 'text-emerald-600' }}">
+                                                {{ $link->is_active ? 'pause_circle' : 'play_circle' }}
+                                            </span>
+                                            <span>{{ $link->is_active ? 'إيقاف الرابط مؤقتاً' : 'تفعيل الرابط' }}</span>
+                                        </button>
+                                    </form>
+
+                                    <div class="my-1 border-t border-slate-100"></div>
+
+                                    {{-- 6. حذف الرابط --}}
+                                    <button type="button"
+                                            @click="menuOpen = false; openDeleteModal(@js($linkPayload))"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-rose-600">delete</span>
+                                        <span>حذف الرابط</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- شارات البادئة + رمز PIN + الإحصائيات --}}
@@ -166,62 +227,10 @@
                         </div>
                     </div>
 
-                    {{-- صندوق عرض الرابط + نسخ + واتساب --}}
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2 bg-slate-100/80 border border-slate-200/80 rounded-xl px-2.5 py-1.5">
-                            <span class="material-symbols-outlined text-sm text-slate-400 shrink-0">public</span>
-                            <span class="flex-1 font-mono text-[11px] text-slate-600 truncate dir-ltr text-left select-all">{{ $portalUrl }}</span>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <button type="button"
-                                    @click="copyPortalLink(@js($portalUrl))"
-                                    class="py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-secondary text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors">
-                                <span class="material-symbols-outlined text-base">content_copy</span>
-                                <span>نسخ الرابط</span>
-                            </button>
-
-                            <a :href="buildWhatsappShareUrl(@js($linkPayload))"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors">
-                                <span class="material-symbols-outlined text-base">chat</span>
-                                <span>مشاركة واتساب</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    {{-- شريط التحكم السريع: إيقاف/تفعيل، تغيير الرابط، تعديل، حذف --}}
-                    <div class="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-100">
-                        <form method="POST" action="{{ route('office.external-partner-links.toggle-active', $link) }}" class="m-0">
-                            @csrf
-                            <button type="submit"
-                                    class="w-full py-1.5 px-2 rounded-xl border text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors {{ $link->is_active ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' }}">
-                                <span class="material-symbols-outlined text-sm">{{ $link->is_active ? 'pause_circle' : 'play_circle' }}</span>
-                                <span>{{ $link->is_active ? 'إيقاف' : 'تفعيل' }}</span>
-                            </button>
-                        </form>
-
-                        <button type="button"
-                                @click="openRegenerateModal(@js($linkPayload))"
-                                class="py-1.5 px-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
-                            <span class="material-symbols-outlined text-sm">autorenew</span>
-                            <span>تغيير الرابط</span>
-                        </button>
-
-                        <button type="button"
-                                @click="openEditModal(@js($linkPayload))"
-                                class="py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
-                            <span class="material-symbols-outlined text-sm">edit</span>
-                            <span>تعديل</span>
-                        </button>
-
-                        <button type="button"
-                                @click="openDeleteModal(@js($linkPayload))"
-                                class="py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
-                            <span class="material-symbols-outlined text-sm">delete</span>
-                            <span>حذف</span>
-                        </button>
+                    {{-- عرض عنوان الرابط بشكل نظيف ومضغوط --}}
+                    <div class="flex items-center gap-2 bg-slate-100/80 border border-slate-200/80 rounded-xl px-2.5 py-1.5">
+                        <span class="material-symbols-outlined text-sm text-slate-400 shrink-0">public</span>
+                        <span class="flex-1 font-mono text-[11px] text-slate-600 truncate dir-ltr text-left select-all">{{ $portalUrl }}</span>
                     </div>
                 </article>
             @empty
