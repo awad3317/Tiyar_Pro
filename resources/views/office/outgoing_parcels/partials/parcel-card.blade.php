@@ -66,10 +66,11 @@
 
 <article id="outgoing-card-{{ $parcel->id }}"
          data-outgoing-parcel-id="{{ $parcel->id }}"
-         style="content-visibility: auto; contain-intrinsic-size: 165px;"
+         x-data="{ menuOpen: false }"
+         :class="menuOpen ? 'relative z-30' : 'relative'"
          class="bg-white border {{ $parcel->status->cardBorderClass() }} rounded-2xl p-4 shadow-sm transition-colors">
 
-    {{-- الرأس: عمودان نظيفان (يمين: أيقونة + عنوان + شارات أفقية | يسار: شارة حالة واحدة + وقت + QR) --}}
+    {{-- الرأس: عمودان نظيفان (يمين: أيقونة + عنوان + شارات أفقية | يسار: شارة الحالة + قائمة الثلاث نقاط ⋮ لجميع الإجراءات) --}}
     <div class="flex items-start justify-between gap-2.5">
         {{-- الجانب الأيمن (بداية RTL) --}}
         <div class="flex items-start gap-2.5 min-w-0 flex-1">
@@ -116,52 +117,160 @@
             </div>
         </div>
 
-        {{-- الجانب الأيسر (نهاية RTL): شارة حالة واحدة فقط + الوقت + QR --}}
+        {{-- الجانب الأيسر (نهاية RTL): شارة الحالة + زر الثلاث نقاط (⋮) الحصري لجميع الإجراءات + الوقت --}}
         <div class="shrink-0 flex flex-col items-end gap-1.5">
-            <span class="px-2 py-0.5 rounded-md border text-[10px] font-bold whitespace-nowrap {{ $parcel->status->badgeClass() }}">
-                {{ $parcel->status->label() }}
-            </span>
+            <div class="flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md border text-[10px] font-bold whitespace-nowrap {{ $parcel->status->badgeClass() }}">
+                    {{ $parcel->status->label() }}
+                </span>
 
-            <div class="flex items-center gap-1">
-                @if($createdAgo)
-                    <span class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70 whitespace-nowrap"
-                          title="{{ $parcel->created_at?->format('Y-m-d H:i') }}">
-                        <span class="material-symbols-outlined text-[12px]">hourglass_top</span>
-                        <span>{{ $createdAgo }}</span>
-                    </span>
-                @endif
-
-                @if ($canEditParcel)
+                <div class="relative" @click.outside="menuOpen = false" @keydown.escape.window="menuOpen = false">
                     <button type="button"
-                            data-card-action="edit"
-                            data-edit-payload="{{ $editPayloadJson }}"
-                            title="تعديل بيانات الطرد"
-                            aria-label="تعديل بيانات الطرد"
-                            class="h-6 px-2 rounded-lg bg-amber-50 hover:bg-amber-500 text-amber-800 hover:text-white border border-amber-200/90 text-[10px] font-extrabold inline-flex items-center gap-0.5 transition-colors shrink-0">
-                        <span class="material-symbols-outlined text-[13px]">edit</span>
-                        <span>تعديل</span>
+                            @click="menuOpen = !menuOpen"
+                            title="إجراءات الطرد"
+                            aria-label="إجراءات الطرد"
+                            :aria-expanded="menuOpen ? 'true' : 'false'"
+                            class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors shrink-0">
+                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
                     </button>
-                @endif
 
-                <button type="button"
-                        data-card-action="print-receipt"
-                        data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
-                        title="طباعة فورية للسند"
-                        aria-label="طباعة فورية للسند"
-                        class="w-6 h-6 rounded-lg bg-primary hover:bg-slate-800 text-secondary border border-primary flex items-center justify-center transition-colors shrink-0">
-                    <span class="material-symbols-outlined text-[15px]">print</span>
-                </button>
+                    <div x-show="menuOpen"
+                         x-cloak
+                         x-transition:enter="ease-out duration-150"
+                         x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave="ease-in duration-100"
+                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+                         class="absolute left-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-40 text-right">
 
-                {{-- <button type="button"
-                        data-card-action="share-receipt-image"
-                        data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
-                        data-receipt-number="{{ $parcel->receipt_number }}"
-                        title="مشاركة صورة السند"
-                        aria-label="مشاركة صورة السند"
-                        class="w-6 h-6 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200/90 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50">
-                    <span class="material-symbols-outlined text-[15px]">share</span>
-                </button> --}}
+                        {{-- 1. طباعة السند --}}
+                        <button type="button"
+                                data-card-action="print-receipt"
+                                data-receipt-url="{{ route('office.outgoing-parcels.receipt', $parcel) }}"
+                                @click="menuOpen = false"
+                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                            <span class="material-symbols-outlined text-base text-primary">print</span>
+                            <span>طباعة السند</span>
+                        </button>
+
+                        {{-- 2. تعديل البيانات (متاح فقط في الانتظار أو في الطريق وقبل استلام الفرع) --}}
+                        @if ($canEditParcel)
+                            <button type="button"
+                                    data-card-action="edit"
+                                    data-edit-payload="{{ $editPayloadJson }}"
+                                    @click="menuOpen = false"
+                                    class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                <span class="material-symbols-outlined text-base text-amber-600">edit</span>
+                                <span>تعديل البيانات</span>
+                            </button>
+                        @endif
+
+                        {{-- 3. إجراءات حالة في الانتظار --}}
+                        @if ($parcel->status === \App\Enums\OutgoingParcelStatus::PENDING)
+                            @if (! $isAttachedToShipment)
+                                @if ($hasSentShipments)
+                                    <a href="{{ route('office.shipments.sent.index') }}"
+                                       @click="menuOpen = false"
+                                       class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-indigo-600">local_shipping</span>
+                                        <span>ضم إلى شحنة</span>
+                                    </a>
+                                @else
+                                    <button type="button"
+                                            data-card-action="locked-shipments"
+                                            @click="menuOpen = false"
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-amber-600">lock</span>
+                                        <span>ضم إلى شحنة</span>
+                                    </button>
+                                @endif
+
+                                <div class="my-1 border-t border-slate-100"></div>
+                                <button type="button"
+                                        data-card-action="cancel"
+                                        data-action-payload="{{ $cancelPayloadJson }}"
+                                        @click="menuOpen = false"
+                                        class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                    <span>إلغاء الطرد</span>
+                                </button>
+                            @else
+                                @if ($hasSentShipments)
+                                    <a href="{{ route('office.shipments.sent.show', $parcel->shipment_id) }}"
+                                       @click="menuOpen = false"
+                                       class="w-full px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50/70 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-indigo-600">inventory_2</span>
+                                        <span class="truncate">عرض الشحنة #{{ $shipment?->shipment_number ?? '...' }}</span>
+                                    </a>
+                                @endif
+
+                                <div class="my-1 border-t border-slate-100"></div>
+                                <button type="button"
+                                        data-card-action="detach"
+                                        data-action-payload="{{ $detachPayloadJson }}"
+                                        @click="menuOpen = false"
+                                        class="w-full px-3.5 py-2 text-xs font-extrabold text-amber-800 hover:bg-amber-50 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-amber-600">link_off</span>
+                                    <span>إخراج من الشحنة</span>
+                                </button>
+                            @endif
+
+                        {{-- 4. إجراءات حالة في الطريق --}}
+                        @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::IN_TRANSIT)
+                            @if ($parcel->isExternal())
+                                <button type="button"
+                                        data-card-action="deliver"
+                                        data-action-payload="{{ $deliverPayloadJson }}"
+                                        @click="menuOpen = false"
+                                        class="w-full px-3.5 py-2 text-xs font-extrabold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                                    <span>تم التسليم</span>
+                                </button>
+                            @endif
+
+                            @if ($isAttachedToShipment)
+                                @if ($hasSentShipments)
+                                    <a href="{{ route('office.shipments.sent.show', $parcel->shipment_id) }}"
+                                       @click="menuOpen = false"
+                                       class="w-full px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50/70 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-base text-indigo-600">inventory_2</span>
+                                        <span class="truncate">عرض الشحنة #{{ $shipment?->shipment_number ?? '...' }}</span>
+                                    </a>
+                                @endif
+
+                                <div class="my-1 border-t border-slate-100"></div>
+                                <button type="button"
+                                        data-card-action="detach"
+                                        data-action-payload="{{ $detachPayloadJson }}"
+                                        @click="menuOpen = false"
+                                        class="w-full px-3.5 py-2 text-xs font-extrabold text-amber-800 hover:bg-amber-50 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-amber-600">link_off</span>
+                                    <span>إخراج من الشحنة</span>
+                                </button>
+                            @else
+                                <div class="my-1 border-t border-slate-100"></div>
+                                <button type="button"
+                                        data-card-action="cancel"
+                                        data-action-payload="{{ $cancelPayloadJson }}"
+                                        @click="menuOpen = false"
+                                        class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                    <span>إلغاء الطرد</span>
+                                </button>
+                            @endif
+                        @endif
+                    </div>
+                </div>
             </div>
+
+            @if($createdAgo)
+                <span class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70 whitespace-nowrap"
+                      title="{{ $parcel->created_at?->format('Y-m-d H:i') }}">
+                    <span class="material-symbols-outlined text-[12px]">hourglass_top</span>
+                    <span>{{ $createdAgo }}</span>
+                </span>
+            @endif
         </div>
     </div>
 
@@ -187,90 +296,17 @@
         @endif
     </div>
 
-    {{-- شريط الإجراءات السفلي (إلغاء الطرد محصور بالطرود الحرة غير المرتبطة بشحنة، ويجب الإخراج أولاً) --}}
-    @if ($parcel->status === \App\Enums\OutgoingParcelStatus::PENDING)
-        <div class="mt-3 flex items-center gap-2">
-            @if (! $isAttachedToShipment)
-                @if ($hasSentShipments)
-                    <a href="{{ route('office.shipments.sent.index') }}"
-                       class="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                        <span class="material-symbols-outlined text-sm text-secondary">local_shipping</span>
-                        <span>ضم إلى شحنة</span>
-                    </a>
-                @else
-                    <button type="button"
-                            data-card-action="locked-shipments"
-                            class="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                        <span class="material-symbols-outlined text-sm text-amber-600">lock</span>
-                        <span>ضم إلى شحنة</span>
-                    </button>
-                @endif
-
-                <button type="button"
-                        data-card-action="cancel"
-                        data-action-payload="{{ $cancelPayloadJson }}"
-                        class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                    <span class="material-symbols-outlined text-sm">cancel</span>
-                    <span>إلغاء</span>
-                </button>
-            @else
-                @if ($hasSentShipments)
-                    <a href="{{ route('office.shipments.sent.show', $parcel->shipment_id) }}"
-                       class="flex-1 py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 truncate">
-                        <span class="material-symbols-outlined text-sm shrink-0">inventory_2</span>
-                        <span class="truncate">مُضاف للشحنة #{{ $shipment?->shipment_number ?? '...' }} (بانتظار الإرسال)</span>
-                    </a>
-                @else
-                    <div class="flex-1 py-2 px-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 truncate">
-                        <span class="material-symbols-outlined text-sm shrink-0">inventory_2</span>
-                        <span class="truncate">مُضاف للشحنة #{{ $shipment?->shipment_number ?? '...' }} (بانتظار الإرسال)</span>
-                    </div>
-                @endif
-
-                <button type="button"
-                        data-card-action="detach"
-                        data-action-payload="{{ $detachPayloadJson }}"
-                        class="py-2 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                    <span class="material-symbols-outlined text-sm">link_off</span>
-                    <span>إخراج من الشحنة</span>
-                </button>
-            @endif
+    {{-- شريط معلوماتي سفلي للقراءة فقط (جميع الأزرار انتقلت إلى قائمة الثلاث نقاط ⋮) --}}
+    @if ($parcel->status === \App\Enums\OutgoingParcelStatus::PENDING && $isAttachedToShipment)
+        <div class="mt-3 py-1.5 px-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-indigo-700 text-[11px] font-bold flex items-center justify-center gap-1.5 truncate">
+            <span class="material-symbols-outlined text-sm shrink-0">inventory_2</span>
+            <span class="truncate">مُضاف للشحنة #{{ $shipment?->shipment_number ?? '...' }} (بانتظار الإرسال)</span>
         </div>
 
-    @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::IN_TRANSIT)
-        <div class="mt-3 flex items-center gap-2">
-            @if ($parcel->isExternal())
-                <button type="button"
-                        data-card-action="deliver"
-                        data-action-payload="{{ $deliverPayloadJson }}"
-                        class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50">
-                    <span class="material-symbols-outlined text-sm">check_circle</span>
-                    <span>تم التسليم</span>
-                </button>
-            @else
-                <div class="flex-1 py-2 px-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold flex items-center justify-center gap-1">
-                    <span class="material-symbols-outlined text-sm">hourglass_top</span>
-                    <span>بانتظار استلام الفرع</span>
-                </div>
-            @endif
-
-            @if ($isAttachedToShipment)
-                <button type="button"
-                        data-card-action="detach"
-                        data-action-payload="{{ $detachPayloadJson }}"
-                        class="py-2 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                    <span class="material-symbols-outlined text-sm">link_off</span>
-                    <span>إخراج من الشحنة</span>
-                </button>
-            @else
-                <button type="button"
-                        data-card-action="cancel"
-                        data-action-payload="{{ $cancelPayloadJson }}"
-                        class="py-2 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0">
-                    <span class="material-symbols-outlined text-sm">cancel</span>
-                    <span>إلغاء</span>
-                </button>
-            @endif
+    @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::IN_TRANSIT && ! $parcel->isExternal())
+        <div class="mt-3 py-1.5 px-3 rounded-xl bg-sky-50/70 border border-sky-200/80 text-sky-800 text-[11px] font-bold flex items-center justify-center gap-1">
+            <span class="material-symbols-outlined text-sm">hourglass_top</span>
+            <span>بانتظار استلام الفرع</span>
         </div>
 
     @elseif ($parcel->status === \App\Enums\OutgoingParcelStatus::RECEIVED)
