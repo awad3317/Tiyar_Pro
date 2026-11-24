@@ -94,7 +94,11 @@
                         </div>
 
                         <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold shrink-0 {{ $isDeferred ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200' }}">
-                            {{ $isDeferred ? 'آجل' : 'محاسب' }}: {{ number_format((float) $parcel->cod_amount) }} ر.ي
+                            @if ($isDeferred || (float) $parcel->cod_amount > 0)
+                                {{ $isDeferred ? 'آجل' : 'محاسب' }}: {{ number_format((float) $parcel->cod_amount) }} ر.ي
+                            @else
+                                محاسب
+                            @endif
                         </span>
                     </div>
                 @endforeach

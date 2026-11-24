@@ -223,7 +223,7 @@ class ExternalPartnerPhase3Test extends TestCase
                     'recipient_name'  => 'سعيد العميل',
                     'recipient_phone' => '714567890',
                     'payment_type'    => 'paid',
-                    'cod_amount'      => 500,
+                    'cod_amount'      => '',
                     'receipt_number'  => '',
                 ],
             ],
@@ -240,9 +240,9 @@ class ExternalPartnerPhase3Test extends TestCase
         $this->assertSame(ShipmentStatus::IN_TRANSIT, $shipment->status);
         $this->assertSame('771234567', $shipment->driver_phone);
         $this->assertSame(3, $shipment->parcels_count);
-        $this->assertEquals(2000.0, (float) $shipment->total_paid_amount);
+        $this->assertEquals(1500.0, (float) $shipment->total_paid_amount);
         $this->assertEquals(4000.0, (float) $shipment->total_deferred_amount);
-        $this->assertEquals(6000.0, (float) $shipment->total_amount);
+        $this->assertEquals(5500.0, (float) $shipment->total_amount);
 
         // التحقق من الطرود وترقيم السندات المسبوق بالبادئة
         $parcels = OutgoingParcel::where('shipment_id', $shipment->id)
@@ -372,6 +372,21 @@ class ExternalPartnerPhase3Test extends TestCase
         ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['parcels.0.recipient_phone']);
+
+        // طرد آجل بدون مبلغ أو بمبلغ 0 يُرفض
+        $this->postJson('/p/' . $link->token . '/shipments', [
+            'idempotency_key' => (string) Str::uuid(),
+            'driver_name'     => 'سائق',
+            'driver_phone'    => '771234567',
+            'parcels'         => [[
+                'recipient_name'  => 'مستلم',
+                'recipient_phone' => '772345678',
+                'payment_type'    => 'deferred',
+                'cod_amount'      => '',
+            ]],
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['parcels.0.cod_amount']);
 
         $this->assertSame(0, Shipment::where('external_partner_link_id', $link->id)->count());
     }

@@ -207,11 +207,25 @@ class ExternalPartnerPortalController extends Controller
             'parcels.*.sender_name'     => ['nullable', 'string', 'max:255'],
             'parcels.*.sender_phone'    => ['nullable', 'regex:/^7[01378]\d{7}$/'],
             'parcels.*.payment_type'    => ['required', Rule::in(['paid', 'deferred'])],
-            'parcels.*.cod_amount'      => ['required', 'numeric', 'min:0'],
+            'parcels.*.cod_amount'      => ['nullable', 'required_if:parcels.*.payment_type,deferred', 'numeric', 'min:0'],
             'parcels.*.package_type'    => ['nullable', 'string', 'max:255'],
             'parcels.*.notes'           => ['nullable', 'string', 'max:1000'],
             'parcels.*.receipt_number'  => ['nullable', 'string', 'max:40'],
         ], $this->shipmentValidationMessages());
+
+        $validator->after(function ($validator) use ($normalizedPayload): void {
+            foreach (($normalizedPayload['parcels'] ?? []) as $index => $parcel) {
+                if (($parcel['payment_type'] ?? '') === 'deferred') {
+                    $amt = $parcel['cod_amount'] ?? null;
+                    if ($amt === null || $amt === '' || ! is_numeric($amt) || (float) $amt <= 0) {
+                        $validator->errors()->add(
+                            "parcels.{$index}.cod_amount",
+                            'يرجى إدخال المبلغ المطلوب تحصيله (أكبر من صفر) لأن حالة الدفع آجل.'
+                        );
+                    }
+                }
+            }
+        });
 
         if ($validator->fails()) {
             if ($request->expectsJson() || $request->ajax()) {
@@ -284,7 +298,7 @@ class ExternalPartnerPortalController extends Controller
             $totalDeferred = 0.0;
 
             foreach ($parcelsInput as $item) {
-                $amount = round((float) $item['cod_amount'], 2);
+                $amount = round((float) ($item['cod_amount'] ?? 0), 2);
                 if ($item['payment_type'] === OutgoingPaymentType::DEFERRED->value) {
                     $totalDeferred += $amount;
                 } else {
@@ -363,7 +377,7 @@ class ExternalPartnerPortalController extends Controller
                     'recipient_phone'          => $item['recipient_phone'],
                     'package_type'             => $packageType !== '' ? $packageType : 'طرد',
                     'receipt_number'           => $finalReceipt,
-                    'cod_amount'               => round((float) $item['cod_amount'], 2),
+                    'cod_amount'               => round((float) ($item['cod_amount'] ?? 0), 2),
                     'payment_type'             => $item['payment_type'],
                     'notes'                    => $parcelNotes !== '' ? $parcelNotes : null,
                     'status'                   => OutgoingParcelStatus::IN_TRANSIT,
@@ -623,11 +637,11 @@ class ExternalPartnerPortalController extends Controller
             'parcels.*.recipient_phone.required' => 'يرجى إدخال رقم جوال المستلم لكل طرد.',
             'parcels.*.recipient_phone.regex'    => 'رقم جوال المستلم غير صالح. يجب أن يتكون من 9 أرقام ويبدأ بـ 70، 71، 73، 77، أو 78.',
             'parcels.*.sender_phone.regex'       => 'رقم جوال المرسل غير صالح. يجب أن يتكون من 9 أرقام ويبدأ بـ 70، 71، 73، 77، أو 78.',
-            'parcels.*.payment_type.required'    => 'يرجى تحديد حالة الدفع (محاسب أو آجل) لكل طرد.',
-            'parcels.*.payment_type.in'          => 'حالة الدفع المحددة غير صالحة.',
-            'parcels.*.cod_amount.required'      => 'يرجى إدخال المبلغ لكل طرد (أدخل 0 إن لم يوجد تحصيل).',
-            'parcels.*.cod_amount.numeric'       => 'المبلغ يجب أن يكون رقماً صحيحاً.',
-            'parcels.*.cod_amount.min'           => 'المبلغ يجب ألا يقل عن صفر.',
+            'parcels.*.payment_type.required'       => 'يرجى تحديد حالة الدفع (محاسب أو آجل) لكل طرد.',
+            'parcels.*.payment_type.in'             => 'حالة الدفع المحددة غير صالحة.',
+            'parcels.*.cod_amount.required_if'      => 'يرجى إدخال المبلغ لأن حالة الدفع آجل.',
+            'parcels.*.cod_amount.numeric'          => 'المبلغ يجب أن يكون رقماً صحيحاً.',
+            'parcels.*.cod_amount.min'              => 'المبلغ يجب ألا يقل عن صفر.',
         ];
     }
 }

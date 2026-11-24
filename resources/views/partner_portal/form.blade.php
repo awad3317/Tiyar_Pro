@@ -119,15 +119,18 @@
 
                 <div>
                     <label class="block text-[11px] font-extrabold text-slate-700 mb-1">
-                        المبلغ (ر.ي) <span class="text-rose-600">*</span>
+                        <span>المبلغ (ر.ي)</span>
+                        <span x-show="draftParcel.payment_type === 'deferred'" class="text-rose-600">*</span>
+                        <span x-show="draftParcel.payment_type === 'paid'" x-cloak class="text-[10px] font-bold text-slate-400">(اختياري)</span>
                     </label>
                     <input type="text"
                            x-model="draftParcel.cod_amount"
                            @input="draftParcel.cod_amount = normalizeNumberInput(draftParcel.cod_amount)"
                            inputmode="decimal"
                            dir="ltr"
-                           placeholder="0"
-                           class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-mono font-black text-slate-800 outline-none text-left">
+                           :placeholder="draftParcel.payment_type === 'deferred' ? 'أدخل مبلغ الآجل (إلزامي)' : 'اختياري للمحاسب'"
+                           :class="draftParcel.payment_type === 'deferred' ? 'border-amber-300 focus:border-amber-500' : 'border-slate-300 focus:border-secondary'"
+                           class="w-full rounded-xl border bg-slate-50 focus:bg-white px-3 py-2.5 text-xs font-mono font-black text-slate-800 outline-none text-left">
                 </div>
             </div>
 
@@ -259,7 +262,9 @@
                                       :class="p.payment_type === 'deferred'
                                           ? 'bg-amber-50 text-amber-800 border-amber-200'
                                           : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
-                                      x-text="(p.payment_type === 'deferred' ? 'آجل: ' : 'محاسب: ') + formatMoney(p.cod_amount) + ' ر.ي'"></span>
+                                      x-text="p.payment_type === 'deferred'
+                                          ? ('آجل: ' + formatMoney(p.cod_amount) + ' ر.ي')
+                                          : (Number(p.cod_amount) > 0 ? ('محاسب: ' + formatMoney(p.cod_amount) + ' ر.ي') : 'محاسب')"></span>
                             </div>
                             <template x-if="p.notes">
                                 <p class="text-[10px] text-slate-500" x-text="'ملاحظة: ' + p.notes"></p>
@@ -384,7 +389,7 @@
                     sender_name: '',
                     sender_phone: '',
                     payment_type: 'paid',
-                    cod_amount: '0',
+                    cod_amount: '',
                     package_type: 'طرد',
                     receipt_number: '',
                     notes: '',
@@ -510,8 +515,9 @@
                     const recName = String(this.draftParcel.recipient_name || '').trim();
                     const recPhone = this.sanitizePhoneInput(this.draftParcel.recipient_phone);
                     const sPhone = this.sanitizePhoneInput(this.draftParcel.sender_phone);
-                    const codRaw = this.draftParcel.cod_amount === '' ? '0' : this.draftParcel.cod_amount;
-                    const codNum = Number(codRaw);
+                    const isDeferred = this.draftParcel.payment_type === 'deferred';
+                    const rawCodStr = String(this.draftParcel.cod_amount ?? '').trim();
+                    const codNum = rawCodStr === '' ? 0 : Number(rawCodStr);
 
                     if (!recName) {
                         this.showError('يرجى إدخال اسم المستلم.');
@@ -525,8 +531,12 @@
                         this.showError('رقم جوال المرسل غير صالح. يجب أن يتكون من 9 أرقام ويبدأ بـ 70، 71، 73، 77، أو 78.');
                         return;
                     }
-                    if (Number.isNaN(codNum) || codNum < 0) {
-                        this.showError('يرجى إدخال مبلغ صحيح (0 أو أكثر).');
+                    if (isDeferred && (rawCodStr === '' || Number.isNaN(codNum) || codNum <= 0)) {
+                        this.showError('يرجى إدخال مبلغ الطرد لأن حالة الدفع (آجل).');
+                        return;
+                    }
+                    if (!isDeferred && (Number.isNaN(codNum) || codNum < 0)) {
+                        this.showError('يرجى إدخال مبلغ صحيح أو ترك الحقل فارغاً للمحاسب.');
                         return;
                     }
                     if (this.editingIndex === null && this.parcels.length >= 100) {
@@ -540,7 +550,7 @@
                         recipient_phone: recPhone,
                         sender_name: String(this.draftParcel.sender_name || '').trim(),
                         sender_phone: sPhone,
-                        payment_type: this.draftParcel.payment_type === 'deferred' ? 'deferred' : 'paid',
+                        payment_type: isDeferred ? 'deferred' : 'paid',
                         cod_amount: codNum,
                         package_type: String(this.draftParcel.package_type || '').trim() || 'طرد',
                         receipt_number: this.normalizeReceiptSuffix(this.draftParcel.receipt_number),
@@ -563,13 +573,14 @@
                     const p = this.parcels[index];
                     if (!p) return;
                     this.editingIndex = index;
+                    const hasPositiveAmount = Number(p.cod_amount || 0) > 0;
                     this.draftParcel = {
                         recipient_name: p.recipient_name || '',
                         recipient_phone: p.recipient_phone || '',
                         sender_name: p.sender_name || '',
                         sender_phone: p.sender_phone || '',
                         payment_type: p.payment_type || 'paid',
-                        cod_amount: String(p.cod_amount ?? 0),
+                        cod_amount: (p.payment_type === 'deferred' || hasPositiveAmount) ? String(p.cod_amount ?? '') : '',
                         package_type: p.package_type || 'طرد',
                         receipt_number: p.receipt_number || '',
                         notes: p.notes || '',
