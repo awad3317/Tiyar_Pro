@@ -148,6 +148,7 @@ Route::prefix('office')->name('office.')->group(function () {
             ->group(function () {
                 Route::get('/', [OutgoingParcelController::class, 'index'])->name('index');
                 Route::post('/', [OutgoingParcelController::class, 'store'])->name('store');
+                Route::put('/{outgoingParcel}', [OutgoingParcelController::class, 'update'])->name('update');
                 Route::post('/{outgoingParcel}/dispatch', [OutgoingParcelController::class, 'dispatch'])->name('dispatch');
                 Route::post('/{outgoingParcel}/deliver-external', [OutgoingParcelController::class, 'deliverExternal'])->name('deliver-external');
                 Route::post('/{outgoingParcel}/detach-shipment', [OutgoingParcelController::class, 'detachShipment'])->name('detach-shipment');

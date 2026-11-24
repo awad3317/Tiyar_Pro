@@ -175,6 +175,61 @@ class OutgoingParcelController extends Controller
         }
     }
 
+    public function update(StoreOutgoingParcelRequest $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+
+        if ((int) $outgoingParcel->office_id !== (int) $office->id) {
+            abort(403, 'غير مصرح لك بإدارة هذا الطرد.');
+        }
+
+        $validated = $request->validated();
+        if (($validated['destination_type'] ?? 'office') === 'office') {
+            $validated['external_office_name'] = null;
+        } else {
+            $validated['destination_office_id'] = null;
+        }
+
+        try {
+            $updated = $service->update($outgoingParcel, $office, $validated);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $updated = $updated->fresh(self::EAGER_RELATIONS) ?? $updated->load(self::EAGER_RELATIONS);
+
+                return response()
+                    ->json([
+                        'ok'        => true,
+                        'message'   => 'تم تحديث بيانات الطرد الصادر بنجاح.',
+                        'parcel_id' => $updated->id,
+                        'status'    => $updated->status->value,
+                        'counts'    => $this->getStatusCounts($office),
+                        'parcel'    => $this->formatParcelJson($updated),
+                        'card_html' => view('office.outgoing_parcels.partials.parcel-card', ['parcel' => $updated])->render(),
+                    ])
+                    ->withHeaders(self::NO_CACHE_HEADERS);
+            }
+
+            return redirect()
+                ->route('office.outgoing-parcels.index')
+                ->with('success', 'تم تحديث بيانات الطرد الصادر بنجاح.');
+        } catch (DomainException|AuthorizationException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()
+                    ->json([
+                        'ok'      => false,
+                        'message' => $e->getMessage(),
+                    ], 422)
+                    ->withHeaders(self::NO_CACHE_HEADERS);
+            }
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $e->getMessage());
+        }
+    }
+
     public function dispatch(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)
     {
         /** @var Office $office */

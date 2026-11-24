@@ -71,6 +71,15 @@ class StoreOutgoingParcelRequest extends FormRequest
                         return;
                     }
 
+                    $editingParcel = $this->route('outgoingParcel');
+                    if (
+                        $editingParcel instanceof \App\Models\OutgoingParcel
+                        && $editingParcel->destination_office_id !== null
+                        && (int) $editingParcel->destination_office_id === (int) $value
+                    ) {
+                        return;
+                    }
+
                     $office = $this->user('office');
                     $isLinkedPartner = $office && $office->partnerOffices()
                         ->where('offices.id', (int) $value)

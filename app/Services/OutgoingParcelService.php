@@ -110,6 +110,153 @@ class OutgoingParcelService
     }
 
     /**
+     * تعديل بيانات طرد صادر فقط عندما تكون حالته (في الانتظار) أو (في الطريق) وقبل استلامه ونسخه إلى جدول الطرود المستلمة،
+     * مع إعادة حساب مجاميع ووجهات الشحنة تلقائياً إذا كان الطرد مضموماً إلى شحنة.
+     */
+    public function update(OutgoingParcel $parcel, Office $office, array $data): OutgoingParcel
+    {
+        $rawDestinationId = $data['destination_office_id'] ?? null;
+        $destinationOfficeId = ($rawDestinationId !== null && $rawDestinationId !== '')
+            ? (int) $rawDestinationId
+            : null;
+
+        $externalOfficeName = trim((string) ($data['external_office_name'] ?? ''));
+        $externalOfficeName = $externalOfficeName !== '' ? $externalOfficeName : null;
+
+        if ($destinationOfficeId !== null) {
+            if ($destinationOfficeId === (int) $office->id) {
+                throw new DomainException('لا يمكن إرسال الطرد إلى نفس المكتب.');
+            }
+
+            if (! Office::query()->whereKey($destinationOfficeId)->exists()) {
+                throw new DomainException('المكتب المستلم المحدد غير موجود.');
+            }
+
+            $isSameExistingDestination = $parcel->destination_office_id !== null
+                && (int) $parcel->destination_office_id === $destinationOfficeId;
+
+            if (! $isSameExistingDestination) {
+                $isLinkedActivePartner = $office->partnerOffices()
+                    ->where('offices.id', $destinationOfficeId)
+                    ->where('offices.is_active', true)
+                    ->exists();
+
+                if (! $isLinkedActivePartner) {
+                    throw new DomainException('المكتب المستلم غير مرتبط بهذا المكتب.');
+                }
+            }
+
+            $externalOfficeName = null;
+        } elseif ($externalOfficeName === null) {
+            throw new DomainException('يجب تحديد مكتب مستلم داخل النظام أو إدخال اسم مكتب خارجي.');
+        }
+
+        if (! isset($data['cod_amount']) || $data['cod_amount'] === '' || ! is_numeric($data['cod_amount']) || (float) $data['cod_amount'] < 0) {
+            throw new DomainException('يرجى إدخال المبلغ بشكل صحيح.');
+        }
+        $codAmount = (float) $data['cod_amount'];
+
+        $rawPaymentType = $data['payment_type'] ?? null;
+        $paymentType = $rawPaymentType instanceof OutgoingPaymentType
+            ? $rawPaymentType
+            : OutgoingPaymentType::tryFrom((string) $rawPaymentType);
+
+        if ($paymentType === null) {
+            throw new DomainException('يرجى تحديد حالة الدفع: محاسب أو آجل.');
+        }
+
+        $recipientName = trim((string) ($data['recipient_name'] ?? ''));
+        $notes = trim((string) ($data['notes'] ?? ''));
+
+        return DB::transaction(function () use (
+            $parcel,
+            $office,
+            $destinationOfficeId,
+            $externalOfficeName,
+            $codAmount,
+            $paymentType,
+            $recipientName,
+            $notes,
+            $data
+        ): OutgoingParcel {
+            $locked = OutgoingParcel::query()
+                ->whereKey($parcel->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $locked->office_id !== (int) $office->id) {
+                throw new DomainException('غير مصرح لك بتعديل هذا الطرد.');
+            }
+
+            if ($locked->linked_incoming_parcel_id !== null || $locked->status === OutgoingParcelStatus::RECEIVED) {
+                throw new DomainException('لا يمكن تعديل بيانات الطرد لأنه تم استلامه بالفعل ونسخ بياناته لدى الفرع المستلم.');
+            }
+
+            if (! in_array($locked->status, [OutgoingParcelStatus::PENDING, OutgoingParcelStatus::IN_TRANSIT], true)) {
+                throw new DomainException('يمكن تعديل بيانات الطرد فقط عندما تكون حالته (في الانتظار) أو (في الطريق).');
+            }
+
+            $locked->update([
+                'destination_office_id' => $destinationOfficeId,
+                'external_office_name'  => $externalOfficeName,
+                'sender_name'           => trim((string) ($data['sender_name'] ?? '')),
+                'sender_phone'          => trim((string) ($data['sender_phone'] ?? '')),
+                'recipient_name'        => $recipientName !== '' ? $recipientName : null,
+                'recipient_phone'       => trim((string) ($data['recipient_phone'] ?? '')),
+                'package_type'          => trim((string) ($data['package_type'] ?? 'طرد')) ?: 'طرد',
+                'cod_amount'            => $codAmount,
+                'payment_type'          => $paymentType,
+                'notes'                 => $notes !== '' ? $notes : null,
+            ]);
+
+            // إذا كان الطرد مضموماً لشحنة نعيد حساب المجاميع والوجهات فوراً لضمان تطابق الكشف
+            if ($locked->shipment_id !== null) {
+                $lockedShipment = Shipment::query()
+                    ->whereKey($locked->shipment_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($lockedShipment) {
+                    $activeParcels = OutgoingParcel::with('destinationOffice:id,name,branch_name')
+                        ->where('shipment_id', $lockedShipment->id)
+                        ->where('status', '!=', OutgoingParcelStatus::CANCELLED->value)
+                        ->get();
+
+                    $totalPaid = 0.0;
+                    $totalDeferred = 0.0;
+                    $destinations = [];
+
+                    foreach ($activeParcels as $p) {
+                        $amount = (float) ($p->cod_amount ?? 0);
+                        if ($p->payment_type === OutgoingPaymentType::DEFERRED) {
+                            $totalDeferred += $amount;
+                        } else {
+                            $totalPaid += $amount;
+                        }
+
+                        $destLabel = $p->destinationLabel();
+                        if ($destLabel !== '' && ! in_array($destLabel, $destinations, true)) {
+                            $destinations[] = $destLabel;
+                        }
+                    }
+
+                    $lockedShipment->update([
+                        'parcels_count'         => $activeParcels->count(),
+                        'total_paid_amount'     => round($totalPaid, 2),
+                        'total_deferred_amount' => round($totalDeferred, 2),
+                        'total_amount'          => round($totalPaid + $totalDeferred, 2),
+                        'destinations_summary'  => $destinations,
+                    ]);
+                }
+            }
+
+            $parcel->refresh();
+
+            return $locked;
+        });
+    }
+
+    /**
      * يُمنع تحويل الطرد الصادر إلى (في الطريق) بشكل فردي؛ يجب ضمه إلى شحنة وإرسال الشحنة بالكامل.
      */
     public function markInTransit(OutgoingParcel $parcel, Office $office): OutgoingParcel

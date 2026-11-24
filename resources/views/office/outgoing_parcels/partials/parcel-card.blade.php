@@ -34,6 +34,34 @@
         array_merge($modalPayload, ['url' => route('office.outgoing-parcels.detach-shipment', $parcel)]),
         JSON_UNESCAPED_UNICODE
     );
+
+    // يُسمح بتعديل بيانات الطرد فقط قبل استلامه ونسخ بياناته لجدول الطرود المستلمة (في الانتظار أو في الطريق فقط)
+    $canEditParcel = $parcel->linked_incoming_parcel_id === null
+        && in_array(
+            $parcel->status,
+            [\App\Enums\OutgoingParcelStatus::PENDING, \App\Enums\OutgoingParcelStatus::IN_TRANSIT],
+            true
+        );
+
+    $editPayloadJson = $canEditParcel
+        ? json_encode([
+            'id'                    => $parcel->id,
+            'url'                   => route('office.outgoing-parcels.update', $parcel),
+            'receipt_number'        => (string) ($parcel->receipt_number ?? ''),
+            'destination_type'      => $parcel->isExternal() ? 'external' : 'office',
+            'destination_office_id' => $parcel->destination_office_id ? (string) $parcel->destination_office_id : '',
+            'external_office_name'  => (string) ($parcel->external_office_name ?? ''),
+            'destination_label'     => $parcel->destinationLabel(),
+            'sender_name'           => (string) ($parcel->sender_name ?? ''),
+            'sender_phone'          => (string) ($parcel->sender_phone ?? ''),
+            'recipient_name'        => (string) ($parcel->recipient_name ?? ''),
+            'recipient_phone'       => (string) ($parcel->recipient_phone ?? ''),
+            'package_type'          => (string) ($parcel->package_type ?? ''),
+            'cod_amount'            => (float) ($parcel->cod_amount ?? 0),
+            'payment_type'          => $paymentEnum->value,
+            'notes'                 => (string) ($parcel->notes ?? ''),
+        ], JSON_UNESCAPED_UNICODE)
+        : '';
 @endphp
 
 <article id="outgoing-card-{{ $parcel->id }}"
@@ -101,6 +129,18 @@
                         <span class="material-symbols-outlined text-[12px]">hourglass_top</span>
                         <span>{{ $createdAgo }}</span>
                     </span>
+                @endif
+
+                @if ($canEditParcel)
+                    <button type="button"
+                            data-card-action="edit"
+                            data-edit-payload="{{ $editPayloadJson }}"
+                            title="تعديل بيانات الطرد"
+                            aria-label="تعديل بيانات الطرد"
+                            class="h-6 px-2 rounded-lg bg-amber-50 hover:bg-amber-500 text-amber-800 hover:text-white border border-amber-200/90 text-[10px] font-extrabold inline-flex items-center gap-0.5 transition-colors shrink-0">
+                        <span class="material-symbols-outlined text-[13px]">edit</span>
+                        <span>تعديل</span>
+                    </button>
                 @endif
 
                 <button type="button"

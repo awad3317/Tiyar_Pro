@@ -81,10 +81,14 @@
              initialDestType: @js(old('destination_type', 'office')),
              initialOfficeId: @js(old('destination_office_id', '')),
              initialExternalName: @js(old('external_office_name', '')),
+             initialSenderName: @js(old('sender_name', '')),
              initialSenderPhone: @js(old('sender_phone', '')),
+             initialRecipientName: @js(old('recipient_name', '')),
              initialRecipientPhone: @js(old('recipient_phone', '')),
              initialPackageType: @js(old('package_type', '')),
+             initialCodAmount: @js(old('cod_amount', '')),
              initialPaymentType: @js(old('payment_type', 'paid')),
+             initialNotes: @js(old('notes', '')),
              offices: @js($officesForJs)
          })">
 
@@ -145,20 +149,20 @@
                 {{-- هيدر المودال --}}
                 <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-secondary text-xl">outbox</span>
-                        <h3 class="text-sm font-extrabold">إضافة طرد صادر جديد</h3>
+                        <span class="material-symbols-outlined text-secondary text-xl" x-text="modalMode === 'edit' ? 'edit_note' : 'outbox'">outbox</span>
+                        <h3 class="text-sm font-extrabold"
+                            x-text="modalMode === 'edit' ? ('تعديل بيانات الطرد (سند #' + editingReceiptNumber + ')') : 'إضافة طرد صادر جديد'">إضافة طرد صادر جديد</h3>
                     </div>
-                    <button type="button" @click="closeModal()" class="text-slate-300 hover:text-white p-1">
+                    <button type="button" @click="closeModal()" :disabled="submittingModal" class="text-slate-300 hover:text-white p-1 disabled:opacity-50">
                         <span class="material-symbols-outlined text-lg">close</span>
                     </button>
                 </div>
 
-                {{-- نموذج الإضافة --}}
+                {{-- نموذج الإضافة / التعديل --}}
                 <form method="POST"
                       action="{{ route('office.outgoing-parcels.store') }}"
                       class="flex flex-col flex-1 min-h-0"
-                      x-data="{ submitting: false }"
-                      @submit="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) { $event.preventDefault(); return; } if (submitting) { $event.preventDefault(); return; } submitting = true">
+                      @submit="handleParcelFormSubmit($event)">
                     @csrf
 
                     <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 pt-3 pb-8 space-y-3"
@@ -272,7 +276,7 @@
                                 <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المرسل <span class="text-rose-500">*</span></label>
                                 <input type="text"
                                        name="sender_name"
-                                       value="{{ old('sender_name') }}"
+                                       x-model="senderName"
                                        required
                                        placeholder="اسم المرسل"
                                        class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
@@ -319,7 +323,7 @@
                                 <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
                                 <input type="text"
                                        name="recipient_name"
-                                       value="{{ old('recipient_name') }}"
+                                       x-model="recipientName"
                                        placeholder="اسم المستلم"
                                        class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
                             </div>
@@ -473,7 +477,7 @@
                                        step="any"
                                        min="0"
                                        name="cod_amount"
-                                       value="{{ old('cod_amount') }}"
+                                       x-model="codAmount"
                                        required
                                        dir="ltr"
                                        placeholder="مثال: 5000"
@@ -509,22 +513,26 @@
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">ملاحظات <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
                             <textarea name="notes"
                                       rows="2"
+                                      x-model="notes"
                                       placeholder="أي تفاصيل إضافية..."
-                                      class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">{{ old('notes') }}</textarea>
+                                      class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary"></textarea>
                         </div>
                     </div>
 
                     {{-- أزرار الحفظ والإلغاء (فوتر ثابت أسفل المودال وفوق الكيبورد) --}}
                     <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
                         <button type="submit"
-                                :disabled="submitting"
+                                :disabled="submittingModal"
                                 class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-white text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
                             <span class="material-symbols-outlined text-base">check_circle</span>
-                            <span x-text="submitting ? 'جاري الحفظ...' : 'حفظ الطرد الصادر'"></span>
+                            <span x-text="submittingModal
+                                ? (modalMode === 'edit' ? 'جاري حفظ التعديلات...' : 'جاري الحفظ...')
+                                : (modalMode === 'edit' ? 'حفظ التعديلات' : 'حفظ الطرد الصادر')"></span>
                         </button>
                         <button type="button"
                                 @click="closeModal()"
-                                class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                                :disabled="submittingModal"
+                                class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 disabled:opacity-50">
                             إلغاء
                         </button>
                     </div>
@@ -683,6 +691,11 @@
         return {
             baseUrl: config.baseUrl || '/office/outgoing-parcels',
             showModal: Boolean(config.hasErrors),
+            modalMode: 'create',
+            editingParcelId: null,
+            editingReceiptNumber: '',
+            editingUrl: '',
+            submittingModal: false,
             activeStatus: String(config.initialStatus || 'all'),
             searchQuery: String(config.initialSearch || ''),
             counts: config.initialCounts || { all: 0, pending: 0, in_transit: 0, received: 0, delivered: 0, cancelled: 0 },
@@ -708,10 +721,14 @@
             selectedOfficeId: matchedOffice ? String(matchedOffice.id) : '',
             externalOfficeName: matchedOffice ? '' : initExternal,
             destinationQuery: matchedOffice ? matchedOffice.label : initExternal,
+            senderName: String(config.initialSenderName || ''),
             senderPhone: String(config.initialSenderPhone || ''),
+            recipientName: String(config.initialRecipientName || ''),
             recipientPhone: String(config.initialRecipientPhone || ''),
             packageType: config.initialPackageType || '',
+            codAmount: config.initialCodAmount !== null && config.initialCodAmount !== undefined ? String(config.initialCodAmount) : '',
             paymentType: config.initialPaymentType || 'paid',
+            notes: String(config.initialNotes || ''),
             offices: officesList,
 
             catalog: {
@@ -822,6 +839,19 @@
 
                 if (action === 'locked-shipments') {
                     this.notifyToast('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true);
+                    return;
+                }
+
+                if (action === 'edit') {
+                    const rawEdit = btn.getAttribute('data-edit-payload');
+                    if (!rawEdit) return;
+                    try {
+                        const editData = JSON.parse(rawEdit);
+                        if (editData?.id && this.actionLoading[editData.id]) return;
+                        this.openEditModal(editData);
+                    } catch (e) {
+                        console.warn('Invalid card edit payload:', e);
+                    }
                     return;
                 }
 
@@ -1218,10 +1248,19 @@
             },
 
             openModal() {
+                this.modalMode = 'create';
+                this.editingParcelId = null;
+                this.editingReceiptNumber = '';
+                this.editingUrl = '';
+                this.submittingModal = false;
+                this.senderName = '';
                 this.senderPhone = '';
+                this.recipientName = '';
                 this.recipientPhone = '';
                 this.packageType = '';
+                this.codAmount = '';
                 this.paymentType = 'paid';
+                this.notes = '';
                 this.destDropdownOpen = false;
                 this.selectedOfficeId = '';
                 this.destType = 'office';
@@ -1231,14 +1270,151 @@
                 this.attachViewportListeners();
             },
 
+            openEditModal(data) {
+                if (!data || !data.url) return;
+                this.modalMode = 'edit';
+                this.editingParcelId = data.id || null;
+                this.editingReceiptNumber = String(data.receipt_number || '');
+                this.editingUrl = data.url;
+                this.submittingModal = false;
+                this.destDropdownOpen = false;
+
+                if (data.destination_type === 'office' && data.destination_office_id) {
+                    const offId = String(data.destination_office_id);
+                    const found = this.offices.find(o => String(o.id) === offId);
+                    this.selectedOfficeId = offId;
+                    this.destType = 'office';
+                    this.destinationQuery = found ? found.label : String(data.destination_label || '');
+                    this.externalOfficeName = '';
+                } else {
+                    const extName = String(data.external_office_name || data.destination_label || '').trim();
+                    this.selectedOfficeId = '';
+                    this.destType = 'external';
+                    this.externalOfficeName = extName;
+                    this.destinationQuery = extName;
+                }
+
+                this.senderName = String(data.sender_name || '');
+                this.senderPhone = this.sanitizePhone(data.sender_phone || '');
+                this.recipientName = String(data.recipient_name || '');
+                this.recipientPhone = this.sanitizePhone(data.recipient_phone || '');
+                this.packageType = String(data.package_type || '');
+                this.codAmount = data.cod_amount !== null && data.cod_amount !== undefined ? String(data.cod_amount) : '0';
+                this.paymentType = data.payment_type === 'deferred' ? 'deferred' : 'paid';
+                this.notes = String(data.notes || '');
+
+                this.showModal = true;
+                this.attachViewportListeners();
+            },
+
+            handleParcelFormSubmit(event) {
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                    event.preventDefault();
+                    return;
+                }
+                if (this.submittingModal) {
+                    event.preventDefault();
+                    return;
+                }
+                if (this.modalMode === 'edit') {
+                    event.preventDefault();
+                    this.submitEditParcelForm();
+                    return;
+                }
+                this.submittingModal = true;
+            },
+
+            async submitEditParcelForm() {
+                if (!this.editingUrl || this.submittingModal) return;
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const parcelId = this.editingParcelId;
+
+                this.submittingModal = true;
+                if (parcelId) {
+                    this.actionLoading[parcelId] = true;
+                }
+
+                const payload = {
+                    destination_type: this.destType,
+                    destination_office_id: this.destType === 'office' && this.selectedOfficeId !== '' ? Number(this.selectedOfficeId) : null,
+                    external_office_name: this.destType === 'external' ? (this.externalOfficeName || this.destinationQuery).trim() : null,
+                    sender_name: (this.senderName || '').trim(),
+                    sender_phone: this.sanitizePhone(this.senderPhone),
+                    recipient_name: (this.recipientName || '').trim(),
+                    recipient_phone: this.sanitizePhone(this.recipientPhone),
+                    package_type: (this.packageType || '').trim(),
+                    cod_amount: this.codAmount,
+                    payment_type: this.paymentType,
+                    notes: (this.notes || '').trim(),
+                };
+
+                try {
+                    const res = await fetch(this.editingUrl, {
+                        method: 'PUT',
+                        cache: 'no-store',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': token,
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.ok) {
+                        let firstValidationErr = '';
+                        if (data && data.errors && typeof data.errors === 'object') {
+                            const firstField = Object.values(data.errors)[0];
+                            if (Array.isArray(firstField) && firstField.length > 0) {
+                                firstValidationErr = firstField[0];
+                            }
+                        }
+                        this.submittingModal = false;
+                        this.notifyToast(firstValidationErr || data.message || 'تعذر حفظ التعديلات، يرجى مراجعة البيانات.', true);
+                        return;
+                    }
+
+                    const targetId = data.parcel_id || data.parcel?.id || parcelId;
+                    const nextStatus = data.status || data.parcel?.status || '';
+
+                    this.updateCounts(data.counts);
+                    this.submittingModal = false;
+                    this.closeModal();
+                    this.applyCardDomUpdate(targetId, nextStatus, data.card_html);
+                    this.notifyToast(data.message || 'تم تحديث بيانات الطرد الصادر بنجاح.', false);
+                } catch (err) {
+                    this.submittingModal = false;
+                    if (typeof window.notifyNetworkError === 'function') {
+                        window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+                    } else {
+                        this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', true);
+                    }
+                } finally {
+                    if (parcelId) {
+                        this.actionLoading[parcelId] = false;
+                    }
+                }
+            },
+
             closeModal() {
+                if (this.submittingModal) return;
                 this.showModal = false;
                 this.detachViewportListeners();
                 this.destDropdownOpen = false;
+                this.modalMode = 'create';
+                this.editingParcelId = null;
+                this.editingReceiptNumber = '';
+                this.editingUrl = '';
+                this.senderName = '';
                 this.senderPhone = '';
+                this.recipientName = '';
                 this.recipientPhone = '';
                 this.packageType = '';
+                this.codAmount = '';
                 this.paymentType = 'paid';
+                this.notes = '';
                 this.selectedOfficeId = '';
                 this.destType = 'office';
                 this.destinationQuery = '';

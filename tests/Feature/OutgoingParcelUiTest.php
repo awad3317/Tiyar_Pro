@@ -1117,4 +1117,127 @@ class OutgoingParcelUiTest extends TestCase
             ->assertDontSee('FAIL-OLD')
             ->assertDontSee('IN-909');
     }
+
+    public function test_office_can_edit_outgoing_parcel_only_when_pending_or_in_transit_and_locked_once_received(): void
+    {
+        $this->senderOffice->syncFeaturesStatus(['outgoing_parcels', 'sent_shipments']);
+        $this->senderOffice->refreshFeaturesCache();
+
+        $parcel = app(OutgoingParcelService::class)->create($this->senderOffice, [
+            'destination_office_id' => $this->targetOffice->id,
+            'sender_name'           => 'مرسل قبل التعديل',
+            'sender_phone'          => '771100200',
+            'recipient_name'        => 'مستلم قبل التعديل',
+            'recipient_phone'       => '777300400',
+            'package_type'          => 'كرتون صغير',
+            'cod_amount'            => 2000,
+            'payment_type'          => 'paid',
+            'notes'                 => 'ملاحظة قديمة',
+        ]);
+
+        // 1. في حالة PENDING يظهر زر التعديل ويُسمح بالتحديث بنجاح
+        $pendingHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('data-card-action="edit"', $pendingHtml);
+
+        $this->actingAs($this->senderOffice, 'office')
+            ->putJson(route('office.outgoing-parcels.update', $parcel), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'مرسل بعد التعديل',
+                'sender_phone'          => '771100299',
+                'recipient_name'        => 'مستلم بعد التعديل',
+                'recipient_phone'       => '777300499',
+                'package_type'          => 'كرتون كبير معدل',
+                'cod_amount'            => 3500,
+                'payment_type'          => 'deferred',
+                'notes'                 => 'ملاحظة محدثة',
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $parcel->refresh();
+        $this->assertSame('مرسل بعد التعديل', $parcel->sender_name);
+        $this->assertSame('مستلم بعد التعديل', $parcel->recipient_name);
+        $this->assertEquals(3500.0, (float) $parcel->cod_amount);
+        $this->assertSame(OutgoingPaymentType::DEFERRED, $parcel->payment_type);
+
+        // 2. بعد الضم إلى شحنة وتحوله إلى IN_TRANSIT يظل زر التعديل متاحاً ويعيد حساب مجاميع الكشف تلقائياً!
+        $shipment = app(ShipmentService::class)->create($this->senderOffice, [
+            'driver_name'  => 'سائق التعديل',
+            'driver_phone' => '771555666',
+            'parcel_ids'   => [$parcel->id],
+            'dispatch_now' => true,
+        ]);
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $parcel->fresh()->status);
+        $this->assertEquals(3500.0, (float) $shipment->fresh()->total_deferred_amount);
+
+        $inTransitRes = $this->actingAs($this->senderOffice, 'office')
+            ->putJson(route('office.outgoing-parcels.update', $parcel), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'مرسل في الطريق معدل',
+                'sender_phone'          => '771100299',
+                'recipient_name'        => 'مستلم في الطريق معدل',
+                'recipient_phone'       => '777300499',
+                'package_type'          => 'كرتون كبير معدل',
+                'cod_amount'            => 6000,
+                'payment_type'          => 'paid',
+                'notes'                 => 'تعديل أثناء الطريق',
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertStringContainsString('data-card-action="edit"', (string) $inTransitRes->json('card_html'));
+        $shipment->refresh();
+        $this->assertEquals(6000.0, (float) $shipment->total_paid_amount);
+        $this->assertEquals(0.0, (float) $shipment->total_deferred_amount);
+        $this->assertEquals(6000.0, (float) $shipment->total_amount);
+
+        // 3. مكتب آخر يُمنع بـ 403
+        $this->targetOffice->syncFeaturesStatus(['outgoing_parcels']);
+        $this->targetOffice->refreshFeaturesCache();
+        $this->actingAs($this->targetOffice, 'office')
+            ->putJson(route('office.outgoing-parcels.update', $parcel), [
+                'destination_type'     => 'external',
+                'external_office_name' => 'اختراق',
+                'sender_name'          => 'اختراق',
+                'sender_phone'         => '771111111',
+                'recipient_phone'      => '772222222',
+                'package_type'         => 'طرد',
+                'cod_amount'           => 100,
+                'payment_type'         => 'paid',
+            ])
+            ->assertStatus(403);
+
+        // 4. بمجرد استلام الطرد في الفرع المستلم ونسخ بياناته إلى جدول parcels يختفي زر التعديل ويُرفض التعديل بـ 422!
+        app(OutgoingParcelService::class)->receiveAtDestination($parcel->fresh(), $this->targetOffice, false, 'whatsapp');
+        $this->assertSame(OutgoingParcelStatus::RECEIVED, $parcel->fresh()->status);
+        $this->assertNotNull($parcel->fresh()->linked_incoming_parcel_id);
+
+        $receivedListHtml = $this->actingAs($this->senderOffice, 'office')
+            ->get(route('office.outgoing-parcels.index', ['status' => 'received']))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('data-card-action="edit"', $receivedListHtml);
+
+        $this->actingAs($this->senderOffice, 'office')
+            ->putJson(route('office.outgoing-parcels.update', $parcel), [
+                'destination_type'      => 'office',
+                'destination_office_id' => $this->targetOffice->id,
+                'sender_name'           => 'محاولة تعديل بعد الاستلام',
+                'sender_phone'          => '771100299',
+                'recipient_name'        => 'محاولة تعديل بعد الاستلام',
+                'recipient_phone'       => '777300499',
+                'package_type'          => 'كرتون',
+                'cod_amount'            => 9999,
+                'payment_type'          => 'paid',
+            ])
+            ->assertStatus(422)
+            ->assertJson(['ok' => false]);
+
+        $this->assertSame('مستلم في الطريق معدل', $parcel->fresh()->recipient_name);
+    }
 }
