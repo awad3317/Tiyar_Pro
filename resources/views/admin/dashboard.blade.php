@@ -21,7 +21,7 @@
 <div class="space-y-8" x-data="dashboardLiveMonitor()">
 
     <!-- 1. بطاقات المؤشرات الرئيسية (KPI Cards) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
         
         <!-- إجمالي المكاتب -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
@@ -74,41 +74,59 @@
             </div>
         </div>
 
-        <!-- عداد طرود اليوم (مؤشر الرسائل والإشعارات اليومية) -->
+        <!-- عداد طرود اليوم (مستلمة + مرسلة) -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">إشعارات وطرود اليوم</p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">حركة طرود اليوم</p>
                     <div class="flex items-baseline gap-2">
-                        <h3 class="text-3xl font-black text-secondary">{{ $stats['today_parcels'] }}</h3>
-                        <span class="text-xs font-bold text-slate-500">طرد تم إشعاره</span>
+                        <h3 class="text-3xl font-black text-secondary">{{ $stats['today_parcels'] + ($stats['today_outgoing_parcels'] ?? 0) }}</h3>
+                        <span class="text-xs font-bold text-slate-500">طرد اليوم</span>
                     </div>
                 </div>
                 <div class="w-12 h-12 rounded-2xl bg-amber-50 text-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
                     <span class="material-symbols-outlined text-2xl">send_to_mobile</span>
                 </div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-500">
-                <span>إجمالي حركة الإدخال اليومية</span>
-                <span class="text-secondary font-mono">{{ now()->format('Y/m/d') }}</span>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
+                <span class="text-amber-700">{{ $stats['today_parcels'] }} مستلم اليوم</span>
+                <span class="text-indigo-600">{{ $stats['today_outgoing_parcels'] ?? 0 }} مرسل اليوم</span>
             </div>
         </div>
 
-        <!-- إجمالي الطرود وتوزيعها -->
+        <!-- إجمالي الطرود المستلمة وتوزيعها -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">إجمالي الطرود التراكمية</p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">الطرود المستلمة (الواردة)</p>
                     <h3 class="text-3xl font-black text-slate-900">{{ $stats['total_parcels'] }}</h3>
                 </div>
                 <div class="w-12 h-12 rounded-2xl bg-primary-50 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <span class="material-symbols-outlined text-2xl">inventory_2</span>
+                    <span class="material-symbols-outlined text-2xl">move_to_inbox</span>
                 </div>
             </div>
             <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
                 <span class="text-blue-600">{{ $stats['in_office_parcels'] }} بالمكتب</span>
                 <span class="text-emerald-600">{{ $stats['delivered_parcels'] }} مستلم</span>
                 <span class="text-rose-500">{{ $stats['returned_parcels'] }} مرتجع</span>
+            </div>
+        </div>
+
+        <!-- إجمالي الطرود المرسلة (الصادرة) وتوزيعها -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">الطرود المرسلة (الصادرة)</p>
+                    <h3 class="text-3xl font-black text-indigo-900">{{ $stats['total_outgoing_parcels'] ?? 0 }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-2xl">outbox</span>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+                <span class="text-amber-700">{{ $stats['pending_outgoing_parcels'] ?? 0 }} بالانتظار</span>
+                <span class="text-sky-600">{{ $stats['in_transit_outgoing_parcels'] ?? 0 }} بالطريق</span>
+                <span class="text-emerald-600">{{ $stats['completed_outgoing_parcels'] ?? 0 }} مكتمل</span>
             </div>
         </div>
     </div>
@@ -142,7 +160,8 @@
                         <th class="py-3.5 px-4">رقم الواتساب / الشريحة</th>
                         <th class="py-3.5 px-4 text-center">حالة الجلسة (WhatsApp)</th>
                         <th class="py-3.5 px-4 text-center">طرود اليوم</th>
-                        <th class="py-3.5 px-4 text-center">إجمالي الطرود</th>
+                        <th class="py-3.5 px-4 text-center">الطرود المستلمة</th>
+                        <th class="py-3.5 px-4 text-center">الطرود المرسلة</th>
                         <th class="py-3.5 px-4 text-center">حالة الحساب</th>
                         <th class="py-3.5 px-6 text-center">تحكم سريع</th>
                     </tr>
@@ -196,16 +215,36 @@
                                 </div>
                             </td>
 
-                            <!-- طرود اليوم -->
+                            <!-- طرود اليوم (مستلم + مرسل) -->
                             <td class="py-4 px-4 text-center">
-                                <span class="inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-extrabold {{ $office->today_parcels_count > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-500' }}">
-                                    {{ $office->today_parcels_count }}
+                                <div class="inline-flex items-center justify-center gap-1.5 flex-wrap">
+                                    <span title="الطرود المستلمة اليوم"
+                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-extrabold {{ $office->today_parcels_count > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-500' }}">
+                                        <span class="material-symbols-outlined text-[14px]">move_to_inbox</span>
+                                        <span>{{ $office->today_parcels_count }}</span>
+                                    </span>
+                                    <span title="الطرود المرسلة اليوم"
+                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-extrabold {{ ($office->today_outgoing_parcels_count ?? 0) > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-500' }}">
+                                        <span class="material-symbols-outlined text-[14px]">outbox</span>
+                                        <span>{{ $office->today_outgoing_parcels_count ?? 0 }}</span>
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- إجمالي الطرود المستلمة -->
+                            <td class="py-4 px-4 text-center">
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100/80 text-slate-800 font-extrabold text-xs">
+                                    <span class="material-symbols-outlined text-[15px] text-primary">move_to_inbox</span>
+                                    <span>{{ $office->parcels_count }}</span>
                                 </span>
                             </td>
 
-                            <!-- إجمالي الطرود -->
-                            <td class="py-4 px-4 text-center font-bold text-slate-700">
-                                {{ $office->parcels_count }}
+                            <!-- إجمالي الطرود المرسلة -->
+                            <td class="py-4 px-4 text-center">
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg {{ ($office->outgoing_parcels_count ?? 0) > 0 ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/80' : 'bg-slate-100/80 text-slate-500' }} font-extrabold text-xs">
+                                    <span class="material-symbols-outlined text-[15px]">outbox</span>
+                                    <span>{{ $office->outgoing_parcels_count ?? 0 }}</span>
+                                </span>
                             </td>
 
                             <!-- حالة المكتب (نشط / محظور) -->
@@ -249,7 +288,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="py-12 text-center text-slate-500 font-bold">
+                            <td colspan="8" class="py-12 text-center text-slate-500 font-bold">
                                 لا توجد مكاتب مسجلة في النظام حتى الآن.
                             </td>
                         </tr>

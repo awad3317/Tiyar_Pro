@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\OutgoingParcelStatus;
 use App\Enums\ParcelStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Office;
+use App\Models\OutgoingParcel;
 use App\Models\Parcel;
 use App\Models\WhatsappInstance;
 use Illuminate\Http\Request;
@@ -23,22 +25,34 @@ class DashboardController extends Controller
         $activeOffices   = Office::where('is_active', true)->count();
         $inactiveOffices = $totalOffices - $activeOffices;
 
-        // 2. إحصائيات الطرود والرسائل
+        // 2. إحصائيات الطرود المستلمة (الواردة) والمرسلة (الصادرة)
         $totalParcels     = Parcel::count();
         $inOfficeParcels  = Parcel::where('status', ParcelStatus::InOffice)->count();
         $deliveredParcels = Parcel::where('status', ParcelStatus::Delivered)->count();
         $returnedParcels  = Parcel::where('status', ParcelStatus::Returned)->count();
         $todayParcels     = Parcel::whereDate('created_at', today())->count();
 
+        $totalOutgoingParcels     = OutgoingParcel::count();
+        $todayOutgoingParcels     = OutgoingParcel::whereDate('created_at', today())->count();
+        $pendingOutgoingParcels   = OutgoingParcel::where('status', OutgoingParcelStatus::PENDING)->count();
+        $inTransitOutgoingParcels = OutgoingParcel::where('status', OutgoingParcelStatus::IN_TRANSIT)->count();
+        $completedOutgoingParcels = OutgoingParcel::whereIn('status', [
+            OutgoingParcelStatus::RECEIVED,
+            OutgoingParcelStatus::DELIVERED,
+        ])->count();
+        $cancelledOutgoingParcels = OutgoingParcel::where('status', OutgoingParcelStatus::CANCELLED)->count();
+
         // 3. إحصائيات الـ Instances
         $totalInstances  = WhatsappInstance::count();
         $activeInstances = WhatsappInstance::where('is_active', true)->count();
 
-        // 4. جلب المكاتب وربط حالة كاش الواتساب لكل مكتب
+        // 4. جلب المكاتب مع عدادات الطرود المستلمة والمرسلة وربط حالة كاش الواتساب لكل مكتب
         $offices = Office::withCount([
             'parcels',
-            'parcels as today_parcels_count' => fn ($q) => $q->whereDate('created_at', today()),
-            'parcels as delivered_count'     => fn ($q) => $q->where('status', ParcelStatus::Delivered),
+            'parcels as today_parcels_count'                  => fn ($q) => $q->whereDate('created_at', today()),
+            'parcels as delivered_count'                      => fn ($q) => $q->where('status', ParcelStatus::Delivered),
+            'outgoingParcels',
+            'outgoingParcels as today_outgoing_parcels_count' => fn ($q) => $q->whereDate('created_at', today()),
         ])
         ->latest('updated_at')
         ->get();
@@ -71,12 +85,18 @@ class DashboardController extends Controller
                 'total_offices'          => $totalOffices,
                 'active_offices'         => $activeOffices,
                 'inactive_offices'       => $inactiveOffices,
-                'total_parcels'          => $totalParcels,
-                'in_office_parcels'      => $inOfficeParcels,
-                'delivered_parcels'      => $deliveredParcels,
-                'returned_parcels'       => $returnedParcels,
-                'today_parcels'          => $todayParcels,
-                'whatsapp_online_count'  => $onlineOfficesCount,
+                'total_parcels'               => $totalParcels,
+                'in_office_parcels'           => $inOfficeParcels,
+                'delivered_parcels'           => $deliveredParcels,
+                'returned_parcels'            => $returnedParcels,
+                'today_parcels'               => $todayParcels,
+                'total_outgoing_parcels'      => $totalOutgoingParcels,
+                'today_outgoing_parcels'      => $todayOutgoingParcels,
+                'pending_outgoing_parcels'    => $pendingOutgoingParcels,
+                'in_transit_outgoing_parcels' => $inTransitOutgoingParcels,
+                'completed_outgoing_parcels'  => $completedOutgoingParcels,
+                'cancelled_outgoing_parcels'  => $cancelledOutgoingParcels,
+                'whatsapp_online_count'       => $onlineOfficesCount,
                 'whatsapp_offline_count' => $offlineOfficesCount,
                 'total_instances'        => $totalInstances,
                 'active_instances'       => $activeInstances,

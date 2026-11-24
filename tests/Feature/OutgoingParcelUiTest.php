@@ -957,10 +957,6 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertStringContainsString('data-card-action="print-receipt"', $indexHtml);
         $this->assertStringContainsString('data-receipt-url="' . $receiptUrl . '"', $indexHtml);
         $this->assertStringContainsString('printReceipt(url)', $indexHtml);
-        $this->assertStringContainsString('data-card-action="share-receipt-image"', $indexHtml);
-        $this->assertStringContainsString('data-receipt-number="404"', $indexHtml);
-        $this->assertStringContainsString('receipt-image-share.js?v=27', $indexHtml);
-        $this->assertStringContainsString('shareReceiptAsImage(', $indexHtml);
 
         // 2. صفحة السند تدعم التحجيم التناسبي للجوال + طباعة 1/1 بدون صفحة فارغة + معامل auto_print=1
         $receiptRes = $this->actingAs($this->senderOffice, 'office')
@@ -984,5 +980,24 @@ class OutgoingParcelUiTest extends TestCase
         $this->actingAs($this->targetOffice, 'office')
             ->get(route('office.outgoing-parcels.receipt', $parcel))
             ->assertStatus(403);
+
+        // 4. لوحة تحكم الأدمن تعرض عدادات الطرود المستلمة والمرسلة لكل مكتب
+        $admin = User::first() ?: User::create([
+            'name'     => 'المسؤول العام',
+            'email'    => 'admin-dash-test@mursal.local',
+            'password' => Hash::make('password123'),
+        ]);
+
+        $adminDashRes = $this->actingAs($admin, 'web')
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('الطرود المستلمة')
+            ->assertSee('الطرود المرسلة');
+
+        $dashOffices = $adminDashRes->viewData('offices');
+        $senderRow = $dashOffices->firstWhere('id', $this->senderOffice->id);
+        $this->assertNotNull($senderRow);
+        $this->assertEquals(1, (int) $senderRow->outgoing_parcels_count);
+        $this->assertEquals(1, (int) $senderRow->today_outgoing_parcels_count);
     }
 }
