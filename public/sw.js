@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v27';
+const CACHE_NAME = 'mursal-pwa-v28';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
     '/office/favorite-customers',
     '/office/shipments/sent',
     '/manifest.json',
+    '/icons/icon-192.png',
     '/js/tailwind.js',
     '/js/mursal-core.js?v=22',
     '/js/shipment-manifest-print.js?v=23',

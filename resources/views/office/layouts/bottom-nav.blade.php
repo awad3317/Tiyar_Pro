@@ -167,6 +167,7 @@
     }"
     @transit-count-updated.window="syncCount($event.detail?.count)"
     @shipments-pending-updated.window="syncShipmentsCount($event.detail?.count)"
+    @mursal-close-nav-menus.window="closeAllMenus()"
     @keydown.escape.window="closeAllMenus()"
 >
 
@@ -188,6 +189,7 @@
             </span>
             <p class="flex-1 text-xs font-bold leading-snug" x-text="shipmentsText(pendingShipmentsCount)"></p>
             <a href="{{ route('office.shipments.received.index') }}"
+               data-nav-label="الشحنات المستلمة"
                class="px-3 py-1.5 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-[11px] font-extrabold shrink-0 transition-colors">
                 استلام
             </a>
@@ -215,6 +217,7 @@
             </span>
             <p class="flex-1 text-xs font-bold leading-snug" x-text="transitText(transitCount)"></p>
             <a href="{{ $transitUrl }}"
+               data-nav-label="الطرود في الطريق"
                class="px-3 py-1.5 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-[11px] font-extrabold shrink-0 transition-colors">
                 عرض
             </a>
@@ -260,6 +263,7 @@
 
             <div class="p-2 space-y-1.5">
                 <a href="{{ route('office.parcels.index') }}"
+                   data-nav-label="الطرود المستلمة"
                    class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isIncoming ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                     <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isIncoming ? 'bg-white/15 text-secondary' : 'bg-blue-50 text-blue-600' }}">
                         <span class="material-symbols-outlined text-xl">move_to_inbox</span>
@@ -273,6 +277,7 @@
 
                 @if($hasOutgoing)
                     <a href="{{ route('office.outgoing-parcels.index') }}"
+                       data-nav-label="الطرود المرسلة"
                        class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isOutgoing ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                         <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isOutgoing ? 'bg-white/15 text-secondary' : 'bg-amber-50 text-amber-600' }}">
                             <span class="material-symbols-outlined text-xl">outbox</span>
@@ -304,6 +309,7 @@
                 @endif
 
                 <a href="{{ $transitUrl }}"
+                   data-nav-label="الطرود في الطريق"
                    class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isTransit ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                     <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isTransit ? 'bg-white/15 text-secondary' : 'bg-emerald-50 text-emerald-600' }}">
                         <span class="material-symbols-outlined text-xl">local_shipping</span>
@@ -354,6 +360,7 @@
                 <!-- 1. شحنات مرسلة -->
                 @if($hasSentShipments)
                     <a href="{{ route('office.shipments.sent.index') }}"
+                       data-nav-label="الشحنات المرسلة"
                        class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isShipmentsSent ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                         <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isShipmentsSent ? 'bg-white/15 text-secondary' : 'bg-amber-50 text-amber-600' }}">
                             <span class="material-symbols-outlined text-xl">outbound</span>
@@ -386,6 +393,7 @@
 
                 <!-- 2. شحنات مستلمة -->
                 <a href="{{ route('office.shipments.received.index') }}"
+                   data-nav-label="الشحنات المستلمة"
                    class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isShipmentsReceived ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
                     <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isShipmentsReceived ? 'bg-white/15 text-secondary' : 'bg-emerald-50 text-emerald-600' }}">
                         <span class="material-symbols-outlined text-xl">qr_code_scanner</span>
@@ -416,7 +424,7 @@
     <footer class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex justify-around items-center z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
 
         <!-- 1. الرئيسية -->
-        <a href="{{ route('office.dashboard') }}" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isDashboard ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+        <a href="{{ route('office.dashboard') }}" data-nav-label="الرئيسية" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isDashboard ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
             <span class="material-symbols-outlined text-2xl {{ $isDashboard ? 'text-secondary' : '' }}">home</span>
             <span class="mt-0.5">الرئيسية</span>
         </a>
@@ -463,7 +471,7 @@
 
         @if($hasVip)
             <!-- 4. العملاء المميزين -->
-            <a href="{{ route('office.favorite_customers.index') }}" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isFavoriteCustomers ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
+            <a href="{{ route('office.favorite_customers.index') }}" data-nav-label="العملاء المميزين" class="flex flex-col items-center font-bold text-[10px] transition-colors {{ $isFavoriteCustomers ? 'text-primary' : 'text-slate-400 hover:text-primary' }}">
                 <span class="material-symbols-outlined text-2xl {{ $isFavoriteCustomers ? 'text-secondary' : '' }}">stars</span>
                 <span class="mt-0.5">المميزون</span>
             </a>

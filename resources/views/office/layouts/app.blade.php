@@ -25,6 +25,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/png" href="{{ $brandIconUrl }}">
     <link rel="apple-touch-icon" href="{{ $brandIconUrl }}">
+    <link rel="preload" as="image" href="{{ asset('icons/icon-192.png') }}">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" crossorigin="anonymous">
@@ -93,6 +94,8 @@
         @include('office.parcels.partials.quick-sms-modal')
 
         @include('office.layouts.partials.auth-expired-modal')
+
+        @include('office.layouts.partials.nav-loader')
 
         <!-- الإشعار العائم الموحّد لجميع شاشات المكتب (يختفي تلقائياً خلال 3.5 ثانية) -->
         <div x-show="smsFeedback && smsFeedback.show"
