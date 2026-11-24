@@ -32,9 +32,22 @@ class ParcelController extends Controller
 
         $this->applyCommonFilters($incomingBase, $outgoingBase, $request);
 
+        // عداد الطرود التي فشل إرسال SMS لها اليوم فقط (محسوب دائماً لليوم الحالي مع احترام فلتر المكتب إن وُجد)
+        $todayFailedSmsCount = Parcel::query()
+            ->when($request->filled('office_id'), fn (Builder $q) => $q->where('office_id', $request->input('office_id')))
+            ->whereDate('created_at', today())
+            ->whereIn('sms_status', ['failed', 'failed_balance'])
+            ->count();
+
+        // فلتر اختياري لعرض الطرود الفاشلة في إرسال SMS فقط (عند الضغط على كارد فشل SMS اليوم أو من الفلاتر)
+        $onlySmsFailed = $request->boolean('sms_failed');
+        if ($onlySmsFailed) {
+            $incomingBase->whereIn('sms_status', ['failed', 'failed_balance']);
+        }
+
         // عدادات التبويبات الثلاثة بناءً على فلاتر المكتب والتاريخ والبحث (قبل تضييق النوع أو الحالة)
         $incomingCountBeforeStatus = (clone $incomingBase)->count();
-        $outgoingCountBeforeStatus = (clone $outgoingBase)->count();
+        $outgoingCountBeforeStatus = $onlySmsFailed ? 0 : (clone $outgoingBase)->count();
         $tabCounts = [
             'all'      => $incomingCountBeforeStatus + $outgoingCountBeforeStatus,
             'incoming' => $incomingCountBeforeStatus,
@@ -49,6 +62,9 @@ class ParcelController extends Controller
             $activeType,
             $statusFilter
         );
+        if ($onlySmsFailed) {
+            $includeOutgoing = false;
+        }
 
         // إحصائيات سريعة للنتائج المفلترة
         $incomingFilteredCount = $includeIncoming ? (clone $incomingBase)->count() : 0;
@@ -76,6 +92,7 @@ class ParcelController extends Controller
             'outgoing_in_transit' => $outgoingInTransitCount,
             'outgoing_completed'  => $outgoingCompletedCount,
             'outgoing_cancelled'  => $outgoingCancelledCount,
+            'today_failed_sms'    => $todayFailedSmsCount,
         ];
 
         $parcels = $this->paginateParcels(
@@ -90,16 +107,17 @@ class ParcelController extends Controller
         $offices = Office::select('id', 'name', 'branch_name')->orderBy('name')->get();
 
         return view('admin.parcels.index', [
-            'parcels'          => $parcels,
-            'offices'          => $offices,
-            'activeType'       => $activeType,
-            'tabCounts'        => $tabCounts,
-            'filteredStats'    => $filteredStats,
-            'statuses'         => ParcelStatus::cases(),
-            'outgoingStatuses' => OutgoingParcelStatus::cases(),
-            'filters'          => array_merge(
+            'parcels'             => $parcels,
+            'offices'             => $offices,
+            'activeType'          => $activeType,
+            'tabCounts'           => $tabCounts,
+            'filteredStats'       => $filteredStats,
+            'todayFailedSmsCount' => $todayFailedSmsCount,
+            'statuses'            => ParcelStatus::cases(),
+            'outgoingStatuses'    => OutgoingParcelStatus::cases(),
+            'filters'             => array_merge(
                 ['type' => $activeType],
-                $request->only(['office_id', 'status', 'date_from', 'date_to', 'date_preset', 'search'])
+                $request->only(['office_id', 'status', 'date_from', 'date_to', 'date_preset', 'search', 'sms_failed'])
             ),
         ]);
     }

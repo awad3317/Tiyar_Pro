@@ -1056,5 +1056,65 @@ class OutgoingParcelUiTest extends TestCase
 
         $this->assertDatabaseMissing('outgoing_parcels', ['id' => $parcel->id]);
         $this->assertDatabaseHas('parcels', ['id' => $incomingSample->id]);
+
+        // د) عرض سبب فشل إرسال SMS + كارد عدد الطرود الفاشلة في SMS لليوم فقط
+        $failedToday1 = Parcel::create([
+            'office_id'          => $this->senderOffice->id,
+            'recipient_name'     => 'عميل فشل رصيد اليوم',
+            'recipient_phone'    => '771888001',
+            'package_type'       => 'طرد فشل رصيد',
+            'receipt_number'     => 'FAIL-108',
+            'status'             => ParcelStatus::InOffice,
+            'sms_status'         => 'failed_balance',
+            'sms_failure_reason' => 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب.',
+        ]);
+
+        $failedToday2 = Parcel::create([
+            'office_id'          => $this->senderOffice->id,
+            'recipient_name'     => 'عميل فشل شبكة اليوم',
+            'recipient_phone'    => '771888002',
+            'package_type'       => 'طرد فشل شبكة',
+            'receipt_number'     => 'FAIL-NET',
+            'status'             => ParcelStatus::InOffice,
+            'sms_status'         => 'failed',
+            'sms_failure_reason' => 'هاتف المكتب غير متصل بالإنترنت أو التطبيق متوقف.',
+        ]);
+
+        $failedYesterday = Parcel::create([
+            'office_id'          => $this->senderOffice->id,
+            'recipient_name'     => 'عميل فشل أمس',
+            'recipient_phone'    => '771888003',
+            'package_type'       => 'طرد فشل قديم',
+            'receipt_number'     => 'FAIL-OLD',
+            'status'             => ParcelStatus::InOffice,
+            'sms_status'         => 'failed',
+            'sms_failure_reason' => 'سبب قديم من الأمس لا يحسب في كارد اليوم.',
+        ]);
+        Parcel::whereKey($failedYesterday->id)->update(['created_at' => now()->subDay()]);
+
+        $smsCheckRes = $this->actingAs($admin, 'web')
+            ->get(route('admin.parcels.index', ['office_id' => $this->senderOffice->id]))
+            ->assertOk()
+            ->assertSee('فشل إرسال SMS اليوم')
+            ->assertSee('فشل SMS (نفاد الرصيد)')
+            ->assertSee('انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب.')
+            ->assertSee('هاتف المكتب غير متصل بالإنترنت أو التطبيق متوقف.');
+
+        // كارد فشل SMS يحسب طرود اليوم فقط (2 فقط وليس 3)
+        $this->assertEquals(2, (int) $smsCheckRes->viewData('todayFailedSmsCount'));
+
+        // الضغط على كارد فشل SMS اليوم يعرض الطردين الفاشلين اليوم فقط ويستبعد طرد الأمس والطرد السليم
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.parcels.index', [
+                'office_id'   => $this->senderOffice->id,
+                'type'        => 'incoming',
+                'date_preset' => 'today',
+                'sms_failed'  => 1,
+            ]))
+            ->assertOk()
+            ->assertSee('FAIL-108')
+            ->assertSee('FAIL-NET')
+            ->assertDontSee('FAIL-OLD')
+            ->assertDontSee('IN-909');
     }
 }

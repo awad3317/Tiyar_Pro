@@ -7,6 +7,8 @@
 @section('content')
 @php
     $activeType = $activeType ?? ($filters['type'] ?? 'all');
+    $todayFailedSmsCount = (int) ($todayFailedSmsCount ?? ($filteredStats['today_failed_sms'] ?? 0));
+    $isSmsFailedFilterActive = ! empty($filters['sms_failed']);
     $baseFilterParams = array_filter([
         'office_id'   => $filters['office_id'] ?? null,
         'date_from'   => $filters['date_from'] ?? null,
@@ -14,6 +16,12 @@
         'date_preset' => $filters['date_preset'] ?? null,
         'search'      => $filters['search'] ?? null,
     ], fn ($v) => $v !== null && $v !== '');
+    $todayFailedSmsUrl = route('admin.parcels.index', array_filter([
+        'type'        => 'incoming',
+        'office_id'   => $filters['office_id'] ?? null,
+        'date_preset' => 'today',
+        'sms_failed'  => 1,
+    ], fn ($v) => $v !== null && $v !== ''));
 @endphp
 <div class="space-y-6" x-data="parcelsMonitor()">
 
@@ -49,9 +57,9 @@
         </div>
     </div>
 
-    <!-- 1. شريط إحصائيات سريعة للنتائج المفلترة -->
+    <!-- 1. شريط إحصائيات سريعة للنتائج المفلترة + كارد فشل إرسال SMS لليوم فقط -->
     @if ($activeType === 'incoming')
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
             <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
                 <div>
                     <p class="text-[11px] font-bold text-slate-400 uppercase">إجمالي المستلمة</p>
@@ -91,6 +99,19 @@
                     <span class="material-symbols-outlined text-xl">assignment_return</span>
                 </div>
             </div>
+
+            <a href="{{ $todayFailedSmsUrl }}"
+               title="اضغط لعرض الطرود التي فشل إرسال SMS لها اليوم"
+               class="p-4 rounded-2xl border shadow-xs flex items-center justify-between transition-all hover:shadow-md {{ $isSmsFailedFilterActive ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-200' : ($todayFailedSmsCount > 0 ? 'bg-rose-50/40 border-rose-200 hover:bg-rose-50/70' : 'bg-white border-slate-200/90 hover:bg-slate-50') }}">
+                <div>
+                    <p class="text-[11px] font-bold {{ $todayFailedSmsCount > 0 ? 'text-rose-600' : 'text-slate-400' }} uppercase">فشل إرسال SMS اليوم</p>
+                    <h4 class="text-2xl font-black {{ $todayFailedSmsCount > 0 ? 'text-rose-600' : 'text-slate-800' }}">{{ $todayFailedSmsCount }}</h4>
+                    <p class="text-[10px] font-bold {{ $todayFailedSmsCount > 0 ? 'text-rose-500' : 'text-slate-400' }} mt-0.5">طرود اليوم فقط · اضغط للعرض</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl {{ $todayFailedSmsCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">sms_failed</span>
+                </div>
+            </a>
         </div>
     @elseif ($activeType === 'outgoing')
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
@@ -180,16 +201,6 @@
 
             <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
                 <div>
-                    <p class="text-[11px] font-bold text-slate-400 uppercase">قيد الانتظار / بالطريق</p>
-                    <h4 class="text-2xl font-black text-amber-600">{{ $filteredStats['in_office'] + $filteredStats['outgoing_pending'] + $filteredStats['outgoing_in_transit'] }}</h4>
-                </div>
-                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-xl">local_shipping</span>
-                </div>
-            </div>
-
-            <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between">
-                <div>
                     <p class="text-[11px] font-bold text-slate-400 uppercase">تم الاستلام / التسليم</p>
                     <h4 class="text-2xl font-black text-emerald-600">{{ $filteredStats['delivered'] + $filteredStats['outgoing_completed'] }}</h4>
                 </div>
@@ -197,6 +208,32 @@
                     <span class="material-symbols-outlined text-xl">task_alt</span>
                 </div>
             </div>
+
+            <a href="{{ $todayFailedSmsUrl }}"
+               title="اضغط لعرض الطرود التي فشل إرسال SMS لها اليوم"
+               class="p-4 rounded-2xl border shadow-xs flex items-center justify-between transition-all hover:shadow-md {{ $isSmsFailedFilterActive ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-200' : ($todayFailedSmsCount > 0 ? 'bg-rose-50/40 border-rose-200 hover:bg-rose-50/70' : 'bg-white border-slate-200/90 hover:bg-slate-50') }}">
+                <div>
+                    <p class="text-[11px] font-bold {{ $todayFailedSmsCount > 0 ? 'text-rose-600' : 'text-slate-400' }} uppercase">فشل إرسال SMS اليوم</p>
+                    <h4 class="text-2xl font-black {{ $todayFailedSmsCount > 0 ? 'text-rose-600' : 'text-slate-800' }}">{{ $todayFailedSmsCount }}</h4>
+                    <p class="text-[10px] font-bold {{ $todayFailedSmsCount > 0 ? 'text-rose-500' : 'text-slate-400' }} mt-0.5">طرود اليوم فقط · اضغط للعرض</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl {{ $todayFailedSmsCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">sms_failed</span>
+                </div>
+            </a>
+        </div>
+    @endif
+
+    @if ($isSmsFailedFilterActive)
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs font-bold text-rose-800">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg text-rose-600">sms_failed</span>
+                <span>يتم حالياً عرض الطرود التي فشل إرسال رسالة SMS لها فقط مع أسباب الفشل.</span>
+            </div>
+            <a href="{{ route('admin.parcels.index', $baseFilterParams) }}"
+               class="px-3 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors shrink-0">
+                إلغاء فلتر فشل SMS
+            </a>
         </div>
     @endif
 
@@ -325,6 +362,11 @@
                             $rowKey = ($isOutgoing ? 'outgoing-' : 'incoming-') . $parcel->id;
                             $statusVal = $parcel->status->value;
                             $statusLabel = $parcel->status->label();
+                            $smsStatus = ! $isOutgoing ? (string) ($parcel->sms_status ?? '') : '';
+                            $isSmsFailed = ! $isOutgoing && in_array($smsStatus, ['failed', 'failed_balance'], true);
+                            $smsFailureReason = $isSmsFailed
+                                ? (trim((string) ($parcel->sms_failure_reason ?? '')) ?: 'تعذر إرسال رسالة SMS تلقائياً.')
+                                : null;
 
                             if ($isOutgoing) {
                                 $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
@@ -345,7 +387,7 @@
                                 };
                             }
                         @endphp
-                        <tr class="hover:bg-slate-50/80 transition-colors" id="parcel-row-{{ $rowKey }}">
+                        <tr class="{{ $isSmsFailed ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/80' }} transition-colors" id="parcel-row-{{ $rowKey }}">
 
                             <!-- النوع ورقم السند والخانة/الشحنة -->
                             <td class="py-4 px-5">
@@ -454,13 +496,42 @@
                                 @endif
                             </td>
 
-                            <!-- شارة الحالة الحالية -->
+                            <!-- شارة الحالة الحالية + حالة وسبب فشل الـ SMS إن وُجد -->
                             <td class="py-4 px-4 text-center">
-                                <span id="status-badge-{{ $rowKey }}"
-                                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold {{ $statusBadgeCls }}">
-                                    <span class="material-symbols-outlined text-sm">{{ $statusIcon }}</span>
-                                    <span>{{ $statusLabel }}</span>
-                                </span>
+                                <div class="flex flex-col items-center gap-1.5">
+                                    <span id="status-badge-{{ $rowKey }}"
+                                          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold {{ $statusBadgeCls }}">
+                                        <span class="material-symbols-outlined text-sm">{{ $statusIcon }}</span>
+                                        <span>{{ $statusLabel }}</span>
+                                    </span>
+
+                                    @if ($isSmsFailed)
+                                        <div class="max-w-[230px] text-right rounded-xl border px-2.5 py-1.5 {{ $smsStatus === 'failed_balance' ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-rose-50 border-rose-200 text-rose-800' }}">
+                                            <div class="inline-flex items-center gap-1 text-[10px] font-black mb-0.5">
+                                                <span class="material-symbols-outlined text-[14px]">sms_failed</span>
+                                                <span>{{ $smsStatus === 'failed_balance' ? 'فشل SMS (نفاد الرصيد)' : 'فشل إرسال SMS' }}</span>
+                                            </div>
+                                            <p class="text-[10.5px] font-bold leading-snug">
+                                                {{ $smsFailureReason }}
+                                            </p>
+                                        </div>
+                                    @elseif (! $isOutgoing && $smsStatus !== '')
+                                        @php
+                                            [$smsBadgeCls, $smsBadgeText] = match ($smsStatus) {
+                                                'delivered' => ['bg-emerald-50 text-emerald-700 border-emerald-200', 'SMS وصلت'],
+                                                'sent'      => ['bg-sky-50 text-sky-700 border-sky-200', 'SMS أُرسلت'],
+                                                'pending'   => ['bg-slate-100 text-slate-600 border-slate-200', 'SMS قيد الإرسال'],
+                                                default     => ['', ''],
+                                            };
+                                        @endphp
+                                        @if ($smsBadgeText !== '')
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold {{ $smsBadgeCls }}">
+                                                <span class="material-symbols-outlined text-[12px]">sms</span>
+                                                <span>{{ $smsBadgeText }}</span>
+                                            </span>
+                                        @endif
+                                    @endif
+                                </div>
                             </td>
 
                             <!-- التواريخ -->
