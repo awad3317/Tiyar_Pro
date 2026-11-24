@@ -409,7 +409,7 @@ class ParcelController extends Controller
             }
 
             $paginator = $outgoingQuery
-                ->with(['office', 'destinationOffice', 'shipment:id,shipment_number'])
+                ->with(['office', 'externalPartnerLink', 'destinationOffice', 'shipment:id,shipment_number'])
                 ->latest('created_at')
                 ->paginate(20)
                 ->withQueryString();
@@ -450,7 +450,7 @@ class ParcelController extends Controller
             : collect();
 
         $outgoingMap = ! empty($outgoingIds)
-            ? OutgoingParcel::with(['office', 'destinationOffice', 'shipment:id,shipment_number'])
+            ? OutgoingParcel::with(['office', 'externalPartnerLink', 'destinationOffice', 'shipment:id,shipment_number'])
                 ->whereIn('id', $outgoingIds)
                 ->get()
                 ->keyBy('id')

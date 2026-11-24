@@ -53,6 +53,22 @@
                     </div>
                 </a>
 
+                @if ($office && $office->hasFeature('external_partner_links'))
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- رابط روابط المكاتب الخارجية -->
+                    <a href="{{ route('office.external-partner-links.index') }}"
+                       data-nav-label="روابط المكاتب الخارجية"
+                       class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group/item {{ request()->routeIs('office.external-partner-links.*') ? 'bg-amber-50/60' : '' }}">
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover/item:bg-amber-100 transition-colors">
+                            <span class="material-symbols-outlined text-base">add_link</span>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold text-slate-700">روابط المكاتب الخارجية</p>
+                        </div>
+                    </a>
+                @endif
+
                 <div class="border-t border-slate-100"></div>
 
             </div>
@@ -92,6 +108,13 @@
                 <button type="button"
                         @click="window.dispatchEvent(new CustomEvent('open-vip-customer-modal'))"
                         title="إضافة عميل مميز"
+                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                </button>
+            @elseif (request()->routeIs('office.external-partner-links.*'))
+                <button type="button"
+                        @click="window.dispatchEvent(new CustomEvent('open-partner-link-modal'))"
+                        title="إضافة مكتب خارجي"
                         class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
                 </button>

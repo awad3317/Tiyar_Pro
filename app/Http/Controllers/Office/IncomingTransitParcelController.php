@@ -18,6 +18,7 @@ class IncomingTransitParcelController extends Controller
     private const SELECT_COLUMNS = [
         'outgoing_parcels.id',
         'outgoing_parcels.office_id',
+        'outgoing_parcels.external_partner_link_id',
         'outgoing_parcels.shipment_id',
         'outgoing_parcels.destination_office_id',
         'outgoing_parcels.sender_name',
@@ -51,9 +52,13 @@ class IncomingTransitParcelController extends Controller
         $transitParcels = OutgoingParcel::query()
             ->leftJoin('shipments', 'shipments.id', '=', 'outgoing_parcels.shipment_id')
             ->select(self::SELECT_COLUMNS)
-            ->with('office:id,name,branch_name')
+            ->with([
+                'office:id,name,branch_name',
+                'externalPartnerLink:id,partner_name,partner_city',
+            ])
             ->where('outgoing_parcels.destination_office_id', $office->id)
             ->where('outgoing_parcels.status', OutgoingParcelStatus::IN_TRANSIT)
+            ->whereNull('shipments.rejected_at')
             ->latest('outgoing_parcels.dispatched_at')
             ->get();
 
@@ -125,8 +130,11 @@ class IncomingTransitParcelController extends Controller
             }
 
             if ($request->expectsJson() || $request->ajax()) {
-                $remainingCount = OutgoingParcel::where('destination_office_id', $office->id)
-                    ->where('status', OutgoingParcelStatus::IN_TRANSIT)
+                $remainingCount = OutgoingParcel::query()
+                    ->leftJoin('shipments', 'shipments.id', '=', 'outgoing_parcels.shipment_id')
+                    ->where('outgoing_parcels.destination_office_id', $office->id)
+                    ->where('outgoing_parcels.status', OutgoingParcelStatus::IN_TRANSIT)
+                    ->whereNull('shipments.rejected_at')
                     ->count();
 
                 $pendingShipmentsCount = ShipmentService::countPendingReceivedShipments($office);

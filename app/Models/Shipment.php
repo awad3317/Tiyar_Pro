@@ -16,6 +16,8 @@ class Shipment extends Model
     protected $fillable = [
         'client_uuid',
         'office_id',
+        'external_partner_link_id',
+        'idempotency_key',
         'shipment_number',
         'driver_name',
         'driver_phone',
@@ -29,6 +31,8 @@ class Shipment extends Model
         'dispatched_at',
         'completed_at',
         'cancelled_at',
+        'rejected_at',
+        'rejection_reason',
     ];
 
     protected function casts(): array
@@ -43,12 +47,18 @@ class Shipment extends Model
             'dispatched_at'         => 'datetime',
             'completed_at'          => 'datetime',
             'cancelled_at'          => 'datetime',
+            'rejected_at'           => 'datetime',
         ];
     }
 
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_id');
+    }
+
+    public function externalPartnerLink(): BelongsTo
+    {
+        return $this->belongsTo(ExternalPartnerLink::class, 'external_partner_link_id')->withTrashed();
     }
 
     public function parcels(): HasMany
@@ -59,13 +69,20 @@ class Shipment extends Model
     public function senderOfficeLabel(): string
     {
         $office = $this->office;
-        if (! $office) {
-            return 'مكتب غير معروف';
+        if ($office) {
+            $branch = trim((string) ($office->branch_name ?? ''));
+
+            return $branch !== '' ? "{$office->name} - {$branch}" : (string) $office->name;
         }
 
-        $branch = trim((string) ($office->branch_name ?? ''));
+        $partner = $this->externalPartnerLink;
+        if ($partner) {
+            $city = trim((string) ($partner->partner_city ?? ''));
 
-        return $branch !== '' ? "{$office->name} - {$branch}" : $office->name;
+            return $city !== '' ? "{$partner->partner_name} - {$city}" : (string) $partner->partner_name;
+        }
+
+        return 'مكتب غير معروف';
     }
 
     /**

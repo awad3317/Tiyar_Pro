@@ -445,13 +445,21 @@ class OutgoingParcelService
             : null;
 
         $newParcel = DB::transaction(function () use ($outgoingParcel, $receivingOffice, $cleanSlot): Parcel {
-            $locked = OutgoingParcel::with('office:id,name,branch_name')
+            $locked = OutgoingParcel::with([
+                'office:id,name,branch_name',
+                'externalPartnerLink:id,partner_name,partner_city',
+                'shipment:id,rejected_at',
+            ])
                 ->whereKey($outgoingParcel->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
             if ($locked->destination_office_id === null || (int) $locked->destination_office_id !== (int) $receivingOffice->id) {
                 throw new DomainException('هذا الطرد غير موجّه إلى مكتبكم.');
+            }
+
+            if ($locked->shipment && $locked->shipment->rejected_at !== null) {
+                throw new DomainException('لا يمكن استلام طرد تابع لكشف مرفوض.');
             }
 
             if ($locked->linked_incoming_parcel_id !== null) {
@@ -463,16 +471,30 @@ class OutgoingParcelService
             }
 
             $sourceOffice = $locked->office;
-            $sourceBranch = trim((string) ($sourceOffice?->branch_name ?? ''));
             $sourceOfficeName = null;
+            $sourceRegion = null;
+
             if ($sourceOffice) {
+                $sourceBranch = trim((string) ($sourceOffice->branch_name ?? ''));
                 $formatted = $sourceBranch !== ''
                     ? "{$sourceOffice->name} - {$sourceBranch}"
-                    : $sourceOffice->name;
+                    : (string) $sourceOffice->name;
                 $sourceOfficeName = mb_substr($formatted, 0, 100);
-            }
+                $sourceRegion = $sourceBranch !== '' ? mb_substr($sourceBranch, 0, 100) : null;
+            } elseif ($locked->externalPartnerLink) {
+                $partner = $locked->externalPartnerLink;
+                $partnerName = trim((string) ($partner->partner_name ?? ''));
+                $partnerCity = trim((string) ($partner->partner_city ?? ''));
 
-            $sourceRegion = $sourceBranch !== '' ? mb_substr($sourceBranch, 0, 100) : null;
+                if ($partnerName !== '') {
+                    $formatted = $partnerCity !== '' ? "{$partnerName} - {$partnerCity}" : $partnerName;
+                    $sourceOfficeName = mb_substr($formatted, 0, 100);
+                }
+
+                if ($partnerCity !== '') {
+                    $sourceRegion = mb_substr($partnerCity, 0, 100);
+                }
+            }
 
             $codAmount = ($locked->payment_type === OutgoingPaymentType::DEFERRED && $locked->cod_amount !== null)
                 ? (float) $locked->cod_amount

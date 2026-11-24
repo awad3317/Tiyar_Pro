@@ -352,6 +352,60 @@ class ShipmentService
     }
 
     /**
+     * رفض/إلغاء كشف وارد من مكتب خارجي قبل استلام أي طرد منه.
+     */
+    public function rejectExternalShipment(Shipment $shipment, Office $receivingOffice, ?string $reason = null): Shipment
+    {
+        return DB::transaction(function () use ($shipment, $receivingOffice, $reason): Shipment {
+            // قفل الطرود أولاً ثم الشحنة بنفس ترتيب القفل القياسي في الخدمة لمنع أي تعارض متزامن
+            $lockedParcels = OutgoingParcel::query()
+                ->where('shipment_id', $shipment->id)
+                ->lockForUpdate()
+                ->get();
+
+            $lockedShipment = Shipment::query()
+                ->whereKey($shipment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedShipment->office_id !== null || $lockedShipment->external_partner_link_id === null) {
+                throw new DomainException('لا يمكن رفض الكشوفات الداخلية المرسلة من المكاتب المشتركة.');
+            }
+
+            if ($lockedShipment->rejected_at !== null) {
+                throw new DomainException('تم رفض هذا الكشف مسبقاً.');
+            }
+
+            $directedParcels = $lockedParcels->filter(
+                fn (OutgoingParcel $p): bool => (int) $p->destination_office_id === (int) $receivingOffice->id
+                    && $p->status !== OutgoingParcelStatus::CANCELLED
+            );
+
+            if ($directedParcels->isEmpty()) {
+                throw new DomainException('هذا الكشف غير موجّه إلى مكتبكم.');
+            }
+
+            $hasAnyReceivedParcel = $lockedParcels->contains(function (OutgoingParcel $p): bool {
+                return $p->linked_incoming_parcel_id !== null
+                    || in_array($p->status, [OutgoingParcelStatus::RECEIVED, OutgoingParcelStatus::DELIVERED], true);
+            });
+
+            if ($hasAnyReceivedParcel) {
+                throw new DomainException('لا يمكن رفض الكشف لأنه تم استلام طرد واحد على الأقل منه بالفعل.');
+            }
+
+            $cleanReason = $reason !== null ? trim($reason) : null;
+
+            $lockedShipment->update([
+                'rejected_at'      => now(),
+                'rejection_reason' => $cleanReason !== '' ? $cleanReason : null,
+            ]);
+
+            return $lockedShipment->fresh();
+        });
+    }
+
+    /**
      * البحث عن طرد بالباركود (UUID أو رقم السند) لضمّه أثناء إنشاء الشحنة.
      */
     public function findParcelForSendingScan(Office $office, string $rawCode): OutgoingParcel
@@ -396,6 +450,10 @@ class ShipmentService
         string $channel = 'both',
         bool $afterResponse = true
     ): array {
+        if ($shipment->rejected_at !== null) {
+            throw new DomainException('لا يمكن استلام طرود من كشف مرفوض.');
+        }
+
         $code = $this->extractScanCode($rawCode);
         if ($code === '') {
             throw new DomainException('رمز الباركود فارغ أو غير صالح.');
@@ -457,6 +515,7 @@ class ShipmentService
     public static function countPendingReceivedShipments(Office $office): int
     {
         return Shipment::query()
+            ->whereNull('rejected_at')
             ->whereIn('status', [ShipmentStatus::IN_TRANSIT->value, ShipmentStatus::PARTIALLY_RECEIVED->value])
             ->whereHas('parcels', function ($q) use ($office) {
                 $q->where('destination_office_id', $office->id)

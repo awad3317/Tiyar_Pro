@@ -96,32 +96,39 @@ class GlobalSearchController extends Controller
 
         // 2. الطرود القادمة في الطريق إلى هذا المكتب (outgoing_parcels)
         $inTransit = OutgoingParcel::query()
+            ->leftJoin('shipments', 'shipments.id', '=', 'outgoing_parcels.shipment_id')
             ->select([
-                'id',
-                'office_id',
-                'destination_office_id',
-                'receipt_number',
-                'package_type',
-                'sender_name',
-                'sender_phone',
-                'recipient_name',
-                'recipient_phone',
-                'cod_amount',
-                'payment_type',
-                'dispatched_at',
-                'created_at',
+                'outgoing_parcels.id',
+                'outgoing_parcels.office_id',
+                'outgoing_parcels.external_partner_link_id',
+                'outgoing_parcels.shipment_id',
+                'outgoing_parcels.destination_office_id',
+                'outgoing_parcels.receipt_number',
+                'outgoing_parcels.package_type',
+                'outgoing_parcels.sender_name',
+                'outgoing_parcels.sender_phone',
+                'outgoing_parcels.recipient_name',
+                'outgoing_parcels.recipient_phone',
+                'outgoing_parcels.cod_amount',
+                'outgoing_parcels.payment_type',
+                'outgoing_parcels.dispatched_at',
+                'outgoing_parcels.created_at',
             ])
-            ->with('office:id,name,branch_name')
-            ->where('destination_office_id', $office->id)
-            ->where('status', OutgoingParcelStatus::IN_TRANSIT->value)
+            ->with([
+                'office:id,name,branch_name',
+                'externalPartnerLink:id,partner_name,partner_city',
+            ])
+            ->where('outgoing_parcels.destination_office_id', $office->id)
+            ->where('outgoing_parcels.status', OutgoingParcelStatus::IN_TRANSIT->value)
+            ->whereNull('shipments.rejected_at')
             ->where(function ($sub) use ($textLike, $receiptLike, $phoneLike) {
-                $sub->where('receipt_number', 'like', $receiptLike)
-                    ->orWhere('sender_name', 'like', $textLike)
-                    ->orWhere('sender_phone', 'like', $phoneLike)
-                    ->orWhere('recipient_name', 'like', $textLike)
-                    ->orWhere('recipient_phone', 'like', $phoneLike);
+                $sub->where('outgoing_parcels.receipt_number', 'like', $receiptLike)
+                    ->orWhere('outgoing_parcels.sender_name', 'like', $textLike)
+                    ->orWhere('outgoing_parcels.sender_phone', 'like', $phoneLike)
+                    ->orWhere('outgoing_parcels.recipient_name', 'like', $textLike)
+                    ->orWhere('outgoing_parcels.recipient_phone', 'like', $phoneLike);
             })
-            ->latest('dispatched_at')
+            ->latest('outgoing_parcels.dispatched_at')
             ->limit(self::RESULT_LIMIT)
             ->get()
             ->map(function (OutgoingParcel $p): array {
@@ -129,12 +136,7 @@ class GlobalSearchController extends Controller
                     ? $p->payment_type
                     : (OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? OutgoingPaymentType::PAID);
 
-                $source = $p->office;
-                $fromOffice = $source
-                    ? (trim((string) ($source->branch_name ?? '')) !== ''
-                        ? "{$source->name} - {$source->branch_name}"
-                        : $source->name)
-                    : 'فرع غير معروف';
+                $fromOffice = $p->senderOfficeLabel();
 
                 return [
                     'id'              => (string) $p->id,

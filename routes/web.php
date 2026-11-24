@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ExternalPartnerPortalController;
 use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Office\DashboardController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Office\IncomingTransitParcelController;
 use App\Http\Controllers\Office\WhatsAppSettingsController;
 use App\Http\Controllers\Office\FavoriteCustomerController;
 use App\Http\Controllers\Office\Auth\LoginController;
+use App\Http\Controllers\Office\ExternalPartnerLinkController;
 use App\Http\Controllers\Office\ShipmentController;
 use App\Http\Controllers\Office\GlobalSearchController;
 
@@ -188,6 +190,20 @@ Route::prefix('office')->name('office.')->group(function () {
                 Route::get('/', [ShipmentController::class, 'receivedIndex'])->name('index');
                 Route::get('/{shipment}', [ShipmentController::class, 'showReceived'])->name('show');
                 Route::post('/{shipment}/receive-parcel', [ShipmentController::class, 'receiveParcel'])->name('receive-parcel');
+                Route::post('/{shipment}/reject', [ShipmentController::class, 'rejectReceived'])->name('reject');
+            });
+
+        // روابط المكاتب الخارجية (محمية بميزة external_partner_links)
+        Route::middleware('office.feature:external_partner_links')
+            ->prefix('external-partner-links')
+            ->name('external-partner-links.')
+            ->group(function () {
+                Route::get('/', [ExternalPartnerLinkController::class, 'index'])->name('index');
+                Route::post('/', [ExternalPartnerLinkController::class, 'store'])->name('store');
+                Route::put('/{externalPartnerLink}', [ExternalPartnerLinkController::class, 'update'])->name('update');
+                Route::post('/{externalPartnerLink}/toggle-active', [ExternalPartnerLinkController::class, 'toggleActive'])->name('toggle-active');
+                Route::post('/{externalPartnerLink}/regenerate-token', [ExternalPartnerLinkController::class, 'regenerateToken'])->name('regenerate-token');
+                Route::delete('/{externalPartnerLink}', [ExternalPartnerLinkController::class, 'destroy'])->name('destroy');
             });
 
         // إعدادات الواتساب (Evolution API)
@@ -227,6 +243,29 @@ Route::prefix('office')->name('office.')->group(function () {
 Route::get('/driver-manifest/{manifest}', [AccountantManifestController::class, 'publicDriverView'])
     ->name('driver.manifest.public')
     ->middleware('signed');
+
+/*
+|--------------------------------------------------------------------------
+| بوابة المكاتب الخارجية العامة لإرسال كشوفات الطرود (/p/{token})
+|--------------------------------------------------------------------------
+*/
+Route::prefix('p/{token}')
+    ->name('partner.portal.')
+    ->group(function () {
+        Route::get('/', [ExternalPartnerPortalController::class, 'show'])
+            ->name('show');
+
+        Route::post('/verify-pin', [ExternalPartnerPortalController::class, 'verifyPin'])
+            ->name('verify-pin');
+
+        Route::post('/shipments', [ExternalPartnerPortalController::class, 'store'])
+            ->middleware('throttle:partner-portal-shipments')
+            ->name('shipments.store');
+
+        Route::get('/shipments/{shipment}', [ExternalPartnerPortalController::class, 'success'])
+            ->whereUuid('shipment')
+            ->name('shipments.success');
+    });
 
 /*
 |--------------------------------------------------------------------------

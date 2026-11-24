@@ -6,6 +6,20 @@
 
 @section('content')
     <div class="flex-1 flex flex-col" x-data="{
+        rejectModal: {
+            open: false,
+            shipmentNumber: '',
+            senderLabel: '',
+            actionUrl: '',
+            reason: ''
+        },
+        openRejectModal(number, sender, url) {
+            this.rejectModal.shipmentNumber = number;
+            this.rejectModal.senderLabel = sender;
+            this.rejectModal.actionUrl = url;
+            this.rejectModal.reason = '';
+            this.rejectModal.open = true;
+        },
         init() {
             window.dispatchEvent(new CustomEvent('shipments-pending-updated', {
                 detail: { count: {{ (int) $pendingReceivedShipmentsCount }} }
@@ -63,6 +77,11 @@
                                         class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
                                         {{ $total }} طرد لفرعك
                                     </span>
+                                    @if ($shipment->office_id === null && $shipment->external_partner_link_id !== null)
+                                        <span class="px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200 text-[10px] font-extrabold">
+                                            مكتب خارجي
+                                        </span>
+                                    @endif
                                 </div>
                                 <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">
                                     من: <span class="text-slate-600 font-bold">{{ $shipment->senderOfficeLabel() }}</span>
@@ -130,9 +149,23 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end text-[11px] font-extrabold text-primary pt-0.5">
-                        <span>{{ $pending > 0 ? 'فتح الفحص والمسح بالباركود' : 'عرض تفاصيل الكشف' }}</span>
-                        <span class="material-symbols-outlined text-base text-secondary">chevron_left</span>
+                    <div class="flex items-center justify-between gap-2 pt-0.5">
+                        @if (!empty($shipment->can_reject_external))
+                            <button type="button"
+                                    data-reject-shipment="{{ $shipment->id }}"
+                                    @click.prevent.stop="openRejectModal(@js($shipment->shipment_number), @js($shipment->senderOfficeLabel()), @js(route('office.shipments.received.reject', $shipment)))"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-extrabold transition-colors">
+                                <span class="material-symbols-outlined text-sm">cancel</span>
+                                <span>رفض الكشف</span>
+                            </button>
+                        @else
+                            <span></span>
+                        @endif
+
+                        <div class="flex items-center text-[11px] font-extrabold text-primary">
+                            <span>{{ $pending > 0 ? 'فتح الفحص والمسح بالباركود' : 'عرض تفاصيل الكشف' }}</span>
+                            <span class="material-symbols-outlined text-base text-secondary">chevron_left</span>
+                        </div>
                     </div>
                 </a>
             @empty
@@ -150,5 +183,49 @@
             @endforelse
             </div>
         </main>
+
+        {{-- نافذة تأكيد رفض الكشف الخارجي --}}
+        <div x-show="rejectModal.open"
+             x-cloak
+             @keydown.escape.window="rejectModal.open = false"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="rejectModal.open = false"></div>
+
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 space-y-4 text-right">
+                <div class="text-center space-y-1">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-2xl">cancel</span>
+                    </div>
+                    <h3 class="text-sm font-extrabold text-slate-800">رفض الكشف الخارجي #<span class="font-mono" x-text="rejectModal.shipmentNumber"></span>؟</h3>
+                    <p class="text-[11px] font-bold text-slate-500" x-text="'المرسل: ' + rejectModal.senderLabel"></p>
+                </div>
+
+                <form method="POST" :action="rejectModal.actionUrl" class="space-y-3 m-0">
+                    @csrf
+                    <div>
+                        <label class="block text-[11px] font-extrabold text-slate-700 mb-1">سبب الرفض (اختياري)</label>
+                        <input type="text"
+                               name="rejection_reason"
+                               x-model="rejectModal.reason"
+                               maxlength="255"
+                               placeholder="مثال: كشف مكرر أو أُرسل بالخطأ..."
+                               class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-rose-400 px-3 py-2 text-xs font-bold text-slate-800 outline-none">
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <button type="submit"
+                                class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-base">cancel</span>
+                            <span>تأكيد رفض الكشف واستبعاده</span>
+                        </button>
+                        <button type="button"
+                                @click="rejectModal.open = false"
+                                class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                            تراجع
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 @endsection

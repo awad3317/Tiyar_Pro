@@ -53,11 +53,7 @@
 
         $transitPayloads = [];
         foreach ($transitParcels as $p) {
-            $officeLabel = $p->office
-                ? ($p->office->branch_name
-                    ? $p->office->name . ' - ' . $p->office->branch_name
-                    : $p->office->name)
-                : 'مكتب غير معروف';
+            $officeLabel = $p->senderOfficeLabel();
 
             $paymentEnum = $p->payment_type instanceof \App\Enums\OutgoingPaymentType
                 ? $p->payment_type

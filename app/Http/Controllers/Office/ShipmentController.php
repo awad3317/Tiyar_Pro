@@ -618,9 +618,11 @@ class ShipmentController extends Controller
 
         $shipments = Shipment::with([
             'office:id,name,branch_name',
+            'externalPartnerLink:id,partner_name,partner_city',
             'parcels' => fn($q) => $q->where('destination_office_id', $office->id)
                 ->where('status', '!=', OutgoingParcelStatus::CANCELLED->value),
         ])
+            ->whereNull('rejected_at')
             ->whereIn('status', [
                 ShipmentStatus::IN_TRANSIT->value,
                 ShipmentStatus::PARTIALLY_RECEIVED->value,
@@ -642,12 +644,21 @@ class ShipmentController extends Controller
                 $paidSum = (float) $myParcels->where('payment_type', OutgoingPaymentType::PAID)->sum('cod_amount');
                 $deferredSum = (float) $myParcels->where('payment_type', OutgoingPaymentType::DEFERRED)->sum('cod_amount');
 
+                $hasAnyReceived = $myParcels->contains(fn (OutgoingParcel $p): bool => $p->linked_incoming_parcel_id !== null
+                    || in_array($p->status, [OutgoingParcelStatus::RECEIVED, OutgoingParcelStatus::DELIVERED], true));
+
+                $canRejectExternal = $shipment->office_id === null
+                    && $shipment->external_partner_link_id !== null
+                    && $shipment->rejected_at === null
+                    && ! $hasAnyReceived;
+
                 $shipment->setAttribute('office_parcels_total', $totalCount);
                 $shipment->setAttribute('office_parcels_received', $receivedCount);
                 $shipment->setAttribute('office_parcels_pending', $pendingCount);
                 $shipment->setAttribute('office_paid_total', $paidSum);
                 $shipment->setAttribute('office_deferred_total', $deferredSum);
                 $shipment->setAttribute('office_grand_total', $paidSum + $deferredSum);
+                $shipment->setAttribute('can_reject_external', $canRejectExternal);
 
                 return $shipment;
             });
@@ -685,6 +696,8 @@ class ShipmentController extends Controller
         /** @var Office $office */
         $office = Auth::guard('office')->user();
 
+        abort_if($shipment->rejected_at !== null, 404, 'تم رفض هذا الكشف مسبقاً.');
+
         $myParcels = OutgoingParcel::query()
             ->where('shipment_id', $shipment->id)
             ->where('destination_office_id', $office->id)
@@ -695,16 +708,80 @@ class ShipmentController extends Controller
 
         abort_if($myParcels->isEmpty(), 403, 'لا توجد طرود موجهة لمكتبكم ضمن هذه الشحنة.');
 
-        $shipment->load('office:id,name,branch_name');
+        $shipment->load([
+            'office:id,name,branch_name',
+            'externalPartnerLink:id,partner_name,partner_city',
+        ]);
 
         $pendingReceivedShipmentsCount = ShipmentService::countPendingReceivedShipments($office);
+
+        $hasAnyReceivedInShipment = OutgoingParcel::query()
+            ->where('shipment_id', $shipment->id)
+            ->where(function ($q) {
+                $q->whereNotNull('linked_incoming_parcel_id')
+                    ->orWhereIn('status', [
+                        OutgoingParcelStatus::RECEIVED->value,
+                        OutgoingParcelStatus::DELIVERED->value,
+                    ]);
+            })
+            ->exists();
+
+        $canRejectExternal = $shipment->office_id === null
+            && $shipment->external_partner_link_id !== null
+            && $shipment->rejected_at === null
+            && ! $hasAnyReceivedInShipment;
 
         return view('office.shipments.received-show', compact(
             'office',
             'shipment',
             'myParcels',
-            'pendingReceivedShipmentsCount'
+            'pendingReceivedShipmentsCount',
+            'canRejectExternal'
         ));
+    }
+
+    /**
+     * رفض/إلغاء كشف وارد من مكتب خارجي لم يُستلم منه أي طرد بعد.
+     */
+    public function rejectReceived(Request $request, Shipment $shipment): JsonResponse|RedirectResponse
+    {
+        /** @var Office $office */
+        $office = Auth::guard('office')->user();
+
+        $validated = $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $rejected = $this->shipmentService->rejectExternalShipment(
+                $shipment,
+                $office,
+                $validated['rejection_reason'] ?? null
+            );
+
+            $msg = "تم رفض الكشف الخارجي #{$rejected->shipment_number} واستبعاده من القوائم بنجاح.";
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'           => true,
+                    'message'      => $msg,
+                    'redirect_url' => route('office.shipments.received.index'),
+                ]);
+            }
+
+            return redirect()
+                ->route('office.shipments.received.index')
+                ->with('success', $msg);
+        } catch (DomainException $e) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     /**
@@ -861,7 +938,7 @@ class ShipmentController extends Controller
             'id'                     => (string) $shipment->id,
             'client_uuid'            => $clientUuid,
             'local_key'              => $clientUuid ?: ('srv_' . $shipment->id),
-            'office_id'              => (int) $shipment->office_id,
+            'office_id'              => $shipment->office_id !== null ? (int) $shipment->office_id : null,
             'shipment_number'        => (string) $shipment->shipment_number,
             'driver_name'            => (string) $shipment->driver_name,
             'driver_phone'           => (string) $shipment->driver_phone,
@@ -900,7 +977,7 @@ class ShipmentController extends Controller
 
         return [
             'id'                => (string) $p->id,
-            'office_id'         => (int) $p->office_id,
+            'office_id'         => $p->office_id !== null ? (int) $p->office_id : null,
             'receipt_number'    => (string) ($p->receipt_number ?? ''),
             'package_type'      => (string) ($p->package_type ?: 'طرد'),
             'destination'       => $destinationLabel,

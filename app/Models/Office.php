@@ -143,6 +143,11 @@ class Office extends Authenticatable
         return $this->hasMany(OutgoingParcel::class, 'destination_office_id');
     }
 
+    public function externalPartnerLinks(): HasMany
+    {
+        return $this->hasMany(ExternalPartnerLink::class, 'office_id');
+    }
+
     public function partnerOffices(): BelongsToMany
     {
         return $this->belongsToMany(Office::class, 'office_partner_links', 'office_id', 'partner_office_id')

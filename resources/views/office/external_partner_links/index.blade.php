@@ -1,0 +1,642 @@
+@extends('office.layouts.app')
+
+@section('title', 'روابط المكاتب الخارجية')
+
+@section('shell-class', 'bg-slate-50')
+
+@section('content')
+    @php
+        $totalLinksCount = $links->count();
+        $activeLinksCount = $links->where('is_active', true)->count();
+        $totalReceivedShipments = (int) $links->sum('shipments_count');
+
+        $hasValidationErrors = $errors->partnerLink->any();
+        $initialFormMode = old('_form_mode', 'create');
+        $initialEditAction = old('_edit_action', '');
+    @endphp
+
+    <main class="flex-1 p-3.5 space-y-3.5"
+          x-data="externalPartnerLinksPage({
+              officeName: @js($office->name . ($office->branch_name ? ' (' . $office->branch_name . ')' : '')),
+              storeUrl: @js(route('office.external-partner-links.store')),
+              hasErrors: {{ $hasValidationErrors ? 'true' : 'false' }},
+              initialMode: @js($initialFormMode),
+              initialEditAction: @js($initialEditAction),
+              oldInput: {
+                  partner_name: @js(old('partner_name', '')),
+                  partner_city: @js(old('partner_city', '')),
+                  partner_phone: @js(old('partner_phone', '')),
+                  receipt_prefix: @js(old('receipt_prefix', '')),
+                  access_pin: @js(old('access_pin', '')),
+              }
+          })"
+          @open-partner-link-modal.window="openCreateModal()">
+
+        {{-- بطاقة التعريف والإحصائيات السريعة + زر الإضافة --}}
+        <section class="bg-primary text-white rounded-2xl p-4 shadow-sm space-y-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 space-y-1">
+                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 text-secondary text-[10px] font-extrabold">
+                        <span class="material-symbols-outlined text-sm">add_link</span>
+                        <span>بوابة الشركاء الخارجيين</span>
+                    </div>
+                    <h2 class="text-sm font-extrabold leading-snug">روابط المكاتب الخارجية</h2>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">
+                        أنشئ رابطاً خاصاً لكل مكتب خارجي لا يستخدم النظام ليتمكن من إرسال كشوفات طروده مباشرة إلى مكتبك مع تحكم فوري بالتفعيل أو تغيير الرابط.
+                    </p>
+                </div>
+
+                <button type="button"
+                        @click="openCreateModal()"
+                        class="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-xs transition-colors">
+                    <span class="material-symbols-outlined text-base">add</span>
+                    <span>إضافة مكتب خارجي</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+                <div class="bg-white/10 rounded-xl py-2 px-1.5 border border-white/10">
+                    <p class="text-[10px] text-slate-300 font-bold">إجمالي الروابط</p>
+                    <p class="text-sm font-mono font-black text-white">{{ $totalLinksCount }}</p>
+                </div>
+                <div class="bg-emerald-500/15 rounded-xl py-2 px-1.5 border border-emerald-400/25">
+                    <p class="text-[10px] text-emerald-200 font-bold">روابط نشطة</p>
+                    <p class="text-sm font-mono font-black text-emerald-300">{{ $activeLinksCount }}</p>
+                </div>
+                <div class="bg-white/10 rounded-xl py-2 px-1.5 border border-white/10">
+                    <p class="text-[10px] text-slate-300 font-bold">شحنات مستقبلة</p>
+                    <p class="text-sm font-mono font-black text-secondary">{{ number_format($totalReceivedShipments) }}</p>
+                </div>
+            </div>
+        </section>
+
+        {{-- قائمة الروابط --}}
+        <section class="space-y-3">
+            @forelse ($links as $link)
+                @php
+                    $portalUrl = url('/p/' . $link->token);
+                    $lastUsedHuman = $link->last_used_at
+                        ? $link->last_used_at->copy()->locale('ar')->diffForHumans()
+                        : 'لم يُستخدم بعد';
+
+                    $linkPayload = [
+                        'id'             => $link->id,
+                        'partner_name'   => $link->partner_name,
+                        'partner_city'   => $link->partner_city ?? '',
+                        'partner_phone'  => $link->partner_phone ?? '',
+                        'receipt_prefix' => $link->receipt_prefix,
+                        'access_pin'     => $link->access_pin ?? '',
+                        'is_active'      => (bool) $link->is_active,
+                        'portal_url'     => $portalUrl,
+                        'update_url'     => route('office.external-partner-links.update', $link),
+                        'regenerate_url' => route('office.external-partner-links.regenerate-token', $link),
+                        'destroy_url'    => route('office.external-partner-links.destroy', $link),
+                    ];
+                @endphp
+
+                <article class="bg-white border {{ $link->is_active ? 'border-slate-200/90' : 'border-rose-200/80 bg-rose-50/20' }} rounded-2xl p-3.5 shadow-2xs space-y-3">
+                    {{-- رأس البطاقة: الاسم + المدينة + الحالة --}}
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-start gap-2.5 min-w-0">
+                            <span class="w-10 h-10 rounded-xl {{ $link->is_active ? 'bg-primary text-secondary' : 'bg-slate-200 text-slate-500' }} flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-xl">{{ $link->is_active ? 'link' : 'link_off' }}</span>
+                            </span>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 truncate">{{ $link->partner_name }}</h3>
+                                    @if ($link->partner_city)
+                                        <span class="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold">
+                                            {{ $link->partner_city }}
+                                        </span>
+                                    @endif
+                                </div>
+                                @if ($link->partner_phone)
+                                    <p class="text-[11px] font-mono font-bold text-slate-500 mt-0.5 dir-ltr text-right">
+                                        {{ $link->partner_phone }}
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if ($link->is_active)
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold shrink-0 inline-flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                نشط
+                            </span>
+                        @else
+                            <span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-extrabold shrink-0 inline-flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                موقوف
+                            </span>
+                        @endif
+                    </div>
+
+                    {{-- شارات البادئة + رمز PIN + الإحصائيات --}}
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-[11px]">
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-slate-400 font-bold">بادئة السند:</span>
+                                <span class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono font-black text-primary dir-ltr">
+                                    {{ $link->receipt_prefix }}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-slate-400 font-bold">رمز PIN:</span>
+                                @if ($link->access_pin)
+                                    <span class="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 font-mono font-black text-amber-900 dir-ltr">
+                                        {{ $link->access_pin }}
+                                    </span>
+                                @else
+                                    <span class="text-[10px] font-bold text-slate-400">بدون رمز</span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="space-y-1 border-r border-slate-200 pr-2.5">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-slate-400 font-bold">الشحنات:</span>
+                                <span class="font-mono font-black text-slate-800">{{ number_format((int) $link->shipments_count) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-slate-400 font-bold">آخر استخدام:</span>
+                                <span class="text-[10px] font-bold text-slate-600 truncate" title="{{ $link->last_used_at?->format('Y-m-d H:i') }}">
+                                    {{ $lastUsedHuman }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- صندوق عرض الرابط + نسخ + واتساب --}}
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 bg-slate-100/80 border border-slate-200/80 rounded-xl px-2.5 py-1.5">
+                            <span class="material-symbols-outlined text-sm text-slate-400 shrink-0">public</span>
+                            <span class="flex-1 font-mono text-[11px] text-slate-600 truncate dir-ltr text-left select-all">{{ $portalUrl }}</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button"
+                                    @click="copyPortalLink(@js($portalUrl))"
+                                    class="py-2 px-3 rounded-xl bg-primary hover:bg-slate-800 text-secondary text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors">
+                                <span class="material-symbols-outlined text-base">content_copy</span>
+                                <span>نسخ الرابط</span>
+                            </button>
+
+                            <a :href="buildWhatsappShareUrl(@js($linkPayload))"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition-colors">
+                                <span class="material-symbols-outlined text-base">chat</span>
+                                <span>مشاركة واتساب</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    {{-- شريط التحكم السريع: إيقاف/تفعيل، تغيير الرابط، تعديل، حذف --}}
+                    <div class="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-100">
+                        <form method="POST" action="{{ route('office.external-partner-links.toggle-active', $link) }}" class="m-0">
+                            @csrf
+                            <button type="submit"
+                                    class="w-full py-1.5 px-2 rounded-xl border text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors {{ $link->is_active ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' }}">
+                                <span class="material-symbols-outlined text-sm">{{ $link->is_active ? 'pause_circle' : 'play_circle' }}</span>
+                                <span>{{ $link->is_active ? 'إيقاف' : 'تفعيل' }}</span>
+                            </button>
+                        </form>
+
+                        <button type="button"
+                                @click="openRegenerateModal(@js($linkPayload))"
+                                class="py-1.5 px-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-sm">autorenew</span>
+                            <span>تغيير الرابط</span>
+                        </button>
+
+                        <button type="button"
+                                @click="openEditModal(@js($linkPayload))"
+                                class="py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                            <span>تعديل</span>
+                        </button>
+
+                        <button type="button"
+                                @click="openDeleteModal(@js($linkPayload))"
+                                class="py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                            <span>حذف</span>
+                        </button>
+                    </div>
+                </article>
+            @empty
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center space-y-3">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl">add_link</span>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs font-extrabold text-slate-800">لا توجد روابط لمكاتب خارجية بعد</p>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">
+                            أضف أول مكتب خارجي شريك لإنشاء رابط بوابة خاص به لإرسال كشوفات الطرود مباشرة إليك.
+                        </p>
+                    </div>
+                    <button type="button"
+                            @click="openCreateModal()"
+                            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-secondary text-xs font-extrabold shadow-xs">
+                        <span class="material-symbols-outlined text-base">add</span>
+                        <span>إضافة مكتب خارجي الآن</span>
+                    </button>
+                </div>
+            @endforelse
+        </section>
+
+        {{-- 1. نافذة إضافة / تعديل مكتب خارجي --}}
+        <div x-show="formModal.open"
+             x-cloak
+             @keydown.escape.window="closeFormModal()"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="closeFormModal()"></div>
+
+            <div class="relative w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 max-h-[90vh] overflow-y-auto space-y-4">
+                <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center">
+                            <span class="material-symbols-outlined text-lg" x-text="formModal.mode === 'edit' ? 'edit_square' : 'add_link'"></span>
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-extrabold text-slate-800"
+                                x-text="formModal.mode === 'edit' ? 'تعديل بيانات المكتب الخارجي' : 'إضافة مكتب خارجي جديد'"></h3>
+                            <p class="text-[10px] text-slate-400">سيُنشأ رابط دائم خاص بهذا المكتب لإرسال الشحنات إليك</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeFormModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+
+                @if ($hasValidationErrors)
+                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs font-bold text-rose-800 space-y-1">
+                        @foreach ($errors->partnerLink->all() as $error)
+                            <div class="flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm text-rose-600 shrink-0">error</span>
+                                <span>{{ $error }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <form method="POST" :action="formModal.actionUrl" class="space-y-3.5">
+                    @csrf
+                    <template x-if="formModal.mode === 'edit'">
+                        <input type="hidden" name="_method" value="PUT">
+                    </template>
+                    <input type="hidden" name="_form_mode" :value="formModal.mode">
+                    <input type="hidden" name="_edit_action" :value="formModal.actionUrl">
+
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-700 mb-1">
+                            اسم المكتب الخارجي <span class="text-rose-600">*</span>
+                        </label>
+                        <input type="text"
+                               name="partner_name"
+                               x-model="form.partner_name"
+                               required
+                               maxlength="150"
+                               placeholder="مثال: مكتب البراق للنقل السريع"
+                               class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-bold text-slate-800 outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">المدينة / المنطقة</label>
+                            <input type="text"
+                                   name="partner_city"
+                                   x-model="form.partner_city"
+                                   maxlength="100"
+                                   placeholder="مثال: مأرب"
+                                   class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-bold text-slate-800 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">رقم جوال المكتب</label>
+                            <input type="tel"
+                                   name="partner_phone"
+                                   x-model="form.partner_phone"
+                                   dir="ltr"
+                                   maxlength="20"
+                                   placeholder="77XXXXXXX"
+                                   class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-mono font-bold text-slate-800 outline-none text-left">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-extrabold text-slate-700">
+                                بادئة أرقام السندات <span class="text-rose-600">*</span>
+                            </label>
+                            <button type="button"
+                                    @click="suggestPrefix()"
+                                    class="text-[11px] font-extrabold text-secondary hover:text-amber-600 inline-flex items-center gap-0.5">
+                                <span class="material-symbols-outlined text-sm">auto_awesome</span>
+                                <span>اقتراح تلقائي</span>
+                            </button>
+                        </div>
+                        <input type="text"
+                               name="receipt_prefix"
+                               x-model="form.receipt_prefix"
+                               @input="form.receipt_prefix = String(form.receipt_prefix || '').toUpperCase().replace(/\s+/g, '')"
+                               required
+                               dir="ltr"
+                               maxlength="12"
+                               placeholder="MRB-"
+                               class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-mono font-black text-primary outline-none text-left uppercase">
+                        <p class="text-[10px] text-slate-400 mt-1">
+                            تُضاف تلقائياً قبل أرقام سندات المكتب الخارجي لمنع تشابه الأرقام (مثال: <span class="font-mono font-bold">MRB-105</span>).
+                        </p>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-extrabold text-slate-700">رمز حماية إضافي PIN (اختياري - 4 أرقام)</label>
+                            <div class="flex items-center gap-2">
+                                <button type="button"
+                                        @click="generatePin()"
+                                        class="text-[11px] font-extrabold text-sky-600 hover:text-sky-700">
+                                    توليد رمز
+                                </button>
+                                <button type="button"
+                                        x-show="form.access_pin"
+                                        @click="form.access_pin = ''"
+                                        class="text-[11px] font-bold text-rose-600 hover:text-rose-700">
+                                    مسح
+                                </button>
+                            </div>
+                        </div>
+                        <input type="text"
+                               name="access_pin"
+                               x-model="form.access_pin"
+                               @input="form.access_pin = normalizePin(form.access_pin)"
+                               inputmode="numeric"
+                               dir="ltr"
+                               maxlength="4"
+                               placeholder="اتركه فارغاً للدخول المباشر عبر الرابط"
+                               class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-secondary px-3 py-2.5 text-xs font-mono font-black text-slate-800 outline-none text-left tracking-widest">
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button type="submit"
+                                class="w-full py-2.5 rounded-xl bg-primary hover:bg-slate-800 text-secondary text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs transition-colors">
+                            <span class="material-symbols-outlined text-base" x-text="formModal.mode === 'edit' ? 'save' : 'add_link'"></span>
+                            <span x-text="formModal.mode === 'edit' ? 'حفظ التعديلات' : 'إنشاء الرابط الآن'"></span>
+                        </button>
+                        <button type="button"
+                                @click="closeFormModal()"
+                                class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                            إلغاء
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- 2. نافذة تأكيد تغيير الرابط (Regenerate Token) --}}
+        <div x-show="regenModal.open"
+             x-cloak
+             @keydown.escape.window="regenModal.open = false"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="regenModal.open = false"></div>
+
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 space-y-4 text-right">
+                <div class="text-center space-y-1.5">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-2xl">autorenew</span>
+                    </div>
+                    <h3 class="text-sm font-extrabold text-slate-800">تغيير رابط البوابة فوراً؟</h3>
+                    <p class="text-xs font-bold text-primary" x-text="regenModal.partnerName"></p>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[11px] font-bold text-amber-900 leading-relaxed">
+                    تنبيه مهم: سيتم إلغاء الرابط القديم فوراً وسيتوقف عن العمل نهائياً، وسيتوجب عليك إرسال الرابط الجديد للمكتب الخارجي.
+                </div>
+
+                <form method="POST" :action="regenModal.actionUrl" class="flex flex-col gap-2 m-0">
+                    @csrf
+                    <button type="submit"
+                            class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-base">autorenew</span>
+                        <span>نعم، إلغاء القديم وتوليد رابط جديد</span>
+                    </button>
+                    <button type="button"
+                            @click="regenModal.open = false"
+                            class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                        تراجع
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {{-- 3. نافذة تأكيد الحذف الناعم --}}
+        <div x-show="deleteModal.open"
+             x-cloak
+             @keydown.escape.window="deleteModal.open = false"
+             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-slate-950/60" @click="deleteModal.open = false"></div>
+
+            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 space-y-4 text-right">
+                <div class="text-center space-y-1.5">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-2xl">delete_forever</span>
+                    </div>
+                    <h3 class="text-sm font-extrabold text-slate-800">حذف رابط المكتب الخارجي؟</h3>
+                    <p class="text-xs font-bold text-rose-700" x-text="deleteModal.partnerName"></p>
+                </div>
+
+                <p class="text-[11px] text-slate-500 leading-relaxed text-center">
+                    سيتوقف هذا الرابط فوراً عن استقبال أي شحنات جديدة، مع بقاء كافة الشحنات والطرود السابقة محفوظة في أرشيف مكتبك.
+                </p>
+
+                <form method="POST" :action="deleteModal.actionUrl" class="flex flex-col gap-2 m-0">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit"
+                            class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                        <span>تأكيد حذف الرابط</span>
+                    </button>
+                    <button type="button"
+                            @click="deleteModal.open = false"
+                            class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                        تراجع
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+@endsection
+
+@push('scripts')
+    <script>
+        function externalPartnerLinksPage(config) {
+            const cityPrefixMap = {
+                'مارب': 'MRB-', 'مأرب': 'MRB-',
+                'عتق': 'ATQ-', 'شبوة': 'SHB-', 'بيحان': 'BHN-',
+                'عدن': 'ADN-', 'صنعاء': 'SAN-', 'تعز': 'TAZ-',
+                'المكلا': 'MKL-', 'سيئون': 'SYN-', 'حضرموت': 'HDR-',
+                'الحديدة': 'HOD-', 'إب': 'IBB-', 'اب': 'IBB-',
+                'ذمار': 'DHM-', 'الغيضة': 'GHD-', 'المهرة': 'MHR-',
+                'سقطرى': 'SOC-', 'رداع': 'RDA-', 'البيضاء': 'BYD-',
+                'الضالع': 'DHL-', 'لحج': 'LHJ-', 'أبين': 'ABY-', 'ابين': 'ABY-',
+                'حجة': 'HJH-', 'صعدة': 'SAD-', 'عمران': 'AMR-', 'الجوف': 'JWF-'
+            };
+
+            return {
+                formModal: {
+                    open: Boolean(config.hasErrors),
+                    mode: config.initialMode === 'edit' ? 'edit' : 'create',
+                    actionUrl: config.initialMode === 'edit' && config.initialEditAction
+                        ? config.initialEditAction
+                        : config.storeUrl,
+                },
+
+                form: {
+                    partner_name: config.oldInput?.partner_name || '',
+                    partner_city: config.oldInput?.partner_city || '',
+                    partner_phone: config.oldInput?.partner_phone || '',
+                    receipt_prefix: config.oldInput?.receipt_prefix || '',
+                    access_pin: config.oldInput?.access_pin || '',
+                },
+
+                regenModal: {
+                    open: false,
+                    partnerName: '',
+                    actionUrl: '',
+                },
+
+                deleteModal: {
+                    open: false,
+                    partnerName: '',
+                    actionUrl: '',
+                },
+
+                notify(message, type = 'success') {
+                    window.dispatchEvent(new CustomEvent('office-toast', {
+                        detail: { message, type }
+                    }));
+                },
+
+                openCreateModal() {
+                    this.formModal.mode = 'create';
+                    this.formModal.actionUrl = config.storeUrl;
+                    this.form = {
+                        partner_name: '',
+                        partner_city: '',
+                        partner_phone: '',
+                        receipt_prefix: '',
+                        access_pin: '',
+                    };
+                    this.formModal.open = true;
+                },
+
+                openEditModal(link) {
+                    this.formModal.mode = 'edit';
+                    this.formModal.actionUrl = link.update_url;
+                    this.form = {
+                        partner_name: link.partner_name || '',
+                        partner_city: link.partner_city || '',
+                        partner_phone: link.partner_phone || '',
+                        receipt_prefix: link.receipt_prefix || '',
+                        access_pin: link.access_pin || '',
+                    };
+                    this.formModal.open = true;
+                },
+
+                closeFormModal() {
+                    this.formModal.open = false;
+                },
+
+                openRegenerateModal(link) {
+                    this.regenModal.partnerName = link.partner_name;
+                    this.regenModal.actionUrl = link.regenerate_url;
+                    this.regenModal.open = true;
+                },
+
+                openDeleteModal(link) {
+                    this.deleteModal.partnerName = link.partner_name;
+                    this.deleteModal.actionUrl = link.destroy_url;
+                    this.deleteModal.open = true;
+                },
+
+                normalizePin(val) {
+                    const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+                    const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+                    return String(val || '')
+                        .replace(/[٠-٩]/g, d => ar.indexOf(d))
+                        .replace(/[۰-۹]/g, d => fa.indexOf(d))
+                        .replace(/\D/g, '')
+                        .slice(0, 4);
+                },
+
+                generatePin() {
+                    this.form.access_pin = String(Math.floor(1000 + Math.random() * 9000));
+                },
+
+                suggestPrefix() {
+                    const city = String(this.form.partner_city || '').trim();
+                    if (city && cityPrefixMap[city]) {
+                        this.form.receipt_prefix = cityPrefixMap[city];
+                        return;
+                    }
+                    const latin = String(this.form.partner_name || '')
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, '')
+                        .slice(0, 4);
+                    if (latin.length >= 2) {
+                        this.form.receipt_prefix = latin + '-';
+                        return;
+                    }
+                    const num = Math.floor(10 + Math.random() * 90);
+                    this.form.receipt_prefix = 'EXT' + num + '-';
+                },
+
+                async copyPortalLink(url) {
+                    try {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(url);
+                        } else {
+                            const ta = document.createElement('textarea');
+                            ta.value = url;
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                        }
+                        this.notify('تم نسخ رابط البوابة بنجاح.', 'success');
+                    } catch (e) {
+                        this.notify('تعذر النسخ التلقائي، يمكنك تحديد الرابط ونسخه يدوياً.', 'warning');
+                    }
+                },
+
+                buildWhatsappShareUrl(link) {
+                    let lines = [
+                        'مرحباً بكم (' + link.partner_name + ')،',
+                        'هذا رابط البوابة المخصص لإرسال كشوفات الطرود مباشرة إلى ' + config.officeName + ':',
+                        link.portal_url
+                    ];
+
+                    if (link.access_pin) {
+                        lines.push('رمز الدخول السري (PIN): ' + link.access_pin);
+                    }
+
+                    const text = encodeURIComponent(lines.join('\n'));
+                    let digits = String(link.partner_phone || '').replace(/\D/g, '');
+                    if (digits.length === 9 && digits.startsWith('7')) {
+                        digits = '967' + digits;
+                    } else if (digits.startsWith('00')) {
+                        digits = digits.slice(2);
+                    }
+
+                    return digits
+                        ? ('https://wa.me/' + digits + '?text=' + text)
+                        : ('https://wa.me/?text=' + text);
+                }
+            };
+        }
+    </script>
+@endpush

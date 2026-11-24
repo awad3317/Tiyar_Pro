@@ -66,6 +66,12 @@ class FeatureSeeder extends Seeder
                 'category' => 'general',
                 'description' => 'تفعيل قسم الشحنات المرسلة لإنشاء كشوفات الشحنات بمسح الباركود وإرسالها مع السائق ومتابعة استلامها',
             ],
+            [
+                'code' => 'external_partner_links',
+                'name' => 'روابط المكاتب الخارجية',
+                'category' => 'general',
+                'description' => 'تفعيل بوابة روابط المكاتب الخارجية غير المشتركة لإرسال الشحنات والطرود مباشرة إلى المكتب مع التحكم الكامل بالتفعيل وتدوير الرابط',
+            ],
         ];
 
         $features = collect();

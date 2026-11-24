@@ -36,7 +36,8 @@
     <main class="flex-1 p-3.5 space-y-3.5" x-data="receiveShipmentPage({
         parcels: @js($parcelsForJs),
         receiveUrl: @js(route('office.shipments.received.receive-parcel', $shipment)),
-        pendingShipmentsCount: {{ (int) $pendingReceivedShipmentsCount }}
+        pendingShipmentsCount: {{ (int) $pendingReceivedShipmentsCount }},
+        canRejectExternal: {{ !empty($canRejectExternal) ? 'true' : 'false' }}
     })">
 
         {{-- شريط علوي --}}
@@ -47,17 +48,35 @@
                 <span>الشحنات المستلمة</span>
             </a>
 
-            <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold"
-                :class="remainingParcels.length === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-primary text-secondary'"
-                x-text="remainingParcels.length === 0 ? 'مكتمل الاستلام ✓' : ('متبقي للفحص: ' + remainingParcels.length)">
-            </span>
+            <div class="flex items-center gap-1.5">
+                <button type="button"
+                        x-show="canRejectExternal && receivedParcels.length === 0"
+                        x-cloak
+                        @click="rejectModalOpen = true"
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold transition-colors">
+                    <span class="material-symbols-outlined text-sm">cancel</span>
+                    <span>رفض الكشف</span>
+                </button>
+
+                <span class="px-3 py-1.5 rounded-xl text-xs font-extrabold"
+                    :class="remainingParcels.length === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-primary text-secondary'"
+                    x-text="remainingParcels.length === 0 ? 'مكتمل الاستلام ✓' : ('متبقي للفحص: ' + remainingParcels.length)">
+                </span>
+            </div>
         </div>
 
         {{-- بطاقة ملخص الكشف + شريط التقدم --}}
         <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs space-y-3">
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                    <p class="text-[10px] font-bold text-slate-400">كشف شحنة وارد من فرع شريك</p>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <p class="text-[10px] font-bold text-slate-400">كشف شحنة وارد من فرع شريك</p>
+                        @if ($shipment->office_id === null && $shipment->external_partner_link_id !== null)
+                            <span class="px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200 text-[9px] font-extrabold">
+                                مكتب خارجي
+                            </span>
+                        @endif
+                    </div>
                     <h2 class="text-base font-black font-mono text-primary">#{{ $shipment->shipment_number }}</h2>
                     <p class="text-[11px] font-bold text-slate-600 truncate">
                         المرسل: <span class="text-primary">{{ $shipment->senderOfficeLabel() }}</span>
@@ -339,6 +358,51 @@
                 </div>
             </div>
         </div>
+
+        {{-- نافذة تأكيد رفض الكشف الخارجي --}}
+        @if (!empty($canRejectExternal))
+            <div x-show="rejectModalOpen && receivedParcels.length === 0"
+                 x-cloak
+                 @keydown.escape.window="rejectModalOpen = false"
+                 class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+                <div class="fixed inset-0 bg-slate-950/60" @click="rejectModalOpen = false"></div>
+
+                <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 space-y-4 text-right">
+                    <div class="text-center space-y-1">
+                        <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-2xl">cancel</span>
+                        </div>
+                        <h3 class="text-sm font-extrabold text-slate-800">رفض الكشف الخارجي #{{ $shipment->shipment_number }}؟</h3>
+                        <p class="text-[11px] font-bold text-slate-500">المرسل: {{ $shipment->senderOfficeLabel() }}</p>
+                    </div>
+
+                    <form method="POST" action="{{ route('office.shipments.received.reject', $shipment) }}" class="space-y-3 m-0">
+                        @csrf
+                        <div>
+                            <label class="block text-[11px] font-extrabold text-slate-700 mb-1">سبب الرفض (اختياري)</label>
+                            <input type="text"
+                                   name="rejection_reason"
+                                   maxlength="255"
+                                   placeholder="مثال: كشف مكرر أو أُرسل بالخطأ..."
+                                   class="w-full rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-rose-400 px-3 py-2 text-xs font-bold text-slate-800 outline-none">
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <button type="submit"
+                                    class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined text-base">cancel</span>
+                                <span>تأكيد رفض الكشف واستبعاده</span>
+                            </button>
+                            <button type="button"
+                                    @click="rejectModalOpen = false"
+                                    class="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                                تراجع
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
     </main>
 @endsection
 
@@ -370,6 +434,8 @@
                     open: false,
                     parcel: null
                 },
+                canRejectExternal: Boolean(config.canRejectExternal),
+                rejectModalOpen: false,
 
                 init() {
                     window.dispatchEvent(new CustomEvent('shipments-pending-updated', {

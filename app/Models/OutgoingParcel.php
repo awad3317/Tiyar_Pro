@@ -14,6 +14,7 @@ class OutgoingParcel extends Model
 
     protected $fillable = [
         'office_id',
+        'external_partner_link_id',
         'shipment_id',
         'destination_office_id',
         'external_office_name',
@@ -49,6 +50,30 @@ class OutgoingParcel extends Model
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_id');
+    }
+
+    public function externalPartnerLink(): BelongsTo
+    {
+        return $this->belongsTo(ExternalPartnerLink::class, 'external_partner_link_id')->withTrashed();
+    }
+
+    public function senderOfficeLabel(): string
+    {
+        $office = $this->office;
+        if ($office) {
+            $branch = trim((string) ($office->branch_name ?? ''));
+
+            return $branch !== '' ? "{$office->name} - {$branch}" : (string) $office->name;
+        }
+
+        $partner = $this->externalPartnerLink;
+        if ($partner) {
+            $city = trim((string) ($partner->partner_city ?? ''));
+
+            return $city !== '' ? "{$partner->partner_name} - {$city}" : (string) $partner->partner_name;
+        }
+
+        return 'مكتب غير معروف';
     }
 
     public function destinationOffice(): BelongsTo

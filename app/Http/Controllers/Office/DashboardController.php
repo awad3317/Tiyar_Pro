@@ -22,8 +22,11 @@ class DashboardController extends Controller
             'returned'  => Parcel::where('office_id', $office->id)->where('status', 'returned')->count(),
         ];
 
-        $inTransitCount = OutgoingParcel::where('destination_office_id', $office->id)
-            ->where('status', OutgoingParcelStatus::IN_TRANSIT)
+        $inTransitCount = OutgoingParcel::query()
+            ->leftJoin('shipments', 'shipments.id', '=', 'outgoing_parcels.shipment_id')
+            ->where('outgoing_parcels.destination_office_id', $office->id)
+            ->where('outgoing_parcels.status', OutgoingParcelStatus::IN_TRANSIT)
+            ->whereNull('shipments.rejected_at')
             ->count();
 
         return view('office.dashboard', compact('office', 'stats', 'inTransitCount'));

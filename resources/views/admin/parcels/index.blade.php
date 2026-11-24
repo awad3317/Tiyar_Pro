@@ -421,8 +421,13 @@
 
                             <!-- المكتب -->
                             <td class="py-4 px-4">
-                                <span class="font-extrabold text-slate-900 block">{{ $parcel->office->name ?? 'مكتب غير معروف' }}</span>
-                                <span class="text-[11px] text-slate-400">{{ $parcel->office->branch_name ?? '' }}</span>
+                                @if ($isOutgoing && ! $parcel->office && $parcel->externalPartnerLink)
+                                    <span class="font-extrabold text-slate-900 block">{{ $parcel->externalPartnerLink->partner_name }}</span>
+                                    <span class="text-[11px] text-amber-600 font-bold">{{ $parcel->externalPartnerLink->partner_city ?: 'شريك خارجي' }}</span>
+                                @else
+                                    <span class="font-extrabold text-slate-900 block">{{ $parcel->office?->name ?? 'مكتب غير معروف' }}</span>
+                                    <span class="text-[11px] text-slate-400">{{ $parcel->office?->branch_name ?? '' }}</span>
+                                @endif
                             </td>
 
                             <!-- المستلم والمرسل والهاتف -->

@@ -3,6 +3,7 @@
     $officeId = (int) ($officeUser?->id ?? 0);
     $hasOutgoing = $officeUser && $officeUser->hasFeature('outgoing_parcels');
     $hasSentShipments = $officeUser && $officeUser->hasFeature('sent_shipments');
+    $hasExternalLinks = $officeUser && $officeUser->hasFeature('external_partner_links');
     $hasVip = $officeUser && $officeUser->hasFeature('vip_customers_tab');
 
     $isDashboard = request()->routeIs('office.dashboard');
@@ -13,7 +14,8 @@
 
     $isShipmentsSent = request()->routeIs('office.shipments.sent.*');
     $isShipmentsReceived = request()->routeIs('office.shipments.received.*');
-    $isAnyShipments = $isShipmentsSent || $isShipmentsReceived;
+    $isExternalLinks = request()->routeIs('office.external-partner-links.*');
+    $isAnyShipments = $isShipmentsSent || $isShipmentsReceived || $isExternalLinks;
 
     $isFavoriteCustomers = request()->routeIs('office.favorite_customers.*');
 
@@ -410,6 +412,22 @@
                     </div>
                     <span class="material-symbols-outlined text-lg {{ $isShipmentsReceived ? 'text-secondary' : 'text-slate-300' }}">chevron_left</span>
                 </a>
+
+                @if($hasExternalLinks)
+                    <!-- 3. روابط المكاتب الخارجية (تظهر فقط عند تفعيل الميزة) -->
+                    <a href="{{ route('office.external-partner-links.index') }}"
+                       data-nav-label="روابط المكاتب الخارجية"
+                       class="flex items-center gap-3 p-2.5 rounded-xl transition-colors {{ $isExternalLinks ? 'bg-primary text-white' : 'text-slate-700 hover:bg-slate-50' }}">
+                        <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $isExternalLinks ? 'bg-white/15 text-secondary' : 'bg-violet-50 text-violet-600' }}">
+                            <span class="material-symbols-outlined text-xl">add_link</span>
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold">روابط المكاتب الخارجية</div>
+                            <div class="text-[10px] {{ $isExternalLinks ? 'text-white/75' : 'text-slate-400' }}">إصدار وإدارة روابط الشحن للمكاتب غير المشتركة</div>
+                        </div>
+                        <span class="material-symbols-outlined text-lg {{ $isExternalLinks ? 'text-secondary' : 'text-slate-300' }}">chevron_left</span>
+                    </a>
+                @endif
 
                 <div x-show="lockedNotice" style="display: none;"
                      class="mt-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium flex items-center gap-2">

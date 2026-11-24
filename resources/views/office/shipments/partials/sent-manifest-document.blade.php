@@ -42,8 +42,12 @@
     }
 
     $manifestDate = ($shipment->dispatched_at ?? $shipment->created_at)?->format('Y-m-d') ?? '—';
-    $senderOfficeName = $shipment->office?->name ?? ($office->name ?? 'المكتب');
-    $senderBranchName = $shipment->office?->branch_name ?? ($office->branch_name ?? null);
+    $senderOfficeName = $shipment->office?->name
+        ?? $shipment->externalPartnerLink?->partner_name
+        ?? ($office?->name ?? 'المكتب');
+    $senderBranchName = $shipment->office?->branch_name
+        ?? $shipment->externalPartnerLink?->partner_city
+        ?? ($office?->branch_name ?? null);
 @endphp
 
 <!-- قالب الطباعة الرسمي الشامل (توأم مطابق لقالب كشف المحاسب A4) -->
