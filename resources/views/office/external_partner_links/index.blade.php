@@ -32,19 +32,6 @@
           })"
           @open-partner-link-modal.window="openCreateModal()">
 
-        {{-- بطاقة التعريف والإحصائيات السريعة + زر الإضافة --}}
-        <section class="bg-primary text-white rounded-2xl p-4 shadow-sm space-y-3">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0 space-y-1">
-                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/10 text-secondary text-[10px] font-extrabold">
-                        <span class="material-symbols-outlined text-sm">add_link</span>
-                        <span>بوابة الشركاء الخارجيين</span>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
         {{-- قائمة الروابط --}}
         <section class="space-y-3">
             @forelse ($links as $link)
