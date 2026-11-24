@@ -82,10 +82,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/disconnect', [AdminOfficeController::class, 'whatsappDisconnect'])->name('disconnect');
         });
 
-        // مراقبة الطرود الشاملة
+        // مراقبة الطرود الشاملة (المستلمة والمرسلة)
         Route::get('/parcels', [AdminParcelController::class, 'index'])->name('parcels.index');
         Route::patch('/parcels/{parcel}/status', [AdminParcelController::class, 'updateStatus'])->name('parcels.update_status');
         Route::delete('/parcels/{parcel}', [AdminParcelController::class, 'destroy'])->name('parcels.destroy');
+        Route::patch('/outgoing-parcels/{outgoingParcel}/status', [AdminParcelController::class, 'updateOutgoingStatus'])->name('outgoing_parcels.update_status');
+        Route::delete('/outgoing-parcels/{outgoingParcel}', [AdminParcelController::class, 'destroyOutgoing'])->name('outgoing_parcels.destroy');
 
         // العملاء المميزين للمكاتب
         Route::get('/favorite-customers', [AdminFavoriteCustomerController::class, 'index'])->name('favorite_customers.index');

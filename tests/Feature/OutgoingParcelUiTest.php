@@ -999,5 +999,62 @@ class OutgoingParcelUiTest extends TestCase
         $this->assertNotNull($senderRow);
         $this->assertEquals(1, (int) $senderRow->outgoing_parcels_count);
         $this->assertEquals(1, (int) $senderRow->today_outgoing_parcels_count);
+
+        // 5. شاشة مراقبة الطرود للأدمن (/admin/parcels) تعرض المستلمة والمرسلة معاً وتدعم التبويبات وتعديل الحالة والحذف
+        $incomingSample = Parcel::create([
+            'office_id'       => $this->senderOffice->id,
+            'recipient_name'  => 'مستلم طرد وارد للأدمن',
+            'recipient_phone' => '771999111',
+            'package_type'    => 'طرد وارد تجريبي',
+            'receipt_number'  => 'IN-909',
+            'slot_number'     => 'B-12',
+            'status'          => ParcelStatus::InOffice,
+        ]);
+
+        // أ) تبويب الكل (الافتراضي) يعرض الوارد والصادر معاً لنفس المكتب
+        $allParcelsRes = $this->actingAs($admin, 'web')
+            ->get(route('admin.parcels.index', ['office_id' => $this->senderOffice->id]))
+            ->assertOk()
+            ->assertSee('مستلم طرد وارد للأدمن')
+            ->assertSee('مستلم سند مباشر')
+            ->assertSee('IN-909')
+            ->assertSee('404');
+
+        $this->assertEquals(2, (int) ($allParcelsRes->viewData('filteredStats')['total'] ?? 0));
+
+        // ب) تبويب المرسلة فقط (type=outgoing) وتبويب المستلمة فقط (type=incoming)
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.parcels.index', ['office_id' => $this->senderOffice->id, 'type' => 'outgoing']))
+            ->assertOk()
+            ->assertSee('مستلم سند مباشر')
+            ->assertDontSee('مستلم طرد وارد للأدمن');
+
+        $this->actingAs($admin, 'web')
+            ->get(route('admin.parcels.index', ['office_id' => $this->senderOffice->id, 'type' => 'incoming']))
+            ->assertOk()
+            ->assertSee('مستلم طرد وارد للأدمن')
+            ->assertDontSee('مستلم سند مباشر');
+
+        // ج) تحديث حالة طرد مرسل وحذفه من لوحة الأدمن
+        $this->actingAs($admin, 'web')
+            ->patchJson(route('admin.outgoing_parcels.update_status', $parcel), [
+                'status' => OutgoingParcelStatus::IN_TRANSIT->value,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success'   => true,
+                'direction' => 'outgoing',
+                'status'    => 'in_transit',
+            ]);
+
+        $this->assertSame(OutgoingParcelStatus::IN_TRANSIT, $parcel->fresh()->status);
+
+        $this->actingAs($admin, 'web')
+            ->deleteJson(route('admin.outgoing_parcels.destroy', $parcel))
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('outgoing_parcels', ['id' => $parcel->id]);
+        $this->assertDatabaseHas('parcels', ['id' => $incomingSample->id]);
     }
 }
