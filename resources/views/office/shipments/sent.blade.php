@@ -112,7 +112,7 @@
             @endforeach
         </nav>
 
-        {{-- 2. شريط التبويبات المتراصة لسطح المكتب (lg: >= 1024px — Segmented Filter Pills) --}}
+        {{-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) --}}
         <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
             <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
                 @foreach ($sentTabs as $tabItem)
@@ -131,6 +131,27 @@
                     </button>
                 @endforeach
             </div>
+
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <button type="button"
+                        @click="setDesktopView('table')"
+                        :class="desktopView === 'table'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">table_rows</span>
+                    <span>جدول</span>
+                </button>
+                <button type="button"
+                        @click="setDesktopView('cards')"
+                        :class="desktopView === 'cards'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                    <span>بطاقات</span>
+                </button>
+            </div>
         </div>
 
         <main class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5">
@@ -139,12 +160,15 @@
                 @include('office.shipments.partials.sent-cards-list', ['shipments' => $shipments])
             </div>
 
-            {{-- 2. قائمة الشحنات الحية من IndexedDB (0ms تصفية وبحث وطباعة أوفلاين) --}}
-            <div x-show="clientReady" x-cloak class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
+            {{-- 2-أ. قائمة بطاقات الشحنات الحية من IndexedDB (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
+            <div x-show="clientReady"
+                 x-cloak
+                 :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
+                 class="space-y-2.5">
                 <template x-for="shipment in filteredShipments" :key="shipment.local_key">
                     <article
                         style="content-visibility: auto; contain-intrinsic-size: 180px;"
-                        class="relative bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
+                        class="relative bg-white border border-slate-200/90 lg:hover:shadow-md rounded-2xl p-3.5 lg:p-4 shadow-xs space-y-2.5 transition-all">
 
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -277,7 +301,7 @@
                                 </div>
                             </div>
 
-                            {{-- مؤشر نسبة الاستلام (عرض فقط بدون رابط قابل للنقر) --}}
+                            {{-- مؤشر نسبة الاستلام --}}
                             <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
                                 <span x-text="'تم استلام ' + Number(shipment.received_parcels_count || 0) + ' من ' + Number(shipment.parcels_count || 0)"></span>
                             </div>
@@ -287,7 +311,7 @@
 
                 {{-- حالة عدم وجود نتائج مطابقة في الذاكرة المحلية --}}
                 <div x-show="filteredShipments.length === 0"
-                     class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
+                     class="lg:col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
                     <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">local_shipping</span>
                     </div>
@@ -301,6 +325,165 @@
                             <span>كشف شحنة جديد</span>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {{-- 2-ب. وضع الجدول الاحترافي لسطح المكتب للشحنات المرسلة (lg: >= 1024px عند اختيار وضع الجدول — يعمل 100% أوفلاين) --}}
+            <div x-show="clientReady && desktopView === 'table'"
+                 x-cloak
+                 class="hidden lg:block">
+                <div x-show="filteredShipments.length === 0"
+                     class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2.5 shadow-2xs">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl">local_shipping</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة مطابقة</p>
+                    <p class="text-[11px] text-slate-400">اضغط على (+ كشف شحنة جديد) أعلى الشاشة لإنشاء كشف بمسح الباركود.</p>
+                </div>
+
+                <div x-show="filteredShipments.length > 0"
+                     class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-visible">
+                    <table class="w-full text-right border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-500">
+                                <th class="py-3 pr-4 pl-3 rounded-tr-2xl">رقم الكشف والوقت</th>
+                                <th class="py-3 px-3">السائق</th>
+                                <th class="py-3 px-3">الوجهات</th>
+                                <th class="py-3 px-3">المجاميع المالية (ر.ي)</th>
+                                <th class="py-3 px-3">الحالة والاستلام</th>
+                                <th class="py-3 pr-3 pl-4 text-left rounded-tl-2xl">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-xs">
+                            <template x-for="shipment in filteredShipments" :key="'row-' + shipment.local_key">
+                                <tr x-data="{ open: false }"
+                                    :class="open ? 'relative z-30 bg-slate-50/90' : 'hover:bg-slate-50/70'"
+                                    class="transition-colors">
+
+                                    {{-- 1. رقم الكشف والوقت --}}
+                                    <td class="py-3 pr-4 pl-3 align-middle">
+                                        <div class="flex items-center gap-2.5">
+                                            <span class="w-1.5 h-8 rounded-full shrink-0" :class="rowAccentDot(shipment.status)"></span>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="font-mono font-black text-slate-900"
+                                                          x-text="'كشف #' + shipment.shipment_number"></span>
+                                                    <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 text-[10px] font-bold"
+                                                          x-text="Number(shipment.parcels_count || 0) + ' طرد'"></span>
+                                                    <template x-if="shipment.pending_sync || shipment.sync_status === 'pending_sync'">
+                                                        <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-0.5">
+                                                            <span class="material-symbols-outlined text-[12px]">cloud_upload</span>
+                                                            <span>بانتظار المزامنة</span>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                                <p class="text-[10px] text-slate-400 mt-0.5"
+                                                   x-text="formatShipmentTime(shipment.created_at)"></p>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {{-- 2. السائق --}}
+                                    <td class="py-3 px-3 align-middle">
+                                        <p class="font-bold text-slate-800 truncate max-w-[155px]" x-text="shipment.driver_name || '—'"></p>
+                                        <p class="text-[11px] font-mono text-slate-500 dir-ltr text-right" x-text="shipment.driver_phone || ''"></p>
+                                    </td>
+
+                                    {{-- 3. الوجهات --}}
+                                    <td class="py-3 px-3 align-middle">
+                                        <div class="flex flex-wrap items-center gap-1">
+                                            <template x-if="Array.isArray(shipment.destinations_summary) && shipment.destinations_summary.length > 0">
+                                                <div class="flex flex-wrap items-center gap-1">
+                                                    <template x-for="dest in shipment.destinations_summary.slice(0, 3)" :key="'d-' + dest">
+                                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 text-[11px] font-bold text-slate-700"
+                                                              x-text="dest"></span>
+                                                    </template>
+                                                    <template x-if="shipment.destinations_summary.length > 3">
+                                                        <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold"
+                                                              x-text="'+' + (shipment.destinations_summary.length - 3)"></span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="!Array.isArray(shipment.destinations_summary) || shipment.destinations_summary.length === 0">
+                                                <span class="text-slate-300 font-bold">—</span>
+                                            </template>
+                                        </div>
+                                    </td>
+
+                                    {{-- 4. المجاميع المالية --}}
+                                    <td class="py-3 px-3 align-middle whitespace-nowrap">
+                                        <div class="flex items-center gap-1.5 text-[11px] font-mono">
+                                            <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 font-extrabold"
+                                                  :title="'الآجل'"
+                                                  x-text="'آجل: ' + formatMoney(shipment.total_deferred_amount)"></span>
+                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-extrabold"
+                                                  :title="'المحاسب'"
+                                                  x-text="'محاسب: ' + formatMoney(shipment.total_paid_amount)"></span>
+                                            <span class="px-2 py-0.5 rounded-md bg-slate-900 text-secondary font-black"
+                                                  :title="'الإجمالي'"
+                                                  x-text="'إجمالي: ' + formatMoney(shipment.total_amount)"></span>
+                                        </div>
+                                    </td>
+
+                                    {{-- 5. الحالة والاستلام --}}
+                                    <td class="py-3 px-3 align-middle whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md border text-[11px] font-extrabold"
+                                              :class="statusBadgeClass(shipment.status)"
+                                              x-text="statusLabel(shipment)"></span>
+                                        <p class="text-[10px] font-bold text-slate-400 mt-0.5"
+                                           x-text="'استُلم ' + Number(shipment.received_parcels_count || 0) + ' من ' + Number(shipment.parcels_count || 0)"></p>
+                                    </td>
+
+                                    {{-- 6. الإجراءات المباشرة: طباعة الكشف A4 + التفاصيل + قائمة ⋮ للإلغاء --}}
+                                    <td class="py-3 pr-3 pl-4 align-middle whitespace-nowrap text-left">
+                                        <div class="inline-flex items-center justify-end gap-1.5">
+                                            <button type="button"
+                                                    @click="printShipmentOffline(shipment)"
+                                                    class="h-8 px-3 rounded-lg bg-slate-100 hover:bg-primary text-slate-700 hover:text-secondary border border-slate-200/90 hover:border-primary text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
+                                                <span class="material-symbols-outlined text-[16px]">print</span>
+                                                <span>طباعة الكشف</span>
+                                            </button>
+
+                                            <button type="button"
+                                                    @click="openShipmentDetails(shipment)"
+                                                    class="h-8 px-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold inline-flex items-center gap-1 transition-colors">
+                                                <span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                                <span>التفاصيل</span>
+                                            </button>
+
+                                            <template x-if="canCancelShipment(shipment)">
+                                                <div class="relative" @click.outside="open = false" @keydown.escape.window="open = false">
+                                                    <button type="button"
+                                                            @click="open = !open"
+                                                            title="إجراءات إضافية"
+                                                            class="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                                                    </button>
+
+                                                    <div x-show="open"
+                                                         x-cloak
+                                                         x-transition:enter="ease-out duration-150"
+                                                         x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                                         x-transition:leave="ease-in duration-100"
+                                                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                                         x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+                                                         class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-40 text-right">
+                                                        <button type="button"
+                                                                @click="open = false; openCancelModal(shipment)"
+                                                                class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                                            <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                                            <span>إلغاء الكشف</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -727,6 +910,7 @@
                 shipments: Array.isArray(config.initialShipments) ? config.initialShipments : [],
                 activeStatus: String(config.initialStatus || 'all'),
                 searchQuery: String(config.initialSearch || ''),
+                desktopView: localStorage.getItem('mursal_sent_shipments_desktop_view') === 'cards' ? 'cards' : 'table',
                 counts: config.initialCounts || { all: 0, draft: 0, in_transit: 0, partially_received: 0, received: 0, cancelled: 0 },
                 isFetching: false,
 
@@ -977,6 +1161,25 @@
                         cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
                     };
                     return map[status] || 'bg-slate-100 text-slate-700 border-slate-300';
+                },
+
+                rowAccentDot(status) {
+                    const map = {
+                        draft: 'bg-slate-400',
+                        in_transit: 'bg-sky-500',
+                        partially_received: 'bg-amber-400',
+                        received: 'bg-emerald-500',
+                        cancelled: 'bg-rose-400',
+                    };
+                    return map[status] || 'bg-slate-300';
+                },
+
+                setDesktopView(mode) {
+                    const next = mode === 'cards' ? 'cards' : 'table';
+                    this.desktopView = next;
+                    try {
+                        localStorage.setItem('mursal_sent_shipments_desktop_view', next);
+                    } catch (_) {}
                 },
 
                 canCancelShipment(shipment) {

@@ -232,10 +232,10 @@
             </div>
         </div>
 
-        {{-- شريط تصفية الشحنات الذكي (يظهر تلقائياً عند وجود شحنات لمعرفة متبقي كل كشف) --}}
+        {{-- 1. شريط تصفية الشحنات الذكي للجوال (< 1024px — مطابق للأصل 100%) --}}
         <div x-show="remainingCount > 0 && shipmentGroups.length > 0"
              x-cloak
-             class="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+             class="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button type="button"
                     @click="activeShipmentFilter = 'all'"
                     :class="activeShipmentFilter === 'all'
@@ -265,8 +265,70 @@
             </template>
         </div>
 
-        {{-- قائمة الطرود القادمة --}}
-        <div class="space-y-3" x-ref="transitList">
+        {{-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) --}}
+        <div x-show="remainingCount > 0"
+             @if ($transitParcels->count() === 0) x-cloak @endif
+             class="hidden lg:flex items-center justify-between gap-4">
+            <div class="inline-flex items-center flex-wrap gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+                <button type="button"
+                        @click="activeShipmentFilter = 'all'"
+                        :class="activeShipmentFilter === 'all'
+                            ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                            : 'text-slate-600 hover:text-slate-900 font-bold'"
+                        class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span>الكل</span>
+                    <span :class="activeShipmentFilter === 'all'
+                              ? 'bg-secondary/20 text-amber-900'
+                              : 'bg-slate-300/60 text-slate-600'"
+                          class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
+                          x-text="remainingCount"></span>
+                </button>
+
+                <template x-for="grp in shipmentGroups" :key="'desk-' + grp.key">
+                    <button type="button"
+                            @click="activeShipmentFilter = grp.key"
+                            :class="activeShipmentFilter === grp.key
+                                ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                                : 'text-slate-600 hover:text-slate-900 font-bold'"
+                            class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                        <span class="material-symbols-outlined text-[14px]"
+                              x-text="grp.key === 'standalone' ? 'package_2' : 'receipt_long'"></span>
+                        <span x-text="grp.label"></span>
+                        <span :class="activeShipmentFilter === grp.key
+                                  ? 'bg-secondary/20 text-amber-900'
+                                  : 'bg-slate-300/60 text-slate-600'"
+                              class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
+                              x-text="grp.count"></span>
+                    </button>
+                </template>
+            </div>
+
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0">
+                <button type="button"
+                        @click="setDesktopView('table')"
+                        :class="desktopView === 'table'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">table_rows</span>
+                    <span>جدول</span>
+                </button>
+                <button type="button"
+                        @click="setDesktopView('cards')"
+                        :class="desktopView === 'cards'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                    <span>بطاقات</span>
+                </button>
+            </div>
+        </div>
+
+        {{-- أ. قائمة بطاقات الطرود القادمة (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
+        <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
+             class="space-y-3"
+             x-ref="transitList">
             @foreach ($transitParcels as $parcel)
                 @php
                     $payload = $transitPayloads[(string) $parcel->id];
@@ -280,7 +342,7 @@
                 <article id="transit-card-{{ $parcel->id }}"
                          x-show="!receivedIds['{{ $parcel->id }}'] && isItemVisible('{{ $parcel->id }}')"
                          style="content-visibility: auto; contain-intrinsic-size: 195px;"
-                         class="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-3">
+                         class="bg-white border border-slate-200/90 lg:border-r-4 lg:border-r-sky-500 rounded-2xl p-3.5 lg:p-4 shadow-xs lg:hover:shadow-md space-y-3 lg:flex lg:flex-col lg:justify-between transition-all">
 
                     {{-- شريط تعريف الكشف والسائق (إن كان الطرد ضمن شحنة) --}}
                     @if ($payload['shipment_number'])
@@ -385,7 +447,119 @@
                     </div>
                 </article>
             @endforeach
+        </div>
 
+        {{-- ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px عند اختيار وضع الجدول) --}}
+        <div x-show="desktopView === 'table' && remainingCount > 0 && visibleCount > 0"
+             x-cloak
+             class="hidden lg:block">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-500">
+                            <th class="py-3 pr-4 pl-3">رقم السند والنوع</th>
+                            <th class="py-3 px-3">المستلم</th>
+                            <th class="py-3 px-3">المرسل</th>
+                            <th class="py-3 px-3">المصدر / الكشف</th>
+                            <th class="py-3 px-3">المبلغ والحالة المالية</th>
+                            <th class="py-3 pr-3 pl-4 text-left">الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        @foreach ($transitParcels as $parcel)
+                            @php
+                                $payload = $transitPayloads[(string) $parcel->id];
+                                $paymentEnum = $parcel->payment_type instanceof \App\Enums\OutgoingPaymentType
+                                    ? $parcel->payment_type
+                                    : (\App\Enums\OutgoingPaymentType::tryFrom((string) $parcel->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+                                $dispatchedAt = $parcel->dispatched_at;
+                                $dispatchedDate = $dispatchedAt && !$dispatchedAt->isToday() ? $dispatchedAt->format('Y/m/d') : null;
+                            @endphp
+                            <tr x-show="!receivedIds['{{ $parcel->id }}'] && isItemVisible('{{ $parcel->id }}')"
+                                class="hover:bg-slate-50/70 transition-colors">
+
+                                {{-- 1. رقم السند والنوع --}}
+                                <td class="py-3 pr-4 pl-3 align-middle">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-1.5 h-8 rounded-full bg-sky-500 shrink-0"></span>
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-1.5">
+                                                @if ($parcel->receipt_number)
+                                                    <span class="font-mono font-black text-slate-900">#{{ $parcel->receipt_number }}</span>
+                                                @endif
+                                                <span class="font-bold text-slate-800 truncate max-w-[165px]" title="{{ $parcel->package_type }}">{{ $parcel->package_type }}</span>
+                                            </div>
+                                            @if ($payload['dispatched_ago'] || $payload['dispatched_clock'])
+                                                <p class="text-[10px] text-slate-400 mt-0.5">
+                                                    {{ $payload['dispatched_ago'] ?? '' }}
+                                                    @if ($payload['dispatched_clock'])
+                                                        • {{ $dispatchedDate ? $dispatchedDate . ' ' : '' }}{{ $payload['dispatched_clock'] }}
+                                                    @endif
+                                                </p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+
+                                {{-- 2. المستلم --}}
+                                <td class="py-3 px-3 align-middle">
+                                    <p class="font-bold text-slate-800 truncate max-w-[145px]">{{ $payload['recipient_name'] }}</p>
+                                    <a href="tel:{{ $parcel->recipient_phone }}"
+                                       class="text-[11px] font-mono text-slate-500 hover:text-primary dir-ltr inline-block">{{ $parcel->recipient_phone }}</a>
+                                </td>
+
+                                {{-- 3. المرسل --}}
+                                <td class="py-3 px-3 align-middle">
+                                    <p class="font-bold text-slate-700 truncate max-w-[145px]">{{ $parcel->sender_name }}</p>
+                                    <a href="tel:{{ $parcel->sender_phone }}"
+                                       class="text-[11px] font-mono text-slate-500 hover:text-primary dir-ltr inline-block">{{ $parcel->sender_phone }}</a>
+                                </td>
+
+                                {{-- 4. المصدر / الكشف --}}
+                                <td class="py-3 px-3 align-middle">
+                                    <p class="font-semibold text-slate-700 truncate max-w-[185px]">
+                                        <span class="text-slate-400 text-[11px]">قادم من:</span>
+                                        {{ $payload['source_office'] }}
+                                    </p>
+                                    @if ($payload['shipment_number'])
+                                        <p class="text-[11px] font-mono font-bold text-indigo-600 mt-0.5 truncate max-w-[185px]">
+                                            كشف #{{ $payload['shipment_number'] }}
+                                            @if ($payload['driver_name'])
+                                                <span class="font-sans text-slate-500 font-semibold">• {{ $payload['driver_name'] }}</span>
+                                            @endif
+                                        </p>
+                                    @elseif ($parcel->notes)
+                                        <p class="text-[10px] text-amber-800 truncate max-w-[185px] mt-0.5" title="{{ $parcel->notes }}">ملاحظة: {{ $parcel->notes }}</p>
+                                    @endif
+                                </td>
+
+                                {{-- 5. المبلغ والحالة المالية --}}
+                                <td class="py-3 px-3 align-middle whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md border text-[11px] font-extrabold {{ $paymentEnum->badgeClass() }}">
+                                        <span>{{ $paymentEnum->label() }}:</span>
+                                        <span class="font-mono">{{ $payload['cod_amount'] }} ر.ي</span>
+                                    </span>
+                                </td>
+
+                                {{-- 6. الإجراء --}}
+                                <td class="py-3 pr-3 pl-4 align-middle whitespace-nowrap text-left">
+                                    <button type="button"
+                                            :disabled="Boolean(receivingIds['{{ $parcel->id }}'])"
+                                            @click="openReceiveModalById('{{ $parcel->id }}')"
+                                            class="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50">
+                                        <span class="material-symbols-outlined text-[16px]">download_done</span>
+                                        <span x-text="receivingIds['{{ $parcel->id }}'] ? 'جاري الاستلام...' : 'تم الاستلام'"></span>
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- حالات القائمة الفارغة أو عدم تطابق البحث (مشتركة بين الجدول والبطاقات) --}}
+        <div>
             {{-- حالة عدم تطابق البحث --}}
             <div x-show="remainingCount > 0 && visibleCount === 0"
                  x-cloak
@@ -663,6 +837,7 @@
                 parcelsById: parcelsById,
                 searchQuery: '',
                 activeShipmentFilter: 'all',
+                desktopView: localStorage.getItem('mursal_transit_desktop_view') === 'cards' ? 'cards' : 'table',
                 receivingIds: {},
                 receivedIds: {},
 
@@ -691,6 +866,14 @@
                 setChannel(ch) {
                     this.notifyChannel = ch;
                     localStorage.setItem('mursal_transit_notify_channel', ch);
+                },
+
+                setDesktopView(mode) {
+                    const next = mode === 'cards' ? 'cards' : 'table';
+                    this.desktopView = next;
+                    try {
+                        localStorage.setItem('mursal_transit_desktop_view', next);
+                    } catch (_) {}
                 },
 
                 channelLabel(ch) {

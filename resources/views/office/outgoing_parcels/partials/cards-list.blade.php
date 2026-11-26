@@ -4,8 +4,8 @@
 @endphp
 
 {{-- 1. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
-<div :class="desktopView === 'table' ? 'lg:hidden' : ''"
-     class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
+<div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
+     class="space-y-2.5">
     @forelse ($parcels as $parcel)
         @include('office.outgoing_parcels.partials.parcel-card', ['parcel' => $parcel])
     @empty

@@ -1,4 +1,5 @@
-<div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
+<div :class="typeof desktopView !== 'undefined' && desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
+     class="space-y-2.5">
     @forelse ($shipments as $shipment)
         @php
             $destList = is_array($shipment->destinations_summary) ? $shipment->destinations_summary : [];

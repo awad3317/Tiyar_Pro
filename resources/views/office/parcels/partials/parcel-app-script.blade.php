@@ -188,6 +188,7 @@
             search: new URLSearchParams(window.location.search).get('q') || '',
             filter: 'all',
             filters: FILTERS,
+            desktopView: localStorage.getItem('mursal_incoming_desktop_view') === 'cards' ? 'cards' : 'table',
             isSyncing: false,
 
             // إعدادات العرض التدريجي الذكي في الشاشة (Capped DOM Rendering)
@@ -326,12 +327,15 @@
                     });
                 }
 
-                // مستمع تمرير خفيف كطبقة أمان إضافية لجميع متصفحات الجوال
+                // مستمع تمرير خفيف كطبقة أمان إضافية لجميع متصفحات الجوال والكمبيوتر
                 const onScrollCheck = () => {
                     if (!this.hasMoreParcels) return;
                     const container = this.$refs?.parcelsContainer;
                     if (container) {
-                        const cards = container.querySelectorAll('article');
+                        const itemSelector = (window.innerWidth >= 1024 && this.desktopView === 'table')
+                            ? 'tr[data-incoming-row]'
+                            : 'article';
+                        const cards = container.querySelectorAll(itemSelector);
                         const triggerIndex = Math.max(0, cards.length - (this.prefetchBeforeEnd + 1));
                         const triggerCard = cards[triggerIndex];
                         if (triggerCard) {
@@ -359,7 +363,10 @@
 
                 const container = this.$refs?.parcelsContainer;
                 if (container) {
-                    const cards = container.querySelectorAll('article');
+                    const itemSelector = (window.innerWidth >= 1024 && this.desktopView === 'table')
+                        ? 'tr[data-incoming-row]'
+                        : 'article';
+                    const cards = container.querySelectorAll(itemSelector);
                     if (cards.length > 0) {
                         // مراقبة الطرد رقم 20 (أي قبل نهاية الدفعة الحالية بـ 5 طرود)
                         const triggerIndex = Math.max(0, cards.length - (this.prefetchBeforeEnd + 1));
@@ -373,6 +380,15 @@
                 if (this.$refs?.loadMoreSentinel) {
                     this._scrollObserver.observe(this.$refs.loadMoreSentinel);
                 }
+            },
+
+            setDesktopView(mode) {
+                const next = mode === 'cards' ? 'cards' : 'table';
+                this.desktopView = next;
+                try {
+                    localStorage.setItem('mursal_incoming_desktop_view', next);
+                } catch (_) {}
+                this.$nextTick(() => this.refreshScrollObserver());
             },
 
             loadMoreParcels() {
@@ -1050,6 +1066,15 @@
                     returned:  'border-rose-300 lg:border-slate-200 lg:border-r-4 lg:border-r-rose-400',
                 };
                 return borders[status] ?? 'border-slate-200/80';
+            },
+
+            rowAccentDot(status) {
+                const dots = {
+                    in_office: 'bg-amber-400',
+                    delivered: 'bg-emerald-500',
+                    returned:  'bg-rose-400',
+                };
+                return dots[status] ?? 'bg-slate-300';
             },
 
             formatDate(value) {

@@ -9,6 +9,14 @@
             officeId: OFFICE_ID,
             customers: [],
             search: '',
+            desktopView: localStorage.getItem('mursal_vip_desktop_view') === 'cards' ? 'cards' : 'table',
+            setDesktopView(mode) {
+                const next = mode === 'cards' ? 'cards' : 'table';
+                this.desktopView = next;
+                try {
+                    localStorage.setItem('mursal_vip_desktop_view', next);
+                } catch (_) {}
+            },
             modal: {
                 open: false,
                 mode: 'create',
