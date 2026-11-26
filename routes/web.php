@@ -221,6 +221,7 @@ Route::prefix('office')->name('office.')->group(function () {
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/parcels', [ParcelController::class, 'getParcelsData'])->name('parcels');
             Route::post('/parcels/sync', [ParcelController::class, 'syncUpdates'])->name('parcels.sync');
+            Route::match(['put', 'patch'], '/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
             Route::post('/parcels/{parcel}/resend-sms', [ParcelController::class, 'resendSms'])->name('parcels.resend_sms');
             Route::post('/parcels/{parcel}/mark-manual-sms', [ParcelController::class, 'markManualSms'])->name('parcels.mark_manual_sms');
             Route::post('/parcels/{parcel}/resend-whatsapp', [ParcelController::class, 'resendWhatsapp'])->name('parcels.resend_whatsapp');

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v36';
+const CACHE_NAME = 'mursal-pwa-v39';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 
@@ -6,14 +6,15 @@ const ASSETS_TO_CACHE = [
     '/office/dashboard',
     '/office/parcels',
     '/office/outgoing-parcels',
+    '/office/transit-parcels',
     '/office/favorite-customers',
     '/office/shipments/sent',
     '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
     '/js/tailwind.js',
-    '/js/mursal-core.js?v=22',
-    '/js/shipment-manifest-print.js?v=23',
+    '/js/mursal-core.js?v=23',
+    '/js/shipment-manifest-print.js?v=24',
     '/js/html-to-image.min.js?v=27',
     '/js/receipt-image-share.js?v=27',
     '/js/desktop-pwa.js?v=31',
@@ -26,6 +27,7 @@ const ASSETS_TO_CACHE = [
 // الصفحات التي تعتمد كلياً على IndexedDB (MursalDB) + مزامنة خلفية: نقدم الـ App Shell من الكاش فوراً (<5ms) ونحدّثه بالخلفية
 const SWR_OFFLINE_FIRST_TABS = new Set([
     '/office/parcels',
+    '/office/transit-parcels',
     '/office/shipments/sent',
     '/office/favorite-customers',
 ]);
@@ -280,10 +282,15 @@ self.addEventListener('fetch', (event) => {
         event.request.mode === 'navigate' &&
         url.pathname === '/office/outgoing-parcels';
 
+    const isTransitParcelsAppShell =
+        !isAjaxJson &&
+        event.request.mode === 'navigate' &&
+        url.pathname === '/office/transit-parcels';
+
     if (
         isAjaxJson ||
         (url.pathname.startsWith('/office/outgoing-parcels') && !isOutgoingParcelsAppShell) ||
-        url.pathname.startsWith('/office/transit-parcels') ||
+        (url.pathname.startsWith('/office/transit-parcels') && !isTransitParcelsAppShell) ||
         (url.pathname.startsWith('/office/shipments') && !isSentShipmentsAppShell) ||
         url.pathname.startsWith('/office/global-search') ||
         url.pathname.includes('/login') ||

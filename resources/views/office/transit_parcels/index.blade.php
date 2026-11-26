@@ -51,102 +51,80 @@
         $officeUser = $office ?? auth('office')->user();
         $hasSlotFeature = $officeUser && $officeUser->hasFeature('parcel_slot_number');
 
-        $transitPayloads = [];
-        foreach ($transitParcels as $p) {
-            $officeLabel = $p->senderOfficeLabel();
+        if (!isset($transitPayloads) || !is_array($transitPayloads)) {
+            $transitPayloads = [];
+            foreach ($transitParcels as $p) {
+                $officeLabel = $p->senderOfficeLabel();
+                $paymentEnum = $p->payment_type instanceof \App\Enums\OutgoingPaymentType
+                    ? $p->payment_type
+                    : (\App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
 
-            $paymentEnum = $p->payment_type instanceof \App\Enums\OutgoingPaymentType
-                ? $p->payment_type
-                : (\App\Enums\OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? \App\Enums\OutgoingPaymentType::PAID);
+                $dispatchedAt = $p->dispatched_at;
+                $dispatchedAgo = $dispatchedAt ? $dispatchedAt->copy()->locale('ar')->diffForHumans() : null;
+                $dispatchedClock = $dispatchedAt
+                    ? $dispatchedAt->format('g:i') . ' ' . ($dispatchedAt->format('A') === 'AM' ? 'ص' : 'م')
+                    : null;
+                $dispatchedDate = ($dispatchedAt && !$dispatchedAt->isToday()) ? $dispatchedAt->format('Y/m/d') : null;
 
-            $dispatchedAt = $p->dispatched_at;
-            $dispatchedAgo = $dispatchedAt ? $dispatchedAt->copy()->locale('ar')->diffForHumans() : null;
-            $dispatchedClock = $dispatchedAt
-                ? $dispatchedAt->format('g:i') . ' ' . ($dispatchedAt->format('A') === 'AM' ? 'ص' : 'م')
-                : null;
+                $shipmentId     = (string) ($p->shipment_id ?? '');
+                $shipmentNumber = (string) ($p->shipment_number ?? '');
+                $driverName     = (string) ($p->shipment_driver_name ?? '');
+                $driverPhone    = (string) ($p->shipment_driver_phone ?? '');
+                $codRaw         = (float) ($p->cod_amount ?? 0);
 
-            // $shipment = $p->shipment;
-
-            // $transitPayloads[(string) $p->id] = [
-            //     'id'               => (string) $p->id,
-            //     'url'              => route('office.transit-parcels.receive', $p),
-            //     'package_type'     => (string) $p->package_type,
-            //     'receipt_number'   => (string) ($p->receipt_number ?? ''),
-            //     'source_office'    => $officeLabel,
-            //     'shipment_id'      => $shipment ? (string) $shipment->id : '',
-            //     'shipment_number'  => $shipment ? (string) $shipment->shipment_number : '',
-            //     'driver_name'      => $shipment ? (string) $shipment->driver_name : '',
-            //     'driver_phone'     => $shipment ? (string) $shipment->driver_phone : '',
-            //     'payment_label'    => $paymentEnum->label(),
-            //     'is_deferred'      => $paymentEnum->value === 'deferred',
-            //     'cod_amount'       => number_format((float) ($p->cod_amount ?? 0)),
-            //     'recipient_name'   => (string) ($p->recipient_name ?: 'بدون اسم'),
-            //     'recipient_phone'  => (string) $p->recipient_phone,
-            //     'sender_name'      => (string) $p->sender_name,
-            //     'sender_phone'     => (string) $p->sender_phone,
-            //     'notes'            => (string) ($p->notes ?? ''),
-            //     'dispatched_ago'   => $dispatchedAgo,
-            //     'dispatched_clock' => $dispatchedClock,
-            //     'search_text'      => implode(' ', array_filter([
-            //         $p->package_type,
-            //         $p->receipt_number,
-            //         $p->recipient_name,
-            //         $p->recipient_phone,
-            //         $p->sender_name,
-            //         $p->sender_phone,
-            //         $officeLabel,
-            //         $shipment?->shipment_number,
-            //         $shipment?->driver_name,
-            //         $shipment?->driver_phone,
-            //         $p->notes,
-            //     ])),
-            // ];
-            $shipmentId     = (string) ($p->shipment_id ?? '');
-            $shipmentNumber = (string) ($p->shipment_number ?? '');
-            $driverName     = (string) ($p->shipment_driver_name ?? '');
-            $driverPhone    = (string) ($p->shipment_driver_phone ?? '');
-
-            $transitPayloads[(string) $p->id] = [
-                'id'               => (string) $p->id,
-                'url'              => route('office.transit-parcels.receive', $p),
-                'package_type'     => (string) $p->package_type,
-                'receipt_number'   => (string) ($p->receipt_number ?? ''),
-                'source_office'    => $officeLabel,
-                'shipment_id'      => $shipmentId,
-                'shipment_number'  => $shipmentNumber,
-                'driver_name'      => $driverName,
-                'driver_phone'     => $driverPhone,
-                'payment_label'    => $paymentEnum->label(),
-                'is_deferred'      => $paymentEnum->value === 'deferred',
-                'cod_amount'       => number_format((float) ($p->cod_amount ?? 0)),
-                'recipient_name'   => (string) ($p->recipient_name ?: 'بدون اسم'),
-                'recipient_phone'  => (string) $p->recipient_phone,
-                'sender_name'      => (string) $p->sender_name,
-                'sender_phone'     => (string) $p->sender_phone,
-                'notes'            => (string) ($p->notes ?? ''),
-                'dispatched_ago'   => $dispatchedAgo,
-                'dispatched_clock' => $dispatchedClock,
-                'search_text'      => implode(' ', array_filter([
-                    $p->package_type,
-                    $p->receipt_number,
-                    $p->recipient_name,
-                    $p->recipient_phone,
-                    $p->sender_name,
-                    $p->sender_phone,
-                    $officeLabel,
-                    $shipmentNumber,
-                    $driverName,
-                    $driverPhone,
-                    $p->notes,
-                ])),
-            ];
+                $transitPayloads[(string) $p->id] = [
+                    'id'                    => (string) $p->id,
+                    'destination_office_id' => (int) ($p->destination_office_id ?: ($officeUser?->id ?? 0)),
+                    'source_office_id'      => $p->office_id ? (int) $p->office_id : null,
+                    'source_region'         => $p->office?->branch_name ?: ($p->externalPartnerLink?->partner_city ?: null),
+                    'url'                   => route('office.transit-parcels.receive', $p, false),
+                    'package_type'          => (string) $p->package_type,
+                    'receipt_number'        => (string) ($p->receipt_number ?? ''),
+                    'source_office'         => $officeLabel,
+                    'shipment_id'           => $shipmentId,
+                    'shipment_number'       => $shipmentNumber,
+                    'driver_name'           => $driverName,
+                    'driver_phone'          => $driverPhone,
+                    'payment_type'          => $paymentEnum->value,
+                    'payment_label'         => $paymentEnum->label(),
+                    'payment_badge_class'   => $paymentEnum->badgeClass(),
+                    'is_deferred'           => $paymentEnum->value === 'deferred',
+                    'cod_amount_raw'        => $codRaw,
+                    'cod_amount'            => number_format($codRaw),
+                    'recipient_name'        => (string) ($p->recipient_name ?: 'بدون اسم'),
+                    'recipient_name_raw'    => $p->recipient_name ? (string) $p->recipient_name : null,
+                    'recipient_phone'       => (string) $p->recipient_phone,
+                    'sender_name'           => (string) $p->sender_name,
+                    'sender_phone'          => (string) $p->sender_phone,
+                    'notes'                 => (string) ($p->notes ?? ''),
+                    'dispatched_at'         => $dispatchedAt ? $dispatchedAt->toIso8601String() : null,
+                    'dispatched_date'       => $dispatchedDate,
+                    'dispatched_ago'        => $dispatchedAgo,
+                    'dispatched_clock'      => $dispatchedClock,
+                    'search_text'           => implode(' ', array_filter([
+                        $p->package_type,
+                        $p->receipt_number,
+                        $p->recipient_name,
+                        $p->recipient_phone,
+                        $p->sender_name,
+                        $p->sender_phone,
+                        $officeLabel,
+                        $shipmentNumber,
+                        $driverName,
+                        $driverPhone,
+                        $p->notes,
+                    ])),
+                ];
+            }
         }
     @endphp
 
     <main class="flex-1 p-3.5 lg:p-6 space-y-3.5"
           @transit-search-change.window="searchQuery = $event.detail.q || ''"
           x-data="transitParcelsPage({
-              initialCount: {{ $transitParcels->count() }},
+              officeId: {{ (int) ($officeUser?->id ?? 0) }},
+              syncUrl: @js(route('office.transit-parcels.index')),
+              initialCount: {{ count($transitPayloads) }},
               parcels: @js(array_values($transitPayloads))
           })">
 
@@ -325,6 +303,8 @@
             </div>
         </div>
 
+        {{-- 1. العرض الأولي من السيرفر قبل تهيئة Alpine / IndexedDB --}}
+        <div x-show="!clientReady" class="space-y-3.5">
         {{-- أ. قائمة بطاقات الطرود القادمة (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
              class="mursal-desktop-cards space-y-3"
@@ -559,6 +539,210 @@
                 </table>
             </div>
         </div>
+        </div>
+
+        {{-- 2. العرض الحي المعتمد على IndexedDB (يعمل 100% أوفلاين وأونلاين بدون رسم مزدوج للـ DOM) --}}
+        <div x-show="clientReady" x-cloak class="space-y-3.5">
+            {{-- 2-أ. قائمة البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات فقط) --}}
+            <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
+                 class="mursal-desktop-cards space-y-3">
+                <template x-for="parcel in ((!isDesktopViewport || desktopView === 'cards') ? visibleParcels : [])" :key="parcel.id">
+                    <article :id="'transit-live-card-' + parcel.id"
+                             style="content-visibility: auto; contain-intrinsic-size: 195px;"
+                             class="bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 lg:border-r-4 lg:border-r-sky-500 lg:dark:border-r-sky-400 rounded-2xl p-3.5 lg:p-4 shadow-xs lg:hover:shadow-md space-y-3 lg:flex lg:flex-col lg:justify-between transition-all">
+
+                        <template x-if="parcel.shipment_number">
+                            <div class="flex items-center justify-between gap-2 bg-primary/5 border border-primary/10 lg:dark:bg-slate-800/70 lg:dark:border-slate-700/60 rounded-xl px-2.5 py-1.5 text-[11px]">
+                                <span class="inline-flex items-center gap-1 font-extrabold text-primary lg:dark:text-slate-100 min-w-0">
+                                    <span class="material-symbols-outlined text-sm text-secondary shrink-0">receipt_long</span>
+                                    <span class="font-mono shrink-0" x-text="'كشف #' + parcel.shipment_number"></span>
+                                </span>
+                                <span class="text-slate-600 lg:dark:text-slate-300 font-bold truncate"
+                                      x-text="'السائق: ' + (parcel.driver_name || '')"></span>
+                            </div>
+                        </template>
+
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-9 h-9 rounded-xl bg-slate-100 lg:dark:bg-slate-800 text-primary lg:dark:text-amber-400 flex items-center justify-center shrink-0">
+                                    <span class="material-symbols-outlined text-xl">package_2</span>
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <h3 class="font-extrabold text-sm text-slate-800 lg:dark:text-slate-100 leading-tight" x-text="parcel.package_type"></h3>
+                                        <template x-if="parcel.receipt_number">
+                                            <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:border-slate-700 text-[10px] font-mono font-extrabold"
+                                                  x-text="'سند #' + parcel.receipt_number"></span>
+                                        </template>
+                                    </div>
+                                    <template x-if="parcel.dispatched_clock">
+                                        <p class="text-[10px] text-slate-400 font-semibold mt-0.5 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[12px]">schedule</span>
+                                            <span x-text="'شُحن ' + (parcel.dispatched_date ? (parcel.dispatched_date + ' • ') : 'الساعة ') + parcel.dispatched_clock"></span>
+                                        </p>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <template x-if="parcel.dispatched_ago">
+                                <span dir="rtl"
+                                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 text-[10px] font-extrabold shrink-0"
+                                      x-text="parcel.dispatched_ago"></span>
+                            </template>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 flex-wrap pt-0.5">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-primary border border-slate-200/80 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:border-slate-700 text-[11px] font-extrabold max-w-full">
+                                <span class="material-symbols-outlined text-[14px] text-secondary shrink-0">domain</span>
+                                <span class="truncate" x-text="'قادم من: ' + (parcel.source_office || '')"></span>
+                            </span>
+
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-extrabold shrink-0"
+                                  :class="parcel.payment_badge_class || (parcel.is_deferred ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')">
+                                <span x-text="(parcel.payment_label || '') + ':'"></span>
+                                <span class="font-mono" x-text="(parcel.cod_amount || '0') + ' ر.ي'"></span>
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2.5 bg-slate-50 lg:dark:bg-[#1A222C] rounded-xl p-2.5 text-xs border border-slate-100 lg:dark:border-slate-700/50">
+                            <div class="min-w-0">
+                                <p class="text-[10px] text-slate-400 font-bold mb-0.5">المستلم</p>
+                                <p class="font-extrabold text-slate-800 lg:dark:text-slate-100 truncate" x-text="parcel.recipient_name"></p>
+                                <a :href="'tel:' + parcel.recipient_phone"
+                                   class="inline-flex items-center gap-1 text-[11px] text-slate-600 lg:dark:text-slate-300 hover:text-primary lg:dark:hover:text-amber-400 font-mono font-bold mt-0.5">
+                                    <span class="material-symbols-outlined text-[13px] text-emerald-600 lg:dark:text-emerald-400">call</span>
+                                    <span dir="ltr" x-text="parcel.recipient_phone"></span>
+                                </a>
+                            </div>
+
+                            <div class="min-w-0 border-r border-slate-200 lg:dark:border-slate-700/60 pr-2.5">
+                                <p class="text-[10px] text-slate-400 font-bold mb-0.5">المرسل</p>
+                                <p class="font-bold text-slate-700 lg:dark:text-slate-200 truncate" x-text="parcel.sender_name"></p>
+                                <a :href="'tel:' + parcel.sender_phone"
+                                   class="inline-flex items-center gap-1 text-[11px] text-slate-500 lg:dark:text-slate-400 hover:text-primary lg:dark:hover:text-amber-400 font-mono font-semibold mt-0.5">
+                                    <span class="material-symbols-outlined text-[13px] text-slate-400">call</span>
+                                    <span dir="ltr" x-text="parcel.sender_phone"></span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <template x-if="parcel.notes">
+                            <div class="flex items-start gap-1.5 text-[11px] text-slate-700 lg:dark:text-amber-200 bg-amber-50/70 border border-amber-200/70 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/30 rounded-xl px-2.5 py-2 leading-relaxed">
+                                <span class="material-symbols-outlined text-sm text-amber-600 lg:dark:text-amber-400 shrink-0 mt-0.5">sticky_note_2</span>
+                                <p class="min-w-0 break-words">
+                                    <span class="font-extrabold text-amber-900 lg:dark:text-amber-300">ملاحظة:</span>
+                                    <span x-text="' ' + parcel.notes"></span>
+                                </p>
+                            </div>
+                        </template>
+
+                        <div class="pt-0.5">
+                            <button type="button"
+                                    :disabled="Boolean(receivingIds[parcel.id])"
+                                    @click="openReceiveModal(parcel)"
+                                    class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-extrabold shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
+                                <span class="material-symbols-outlined text-base">download_done</span>
+                                <span x-text="receivingIds[parcel.id] ? 'جاري الاستلام وإشعار العميل...' : 'تم الاستلام'"></span>
+                            </button>
+                        </div>
+                    </article>
+                </template>
+            </div>
+
+            {{-- 2-ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px عند اختيار وضع الجدول فقط — يعمل 100% أوفلاين) --}}
+            <div x-show="desktopView === 'table'"
+                 class="mursal-desktop-table hidden lg:block">
+                <div x-show="remainingCount > 0 && visibleCount > 0"
+                     class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+                    <table class="w-full text-right border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+                                <th class="py-3 pr-4 pl-3">رقم السند والنوع</th>
+                                <th class="py-3 px-3">المستلم</th>
+                                <th class="py-3 px-3">المرسل</th>
+                                <th class="py-3 px-3">المصدر / الكشف</th>
+                                <th class="py-3 px-3">المبلغ والحالة المالية</th>
+                                <th class="py-3 pr-3 pl-4 text-left">الإجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
+                            <template x-for="parcel in ((isDesktopViewport && desktopView === 'table') ? visibleParcels : [])" :key="'row-' + parcel.id">
+                                <tr style="content-visibility: auto; contain-intrinsic-size: auto 56px;"
+                                    class="hover:bg-gray-50/70 dark:hover:bg-slate-800/40 transition-colors">
+
+                                    <td class="py-3 pr-4 pl-3 align-middle">
+                                        <div class="flex items-center gap-2.5">
+                                            <span class="w-1.5 h-8 rounded-full bg-sky-500 shrink-0"></span>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-1.5">
+                                                    <span x-show="parcel.receipt_number"
+                                                          class="font-mono font-black text-slate-900 dark:text-slate-100"
+                                                          x-text="'#' + parcel.receipt_number"></span>
+                                                    <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[165px]"
+                                                          :title="parcel.package_type"
+                                                          x-text="parcel.package_type"></span>
+                                                </div>
+                                                <p x-show="parcel.dispatched_ago || parcel.dispatched_clock"
+                                                   class="text-[10px] text-slate-400 mt-0.5"
+                                                   x-text="(parcel.dispatched_ago || '') + (parcel.dispatched_clock ? (' • ' + (parcel.dispatched_date ? parcel.dispatched_date + ' ' : '') + parcel.dispatched_clock) : '')"></p>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="py-3 px-3 align-middle">
+                                        <p class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[145px]" x-text="parcel.recipient_name"></p>
+                                        <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dir-ltr inline-block" x-text="parcel.recipient_phone"></p>
+                                    </td>
+
+                                    <td class="py-3 px-3 align-middle">
+                                        <p class="font-bold text-slate-700 dark:text-slate-200 truncate max-w-[145px]" x-text="parcel.sender_name"></p>
+                                        <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dir-ltr inline-block" x-text="parcel.sender_phone"></p>
+                                    </td>
+
+                                    <td class="py-3 px-3 align-middle">
+                                        <p class="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[185px]">
+                                            <span class="text-slate-400 text-[11px]">قادم من:</span>
+                                            <span x-text="parcel.source_office"></span>
+                                        </p>
+                                        <template x-if="parcel.shipment_number">
+                                            <p class="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 truncate max-w-[185px]">
+                                                <span x-text="'كشف #' + parcel.shipment_number"></span>
+                                                <span x-show="parcel.driver_name"
+                                                      class="font-sans text-slate-500 dark:text-slate-400 font-semibold"
+                                                      x-text="' • ' + parcel.driver_name"></span>
+                                            </p>
+                                        </template>
+                                        <template x-if="!parcel.shipment_number && parcel.notes">
+                                            <p class="text-[10px] text-amber-800 dark:text-amber-400 truncate max-w-[185px] mt-0.5"
+                                               :title="parcel.notes"
+                                               x-text="'ملاحظة: ' + parcel.notes"></p>
+                                        </template>
+                                    </td>
+
+                                    <td class="py-3 px-3 align-middle whitespace-nowrap">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md border text-[11px] font-extrabold"
+                                              :class="parcel.payment_badge_class || (parcel.is_deferred ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')">
+                                            <span x-text="(parcel.payment_label || '') + ':'"></span>
+                                            <span class="font-mono" x-text="(parcel.cod_amount || '0') + ' ر.ي'"></span>
+                                        </span>
+                                    </td>
+
+                                    <td class="py-3 pr-3 pl-4 align-middle whitespace-nowrap text-left">
+                                        <button type="button"
+                                                :disabled="Boolean(receivingIds[parcel.id])"
+                                                @click="openReceiveModal(parcel)"
+                                                class="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 disabled:opacity-50">
+                                            <span class="material-symbols-outlined text-[16px]">download_done</span>
+                                            <span x-text="receivingIds[parcel.id] ? 'جاري الاستلام...' : 'تم الاستلام'"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         {{-- حالات القائمة الفارغة أو عدم تطابق البحث (مشتركة بين الجدول والبطاقات) --}}
         <div>
@@ -791,11 +975,20 @@
                                 </span>
                             </div>
                         </template>
+                        <template x-if="!isOnline">
+                            <div class="bg-sky-50 lg:dark:bg-sky-500/10 border border-sky-200/80 lg:dark:border-sky-500/30 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-sky-800 lg:dark:text-sky-300 leading-snug">
+                                <span class="material-symbols-outlined text-base text-sky-600 lg:dark:text-sky-400 shrink-0 mt-0.5">cloud_off</span>
+                                <span>
+                                    <strong>وضع عدم الاتصال:</strong> سيُحفظ الاستلام فوراً في «الطرود المستلمة» وستتم المزامنة وإرسال إشعار العميل تلقائياً فور عودة الإنترنت.
+                                </span>
+                            </div>
+                        </template>
                     </div>
                 </template>
 
                 {{-- أزرار الموافقة والتراجع --}}
                 <form method="POST"
+                      data-offline-capable="true"
                       :action="receiveModal.url"
                       class="flex flex-col gap-2 pt-0.5"
                       @submit.prevent="confirmReceiveModal()">
@@ -804,7 +997,11 @@
                             :disabled="receiveModal.submitting"
                             class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50">
                         <span class="material-symbols-outlined text-base">download_done</span>
-                        <span x-text="receiveModal.submitting ? 'جاري التحويل وإرسال الإشعار...' : ('موافق — استلام وإشعار (' + channelLabel(notifyChannel) + ')')"></span>
+                        <span x-text="receiveModal.submitting
+                            ? 'جاري التحويل وإرسال الإشعار...'
+                            : (!isOnline
+                                ? 'موافق — استلام محلي (مزامنة تلقائية)'
+                                : ('موافق — استلام وإشعار (' + channelLabel(notifyChannel) + ')'))"></span>
                     </button>
 
                     <button type="button"
@@ -834,6 +1031,13 @@
             const initialChannel = ['sms', 'whatsapp', 'both'].includes(savedChannel) ? savedChannel : 'both';
 
             return {
+                officeId: Number(config.officeId || 0),
+                syncUrl: config.syncUrl || '/office/transit-parcels',
+                clientReady: false,
+                isLoading: true,
+                isOnline: navigator.onLine,
+                isDesktopViewport: window.matchMedia ? window.matchMedia('(min-width: 1024px)').matches : (window.innerWidth >= 1024),
+
                 remainingCount: Number(config.initialCount || 0),
                 parcels: rawParcels,
                 parcelsById: parcelsById,
@@ -863,6 +1067,113 @@
                     submitting: false,
                     url: '#',
                     parcel: null,
+                },
+
+                setParcelsList(list) {
+                    const next = Array.isArray(list) ? list : [];
+                    const map = {};
+                    for (let i = 0; i < next.length; i++) {
+                        if (next[i] && next[i].id) {
+                            map[String(next[i].id)] = next[i];
+                        }
+                    }
+                    this.parcels = next;
+                    this.parcelsById = map;
+                    this.receivedIds = {};
+                    this.remainingCount = next.length;
+                    window.dispatchEvent(new CustomEvent('office-header-count', {
+                        detail: { count: this.remainingCount }
+                    }));
+                    window.dispatchEvent(new CustomEvent('transit-count-updated', {
+                        detail: { count: this.remainingCount }
+                    }));
+                },
+
+                async init() {
+                    if (window.matchMedia) {
+                        const mq = window.matchMedia('(min-width: 1024px)');
+                        const syncMq = (e) => { this.isDesktopViewport = Boolean(e.matches); };
+                        if (typeof mq.addEventListener === 'function') mq.addEventListener('change', syncMq);
+                        else if (typeof mq.addListener === 'function') mq.addListener(syncMq);
+                    }
+
+                    window.addEventListener('online', () => {
+                        this.isOnline = true;
+                        this.syncFromServer();
+                    });
+                    window.addEventListener('offline', () => {
+                        this.isOnline = false;
+                    });
+                    window.__mursalPageRefresh = () => this.syncFromServer();
+
+                    // 1. تحميل القائمة المحلية من IndexedDB فوراً (<5ms) حتى في حالة انقطاع الإنترنت
+                    try {
+                        if (window.MursalDB) {
+                            const cached = await window.MursalDB.getLocalTransitParcels(this.officeId);
+                            if (cached.length > 0) {
+                                this.setParcelsList(cached);
+                            } else if (this.parcels.length > 0) {
+                                const saved = await window.MursalDB.saveTransitParcels(this.officeId, this.parcels);
+                                this.setParcelsList(saved);
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Transit IndexedDB hydrate error:', err);
+                    } finally {
+                        this.clientReady = true;
+                        if (!navigator.onLine || this.parcels.length > 0) {
+                            this.isLoading = false;
+                        }
+                    }
+
+                    // 2. عند توفر الإنترنت: تفريغ طابور الاستلام المؤجل ثم تحديث القائمة الحية من السيرفر بصمت
+                    if (navigator.onLine) {
+                        try {
+                            if (window.MursalSync) {
+                                await window.MursalSync.process();
+                            }
+                            await this.syncFromServer();
+                        } finally {
+                            this.isLoading = false;
+                        }
+                    } else {
+                        this.isLoading = false;
+                    }
+                },
+
+                async syncFromServer() {
+                    if (!navigator.onLine) return;
+                    try {
+                        const res = await fetch(`${this.syncUrl}?_t=${Date.now()}`, {
+                            cache: 'no-store',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+                        if (!res.ok) return;
+                        const data = await res.json().catch(() => null);
+                        if (data && data.ok && Array.isArray(data.items)) {
+                            const nextList = window.MursalDB
+                                ? await window.MursalDB.saveTransitParcels(data.office_id || this.officeId, data.items)
+                                : data.items;
+                            this.setParcelsList(nextList);
+                        }
+                    } catch (_) {
+                        // يستمر العمل أوفلاين من IndexedDB دون أي انقطاع
+                    }
+                },
+
+                get visibleParcels() {
+                    const out = [];
+                    for (let i = 0; i < this.parcels.length; i++) {
+                        const p = this.parcels[i];
+                        const id = String(p.id);
+                        if (!this.receivedIds[id] && this.isItemVisible(id)) {
+                            out.push(p);
+                        }
+                    }
+                    return out;
                 },
 
                 setChannel(ch) {
@@ -1159,22 +1470,83 @@
                     this.$nextTick(() => this.$refs.scanInput?.focus());
                 },
 
+                async handleOfflineReceive(parcelObj, channel, slotNum, url) {
+                    const parcelId = String(parcelObj.id);
+                    const receiptNum = parcelObj.receipt_number;
+                    const shipmentId = parcelObj.shipment_id;
+
+                    if (!window.MursalDB || typeof window.MursalDB.receiveTransitParcelOffline !== 'function') {
+                        this.beep('error');
+                        this.receiveModal.submitting = false;
+                        this.notifyToast('تعذر حفظ الاستلام محلياً، يرجى التحقق من المتصفح.', 'error');
+                        return;
+                    }
+
+                    const res = await window.MursalDB.receiveTransitParcelOffline(this.officeId, parcelObj, {
+                        channel,
+                        slotNumber: slotNum,
+                        url,
+                    });
+
+                    this.receivedIds[parcelId] = true;
+                    this.remainingCount = (res && typeof res.remainingCount === 'number')
+                        ? res.remainingCount
+                        : Math.max(0, this.remainingCount - 1);
+
+                    if (this.activeShipmentFilter !== 'all' && shipmentId && this.activeShipmentFilter === shipmentId && this.remainingInShipment(shipmentId) === 0) {
+                        this.activeShipmentFilter = 'all';
+                    }
+
+                    window.dispatchEvent(new CustomEvent('office-header-count', {
+                        detail: { count: this.remainingCount }
+                    }));
+
+                    this.beep('success');
+                    this.receiveModal.submitting = false;
+                    this.closeReceiveModal();
+
+                    if (this.remainingCount === 0) {
+                        await this.stopCamera();
+                    }
+
+                    this.notifyToast(
+                        'تم استلام سند #' + receiptNum + ' محلياً ونقله للطرود المستلمة — ستتم المزامنة وإرسال الإشعار تلقائياً فور توفر الإنترنت.',
+                        'success'
+                    );
+                },
+
                 async confirmReceiveModal() {
                     if (this.receiveModal.submitting || !this.receiveModal.parcel) return;
-                    if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) return;
 
-                    const parcelId = String(this.receiveModal.parcel.id);
-                    const receiptNum = this.receiveModal.parcel.receipt_number;
-                    const shipmentId = this.receiveModal.parcel.shipment_id;
+                    const parcelObj = { ...this.receiveModal.parcel };
+                    const parcelId = String(parcelObj.id);
+                    const receiptNum = parcelObj.receipt_number;
+                    const shipmentId = parcelObj.shipment_id;
                     const url = this.receiveModal.url;
+                    const channel = this.notifyChannel;
+                    const slotNum = this.slotNumber.trim() || null;
                     const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
                     this.receiveModal.submitting = true;
                     this.receivingIds[parcelId] = true;
 
+                    // مسار أوفلاين فوري (0ms) بدون انتظار الشبكة
+                    if (!navigator.onLine) {
+                        try {
+                            await this.handleOfflineReceive(parcelObj, channel, slotNum, url);
+                        } finally {
+                            this.receivingIds[parcelId] = false;
+                        }
+                        return;
+                    }
+
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 6500);
+
                     try {
                         const res = await fetch(url, {
                             method: 'POST',
+                            signal: controller.signal,
                             headers: {
                                 'Accept': 'application/json',
                                 'Content-Type': 'application/json',
@@ -1182,8 +1554,8 @@
                                 'X-CSRF-TOKEN': token,
                             },
                             body: JSON.stringify({
-                                channel: this.notifyChannel,
-                                slot_number: this.slotNumber.trim() || null,
+                                channel: channel,
+                                slot_number: slotNum,
                             }),
                         });
 
@@ -1193,6 +1565,10 @@
                             this.receiveModal.submitting = false;
                             this.notifyToast(data.message || 'تعذر استلام الطرد.', 'error');
                             return;
+                        }
+
+                        if (window.MursalDB && typeof window.MursalDB.removeLocalTransitParcel === 'function') {
+                            await window.MursalDB.removeLocalTransitParcel(this.officeId, parcelId).catch(() => {});
                         }
 
                         this.receivedIds[parcelId] = true;
@@ -1208,7 +1584,10 @@
                             this.activeShipmentFilter = 'all';
                         }
 
-                        // تحديث عداد "الطرود" وعداد "الشحنات" معاً لحظياً في الشريط السفلي
+                        // تحديث عداد "الطرود" وعداد "الشحنات" والهيدر معاً لحظياً
+                        window.dispatchEvent(new CustomEvent('office-header-count', {
+                            detail: { count: this.remainingCount }
+                        }));
                         window.dispatchEvent(new CustomEvent('transit-count-updated', {
                             detail: { count: this.remainingCount }
                         }));
@@ -1226,20 +1605,16 @@
                             await this.stopCamera();
                         }
 
-                        const label = this.channelLabel(this.notifyChannel);
+                        const label = this.channelLabel(channel);
                         this.notifyToast(
                             data.message || ('تم استلام سند #' + receiptNum + ' وتحويله للطرود المستلمة (' + label + ').'),
                             'success'
                         );
                     } catch (err) {
-                        this.beep('error');
-                        this.receiveModal.submitting = false;
-                        if (typeof window.notifyNetworkError === 'function') {
-                            window.notifyNetworkError('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
-                        } else {
-                            this.notifyToast('تعذر الاتصال بالخادم، يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.', 'error');
-                        }
+                        // في حال انقطاع الشبكة المفاجئ أو بطء شديد (Lie-Fi): حفظ فوري أوفلاين بدل الفشل
+                        await this.handleOfflineReceive(parcelObj, channel, slotNum, url);
                     } finally {
+                        clearTimeout(timer);
                         this.receivingIds[parcelId] = false;
                     }
                 }

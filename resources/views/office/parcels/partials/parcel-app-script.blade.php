@@ -6,6 +6,7 @@
         const ROUTES = {
             list: @json(route('office.api.parcels')),
             sync: @json(route('office.api.parcels.sync')),
+            updateParcel: (id) => `{{ url('/office/api/parcels') }}/${id}`,
             login: @json(route('office.login')),
             resendSms: (id) => `{{ url('/office/api/parcels') }}/${id}/resend-sms`,
             markManualSms: (id) => `{{ url('/office/api/parcels') }}/${id}/mark-manual-sms`,
@@ -68,6 +69,31 @@
                 }
                 if (!res.ok) throw new Error(`Fetch parcels failed (${res.status})`);
                 return res.json();
+            },
+
+            async updateParcel(parcelId, payload) {
+                const res = await fetch(ROUTES.updateParcel(parcelId), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401 || res.status === 419) {
+                    const err = new Error('AUTH_EXPIRED');
+                    err.status = res.status;
+                    throw err;
+                }
+                if (!res.ok) {
+                    const err = new Error(data.message || `تعذر حفظ التعديلات (رمز: ${res.status})`);
+                    err.status = res.status;
+                    err.data = data;
+                    throw err;
+                }
+                return data;
             },
 
             async resendSms(parcelId) {
@@ -284,6 +310,23 @@
             deliveryModal: {
                 open: false,
                 parcel: null,
+            },
+
+            // مودال تعديل بيانات الطرد (في المكتب فقط)
+            editModal: {
+                open: false,
+                submitting: false,
+                error: '',
+                parcel: null,
+                form: {
+                    package_type: '',
+                    receipt_number: '',
+                    recipient_name: '',
+                    recipient_phone: '',
+                    cod_amount: '',
+                    source_region: '',
+                    slot_number: '',
+                },
             },
 
             async init() {
@@ -518,6 +561,132 @@
 
                 this.closeDeliveryModal();
                 await this.executeStatusChange(parcel, 'delivered');
+            },
+
+            // ---------- إدارة مودال تعديل بيانات الطرد (في المكتب فقط) ----------
+
+            openEditModal(parcel) {
+                if (!parcel || parcel.status !== 'in_office') {
+                    this.showFeedback('يمكن تعديل الطرد فقط عندما تكون حالته «في المكتب».', true);
+                    return;
+                }
+                if (parcel.is_local_temp || String(parcel.id || '').startsWith('temp-')) {
+                    this.showFeedback('هذا الطرد بانتظار المزامنة؛ يرجى المزامنة مع السيرفر أولاً قبل تعديله.', true);
+                    return;
+                }
+
+                this.editModal.parcel = parcel;
+                this.editModal.error = '';
+                this.editModal.submitting = false;
+                this.editModal.form = {
+                    package_type: parcel.package_type || '',
+                    receipt_number: parcel.receipt_number || '',
+                    recipient_name: parcel.recipient_name || '',
+                    recipient_phone: parcel.recipient_phone || '',
+                    cod_amount: (parcel.cod_amount !== null && parcel.cod_amount !== undefined && Number(parcel.cod_amount) > 0) ? String(parcel.cod_amount) : '',
+                    source_region: parcel.source_region || '',
+                    slot_number: parcel.slot_number || '',
+                };
+                this.editModal.open = true;
+            },
+
+            closeEditModal() {
+                if (this.editModal.submitting) return;
+                this.editModal.open = false;
+                this.editModal.parcel = null;
+                this.editModal.error = '';
+            },
+
+            async submitEditParcel() {
+                const parcel = this.editModal.parcel;
+                if (!parcel || this.editModal.submitting) return;
+
+                if (parcel.status !== 'in_office') {
+                    this.editModal.error = 'لا يمكن تعديل الطرد إلا عندما تكون حالته «في المكتب» فقط.';
+                    return;
+                }
+
+                const cleanPackage = String(this.editModal.form.package_type || '').trim();
+                if (!cleanPackage) {
+                    this.editModal.error = 'يرجى إدخال نوع الطرد.';
+                    return;
+                }
+
+                let cleanPhone = this.normalizeText(this.editModal.form.recipient_phone || '').replace(/[^\d]/g, '');
+                if (cleanPhone.startsWith('00967')) cleanPhone = cleanPhone.slice(5);
+                else if (cleanPhone.startsWith('967') && cleanPhone.length === 12) cleanPhone = cleanPhone.slice(3);
+                else if (cleanPhone.startsWith('0') && cleanPhone.length === 10) cleanPhone = cleanPhone.slice(1);
+
+                if (!/^7[01378]\d{7}$/.test(cleanPhone)) {
+                    this.editModal.error = 'رقم هاتف المستلم غير صالح. يجب أن يبدأ بـ 7 ويتكون من 9 أرقام.';
+                    return;
+                }
+
+                const cleanReceipt = this.normalizeText(this.editModal.form.receipt_number || '').trim();
+                const cleanName = String(this.editModal.form.recipient_name || '').trim();
+                const cleanRegion = String(this.editModal.form.source_region || '').trim();
+                const cleanSlot = this.normalizeText(this.editModal.form.slot_number || '').trim();
+                const rawCod = this.normalizeText(this.editModal.form.cod_amount ?? '').trim();
+                const codVal = rawCod !== '' && !isNaN(Number(rawCod)) && Number(rawCod) > 0 ? Number(rawCod) : null;
+
+                const payload = {
+                    package_type: cleanPackage,
+                    receipt_number: cleanReceipt || null,
+                    recipient_name: cleanName || null,
+                    recipient_phone: cleanPhone,
+                    cod_amount: codVal,
+                    source_region: cleanRegion || null,
+                    slot_number: cleanSlot || null,
+                };
+
+                this.editModal.error = '';
+                this.editModal.submitting = true;
+
+                const applyLocalUpdate = async (updatedFields, enqueueOffline = false) => {
+                    const updatedParcel = { ...parcel, ...updatedFields };
+                    this.parcels = this.parcels.map((p) => (p.id === parcel.id ? updatedParcel : p));
+                    if (window.MursalDB) {
+                        await window.MursalDB.put(window.MURSAL_STORES.parcels, updatedParcel).catch(() => {});
+                    }
+                    if (enqueueOffline && window.MursalSync) {
+                        await window.MursalSync.enqueue(ROUTES.updateParcel(parcel.id), payload, 'PUT');
+                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                        this.recomputePendingIds();
+                    }
+                };
+
+                try {
+                    if (!this.isOnline) {
+                        await applyLocalUpdate(payload, true);
+                        this.editModal.submitting = false;
+                        this.closeEditModal();
+                        this.showFeedback('تم حفظ التعديل محلياً — ستتم المزامنة تلقائياً عند توفر الإنترنت.', false);
+                        return;
+                    }
+
+                    const res = await ParcelApi.updateParcel(parcel.id, payload);
+                    const serverParcel = res?.parcel || payload;
+                    await applyLocalUpdate(serverParcel, false);
+                    this.editModal.submitting = false;
+                    this.closeEditModal();
+                    this.showFeedback(res?.message || 'تم تعديل بيانات الطرد بنجاح.', false);
+                } catch (err) {
+                    if (err.message === 'AUTH_EXPIRED') {
+                        this.editModal.submitting = false;
+                        this.closeEditModal();
+                        this.handleSessionExpired();
+                        return;
+                    }
+                    if (!err.status) {
+                        await applyLocalUpdate(payload, true);
+                        this.editModal.submitting = false;
+                        this.closeEditModal();
+                        this.showFeedback('تعذر الاتصال بالخادم، تم حفظ التعديل محلياً للمزامنة التلقائية.', false);
+                        return;
+                    }
+                    this.editModal.error = err.message || 'تعذر حفظ التعديلات.';
+                    this.editModal.submitting = false;
+                }
             },
 
             // ---------- إرسال رسائل SMS ----------
@@ -996,7 +1165,11 @@
 
                     // دمج التعديلات المعلقة محلياً مع بيانات السيرفر لضمان عدم اختفاء التعديلات
                     const pendingMap = new Map();
+                    const pendingLocalSnapshots = [];
                     pendingUpdates.forEach((item) => {
+                        if (item.payload?._local_incoming_snapshot) {
+                            pendingLocalSnapshots.push(item.payload._local_incoming_snapshot);
+                        }
                         const updates = item.payload?.updates || [];
                         updates.forEach((u) => pendingMap.set(u.id, u));
                     });
@@ -1004,6 +1177,10 @@
                     const merged = serverParcels.map((p) => {
                         const local = pendingMap.get(p.id);
                         return local ? { ...p, status: local.status, delivered_at: local.delivered_at } : p;
+                    });
+                    pendingLocalSnapshots.forEach((snap) => {
+                        const local = pendingMap.get(snap.id);
+                        merged.unshift(local ? { ...snap, status: local.status, delivered_at: local.delivered_at } : snap);
                     });
 
                     await window.MursalDB.clear(window.MURSAL_STORES.parcels);
@@ -1079,6 +1256,10 @@
                 const map = {};
                 const queue = this.syncQueue || [];
                 for (let i = 0; i < queue.length; i++) {
+                    const transitId = queue[i].payload?._transit_parcel_id;
+                    if (transitId) {
+                        map['temp-transit-' + transitId] = true;
+                    }
                     const updates = queue[i].payload?.updates || [];
                     for (let j = 0; j < updates.length; j++) {
                         const id = updates[j].id;

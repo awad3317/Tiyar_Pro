@@ -185,6 +185,8 @@
                       x-cloak
                       class="sb-badge min-w-[22px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center {{ $sbIsTransit ? 'bg-[#F59E0B] text-slate-950' : 'bg-amber-500/20 text-amber-300' }}"
                       x-text="transitCount > 99 ? '99+' : transitCount"></span>
+                <span x-show="transitCount === 0"
+                      class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsTransit ? 'bg-[#F59E0B]/20 text-amber-300' : 'bg-white/10 text-slate-300' }}">أوفلاين</span>
             </a>
         </div>
 

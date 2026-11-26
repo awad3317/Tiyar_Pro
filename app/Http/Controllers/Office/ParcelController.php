@@ -642,6 +642,100 @@ class ParcelController extends Controller
     }
 
     /**
+     * تعديل بيانات طرد مستلم (مسموح فقط عندما تكون حالته «في المكتب» in_office).
+     */
+    public function update(Request $request, Parcel $parcel)
+    {
+        $office = Auth::guard('office')->user();
+
+        if (!$office || (int) $parcel->office_id !== (int) $office->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'غير مصرح لك بتعديل هذا الطرد.',
+            ], 403);
+        }
+
+        if ($parcel->status !== ParcelStatus::InOffice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن تعديل الطرد إلا عندما تكون حالته «في المكتب» فقط.',
+            ], 422);
+        }
+
+        $rawPhone = $this->normalizeEasternDigits((string) $request->input('recipient_phone', ''));
+        $cleanPhone = preg_replace('/[^\d]/', '', $rawPhone);
+        if (str_starts_with($cleanPhone, '00967')) {
+            $cleanPhone = substr($cleanPhone, 5);
+        } elseif (str_starts_with($cleanPhone, '967') && strlen($cleanPhone) === 12) {
+            $cleanPhone = substr($cleanPhone, 3);
+        } elseif (str_starts_with($cleanPhone, '0') && strlen($cleanPhone) === 10) {
+            $cleanPhone = substr($cleanPhone, 1);
+        }
+
+        if (!preg_match('/^7[01378]\d{7}$/', $cleanPhone)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'رقم هاتف المستلم غير صالح. يجب أن يبدأ بـ 7 ويتكون من 9 أرقام.',
+            ], 422);
+        }
+
+        $packageType = trim(strip_tags((string) $request->input('package_type', '')));
+        if ($packageType === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'يرجى إدخال نوع الطرد.',
+            ], 422);
+        }
+
+        $recipientName = trim(strip_tags((string) $request->input('recipient_name', '')));
+        $receiptNumber = trim($this->normalizeEasternDigits(strip_tags((string) $request->input('receipt_number', ''))));
+
+        $updates = [
+            'package_type'    => mb_substr($packageType, 0, 150),
+            'recipient_name'  => $recipientName !== '' ? mb_substr($recipientName, 0, 120) : null,
+            'recipient_phone' => $cleanPhone,
+            'receipt_number'  => $receiptNumber !== '' ? mb_substr($receiptNumber, 0, 50) : null,
+        ];
+
+        if ($office->hasFeature('parcel_cod_amount') && $request->has('cod_amount')) {
+            $rawCod = $request->input('cod_amount');
+            if ($rawCod === null || $rawCod === '') {
+                $updates['cod_amount'] = null;
+                $updates['payment_type'] = 'prepaid';
+            } else {
+                $normalizedCod = trim($this->normalizeEasternDigits((string) $rawCod));
+                if (!is_numeric($normalizedCod) || (float) $normalizedCod < 0 || (float) $normalizedCod > 99999999) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'المبلغ المطلوب يجب أن يكون رقماً صالحاً بين 0 و 99,999,999.',
+                    ], 422);
+                }
+                $codVal = (float) $normalizedCod;
+                $updates['cod_amount'] = $codVal > 0 ? $codVal : null;
+                $updates['payment_type'] = $codVal > 0 ? 'postpaid' : 'prepaid';
+            }
+        }
+
+        if ($office->hasFeature('parcel_source_region') && $request->has('source_region')) {
+            $rawRegion = trim(strip_tags((string) $request->input('source_region', '')));
+            $updates['source_region'] = $rawRegion !== '' ? mb_substr($rawRegion, 0, 100) : null;
+        }
+
+        if ($office->hasFeature('parcel_slot_number') && $request->has('slot_number')) {
+            $rawSlot = trim($this->normalizeEasternDigits(strip_tags((string) $request->input('slot_number', ''))));
+            $updates['slot_number'] = $rawSlot !== '' ? mb_substr($rawSlot, 0, 50) : null;
+        }
+
+        $parcel->fill($updates)->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تعديل بيانات الطرد بنجاح.',
+            'parcel'  => $parcel->fresh(),
+        ]);
+    }
+
+    /**
      * تحويل الأرقام المشرقية/الفارسية إلى أرقام إنجليزية.
      */
     private function normalizeEasternDigits(string $str): string

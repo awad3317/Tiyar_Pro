@@ -1305,7 +1305,11 @@
                         iframe.setAttribute('aria-hidden', 'true');
                         iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
 
+                        let printed = false;
                         iframe.onload = () => {
+                            if (printed) return;
+                            printed = true;
+                            iframe.onload = null;
                             setTimeout(() => {
                                 try {
                                     if (iframe.contentWindow) {
@@ -1324,8 +1328,8 @@
                             window.open(fallbackUrl, '_blank');
                         };
 
-                        document.body.appendChild(iframe);
                         iframe.src = url;
+                        document.body.appendChild(iframe);
                     } catch (e) {
                         window.open(fallbackUrl, '_blank');
                     }

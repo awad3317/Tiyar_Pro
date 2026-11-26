@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Office;
 
 use App\Enums\OutgoingParcelStatus;
+use App\Enums\OutgoingPaymentType;
 use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\OutgoingParcel;
@@ -62,19 +63,108 @@ class IncomingTransitParcelController extends Controller
             ->latest('outgoing_parcels.dispatched_at')
             ->get();
 
+        $transitPayloads = $this->buildTransitPayloads($transitParcels, (int) $office->id);
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()
                 ->json([
                     'ok'              => true,
+                    'office_id'       => (int) $office->id,
                     'remaining_count' => $transitParcels->count(),
+                    'items'           => array_values($transitPayloads),
                     'parcels'         => $transitParcels,
                 ])
                 ->withHeaders(self::NO_CACHE_HEADERS);
         }
 
         return response()
-            ->view('office.transit_parcels.index', compact('office', 'transitParcels'))
+            ->view('office.transit_parcels.index', compact('office', 'transitParcels', 'transitPayloads'))
             ->withHeaders(self::NO_CACHE_HEADERS);
+    }
+
+    /**
+     * تجهيز حمولة موحدة للطرود القادمة في الطريق للعرض السريع والتخزين المحلي أوفلاين (IndexedDB)
+     * دون أي استعلامات SQL إضافية.
+     */
+    private function buildTransitPayloads($transitParcels, int $officeId): array
+    {
+        $payloads = [];
+
+        foreach ($transitParcels as $p) {
+            $officeLabel = $p->senderOfficeLabel();
+
+            $sourceRegion = null;
+            if ($p->office) {
+                $branch = trim((string) ($p->office->branch_name ?? ''));
+                $sourceRegion = $branch !== '' ? $branch : null;
+            } elseif ($p->externalPartnerLink) {
+                $city = trim((string) ($p->externalPartnerLink->partner_city ?? ''));
+                $sourceRegion = $city !== '' ? $city : null;
+            }
+
+            $paymentEnum = $p->payment_type instanceof OutgoingPaymentType
+                ? $p->payment_type
+                : (OutgoingPaymentType::tryFrom((string) $p->payment_type) ?? OutgoingPaymentType::PAID);
+
+            $dispatchedAt = $p->dispatched_at;
+            $dispatchedAgo = $dispatchedAt ? $dispatchedAt->copy()->locale('ar')->diffForHumans() : null;
+            $dispatchedClock = $dispatchedAt
+                ? $dispatchedAt->format('g:i') . ' ' . ($dispatchedAt->format('A') === 'AM' ? 'ص' : 'م')
+                : null;
+            $dispatchedDate = ($dispatchedAt && ! $dispatchedAt->isToday()) ? $dispatchedAt->format('Y/m/d') : null;
+
+            $shipmentId     = (string) ($p->shipment_id ?? '');
+            $shipmentNumber = (string) ($p->shipment_number ?? '');
+            $driverName     = (string) ($p->shipment_driver_name ?? '');
+            $driverPhone    = (string) ($p->shipment_driver_phone ?? '');
+            $codRaw         = (float) ($p->cod_amount ?? 0);
+
+            $payloads[(string) $p->id] = [
+                'id'                    => (string) $p->id,
+                'destination_office_id' => (int) ($p->destination_office_id ?: $officeId),
+                'source_office_id'      => $p->office_id ? (int) $p->office_id : null,
+                'source_region'         => $sourceRegion,
+                'url'                   => route('office.transit-parcels.receive', $p, false),
+                'package_type'          => (string) $p->package_type,
+                'receipt_number'        => (string) ($p->receipt_number ?? ''),
+                'source_office'         => $officeLabel,
+                'shipment_id'           => $shipmentId,
+                'shipment_number'       => $shipmentNumber,
+                'driver_name'           => $driverName,
+                'driver_phone'          => $driverPhone,
+                'payment_type'          => $paymentEnum->value,
+                'payment_label'         => $paymentEnum->label(),
+                'payment_badge_class'   => $paymentEnum->badgeClass(),
+                'is_deferred'           => $paymentEnum->value === 'deferred',
+                'cod_amount_raw'        => $codRaw,
+                'cod_amount'            => number_format($codRaw),
+                'recipient_name'        => (string) ($p->recipient_name ?: 'بدون اسم'),
+                'recipient_name_raw'    => $p->recipient_name ? (string) $p->recipient_name : null,
+                'recipient_phone'       => (string) $p->recipient_phone,
+                'sender_name'           => (string) $p->sender_name,
+                'sender_phone'          => (string) $p->sender_phone,
+                'notes'                 => (string) ($p->notes ?? ''),
+                'dispatched_at'         => $dispatchedAt ? $dispatchedAt->toIso8601String() : null,
+                'dispatched_date'       => $dispatchedDate,
+                'dispatched_ago'        => $dispatchedAgo,
+                'dispatched_clock'      => $dispatchedClock,
+                'search_text'           => implode(' ', array_filter([
+                    $p->package_type,
+                    $p->receipt_number,
+                    $p->recipient_name,
+                    $p->recipient_phone,
+                    $p->sender_name,
+                    $p->sender_phone,
+                    $officeLabel,
+                    $shipmentNumber,
+                    $driverName,
+                    $driverPhone,
+                    $p->notes,
+                ])),
+            ];
+        }
+
+        return $payloads;
     }
 
     public function receive(Request $request, OutgoingParcel $outgoingParcel, OutgoingParcelService $service)

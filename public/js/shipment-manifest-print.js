@@ -385,7 +385,11 @@
         iframe.setAttribute('aria-hidden', 'true');
         iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
 
+        let printed = false;
         iframe.onload = () => {
+            if (printed) return;
+            printed = true;
+            iframe.onload = null;
             setTimeout(() => {
                 try {
                     if (iframe.contentWindow) {
@@ -398,8 +402,9 @@
             }, 80);
         };
 
-        document.body.appendChild(iframe);
+        // تعيين srcdoc قبل appendChild لمنع إطلاق onload مرتين (about:blank ثم srcdoc) في Chrome/Edge
         iframe.srcdoc = html;
+        document.body.appendChild(iframe);
         return true;
     }
 

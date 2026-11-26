@@ -252,14 +252,11 @@
                                     </div>
                                 </td>
 
-                                <!-- 5. التواصل (اتصال / واتساب / SMS) -->
+                                <!-- 5. التواصل (واتساب / SMS — بدون زر اتصال هاتفي في الكمبيوتر) -->
                                 <td class="py-3 px-3 align-middle whitespace-nowrap">
                                     <div class="inline-flex items-center gap-1.5">
-                                        <a :href="'tel:' + p.recipient_phone"
-                                           title="اتصال هاتفي"
-                                           class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/30 flex items-center justify-center transition-colors">
-                                            <span class="material-symbols-outlined text-[16px]">call</span>
-                                        </a>
+                                        <span x-show="p.status !== 'in_office'"
+                                              class="text-slate-300 dark:text-slate-600 font-bold">—</span>
 
                                         <button type="button"
                                                 x-show="p.status === 'in_office'"
@@ -294,9 +291,18 @@
                                     </div>
                                 </td>
 
-                                <!-- 6. الإجراءات المباشرة (تسليم / إرجاع) -->
+                                <!-- 6. الإجراءات المباشرة (تعديل / تسليم / إرجاع) -->
                                 <td class="py-3 pr-3 pl-4 align-middle whitespace-nowrap text-left">
                                     <div class="inline-flex items-center justify-end gap-1.5">
+                                        <button type="button"
+                                                x-show="p.status === 'in_office'"
+                                                @click="openEditModal(p)"
+                                                title="تعديل بيانات الطرد"
+                                                class="h-8 px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-amber-500/15 dark:hover:border-amber-500/30 dark:hover:text-amber-300 text-xs font-extrabold inline-flex items-center gap-1 transition-all active:scale-95">
+                                            <span class="material-symbols-outlined text-[15px]">edit</span>
+                                            <span>تعديل</span>
+                                        </button>
+
                                         <template x-for="action in actionsFor(p)" :key="'act-' + action.status">
                                             <button type="button"
                                                     @click="
@@ -341,6 +347,9 @@
 
     <!-- مودال تأكيد التسليم -->
     @include('office.parcels.partials.delivery-confirm-modal')
+
+    <!-- مودال تعديل بيانات الطرد (في المكتب فقط) -->
+    @include('office.parcels.partials.edit-parcel-modal')
 @endsection
 
 @push('scripts')

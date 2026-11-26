@@ -119,9 +119,9 @@
                     </template>
                 </button>
 
-                <!-- زر الاتصال الهاتفي -->
+                <!-- زر الاتصال الهاتفي (للجوال فقط — مخفي على شاشات الكمبيوتر) -->
                 <a :href="'tel:' + p.recipient_phone" title="اتصال"
-                    class="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-sm transition-colors">
+                    class="lg:hidden w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-sm transition-colors">
                     <span class="material-symbols-outlined text-sm">call</span>
                 </a>
             </div>
@@ -161,8 +161,8 @@
             <span class="font-bold" x-text="formatDate(p.delivered_at)"></span>
         </p>
 
-        <!-- أزرار الإجراءات (تظهر فقط الانتقالات المسموحة حسب الحالة الحالية) -->
-        <div class="flex gap-2 pt-1" x-show="actionsFor(p).length">
+        <!-- أزرار الإجراءات (تظهر فقط الانتقالات المسموحة حسب الحالة الحالية + زر التعديل عند وجود الطرد في المكتب فقط) -->
+        <div class="flex gap-2 pt-1" x-show="actionsFor(p).length || p.status === 'in_office'">
             <template x-for="action in actionsFor(p)" :key="action.status">
                 <button type="button" @click="
                     action.status === 'returned'  ? openReturnModal(p)
@@ -175,6 +175,15 @@
                     <span x-text="action.label"></span>
                 </button>
             </template>
+
+            <button type="button"
+                    x-show="p.status === 'in_office'"
+                    @click="openEditModal(p)"
+                    title="تعديل بيانات الطرد"
+                    class="py-2 px-3 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-800 lg:dark:bg-slate-800 lg:dark:border-slate-700 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/15 lg:dark:hover:border-amber-500/30 lg:dark:hover:text-amber-300 flex items-center justify-center gap-1 transition-all active:scale-95 shrink-0">
+                <span class="material-symbols-outlined text-sm">edit</span>
+                <span>تعديل</span>
+            </button>
         </div>
 
         <p x-show="p.status === 'returned'" class="text-[11px] text-rose-500 text-center pt-1">

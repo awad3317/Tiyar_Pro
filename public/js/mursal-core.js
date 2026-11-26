@@ -5,7 +5,7 @@
  */
 (() => {
     const DB_NAME = 'MursalDB';
-    const DB_VERSION = 9; // ترقية لإضافة جداول الشحنات الأوفلاين وطابور مزامنتها
+    const DB_VERSION = 10; // ترقية لإضافة جدول الطرود القادمة في الطريق (أوفلاين)
 
     // قائمة الجداول المطلوبة للنظام حالياً ومستقبلاً
     const STORES = {
@@ -15,6 +15,7 @@
         sentShipments: 'sent_shipments',             // الشحنات المرسلة (أوفلاين + أونلاين)
         scannableParcels: 'outgoing_scannable_parcels', // الطرود الصادرة الجاهزة للمسح أوفلاين
         shipmentQueue: 'shipment_sync_queue',        // طابور عمليات الشحنات الأوفلاين
+        transitParcels: 'transit_parcels',           // الطرود القادمة في الطريق (أوفلاين + أونلاين)
     };
 
     const plain = (val) => JSON.parse(JSON.stringify(val));
@@ -77,6 +78,12 @@
                     if (!db.objectStoreNames.contains(STORES.shipmentQueue)) {
                         const shipmentQueueStore = db.createObjectStore(STORES.shipmentQueue, { keyPath: 'op_id' });
                         shipmentQueueStore.createIndex('created_at', 'created_at', { unique: false });
+                    }
+
+                    // 3. جدول الطرود القادمة في الطريق (أوفلاين)
+                    if (!db.objectStoreNames.contains(STORES.transitParcels)) {
+                        const transitStore = db.createObjectStore(STORES.transitParcels, { keyPath: 'id' });
+                        transitStore.createIndex('destination_office_id', 'destination_office_id', { unique: false });
                     }
                 };
 
@@ -547,6 +554,177 @@
             } finally {
                 this._isFlushingShipments = false;
             }
+        },
+
+        // ---------- إدارة الطرود القادمة في الطريق (أوفلاين) ----------
+
+        async getPendingTransitReceiveIds() {
+            await this.open();
+            const queue = await this.getAll(STORES.queue);
+            const pending = new Set();
+            for (let i = 0; i < queue.length; i++) {
+                const item = queue[i];
+                if (item?.payload?._transit_parcel_id) {
+                    pending.add(String(item.payload._transit_parcel_id));
+                    continue;
+                }
+                const pathname = MursalSync.extractPathname(item?.endpoint || '');
+                const m = pathname.match(/^\/office\/transit-parcels\/([^/?#]+)\/receive$/i);
+                if (m && m[1]) {
+                    pending.add(String(m[1]));
+                }
+            }
+            return pending;
+        },
+
+        async saveTransitParcels(officeId, items = []) {
+            await this.open();
+            const numericOfficeId = Number(officeId || 0);
+            const list = Array.isArray(items) ? items : [];
+            const pendingReceiveIds = await this.getPendingTransitReceiveIds();
+
+            const existing = await this.getAll(STORES.transitParcels);
+            const keysToDelete = existing
+                .filter((p) => !numericOfficeId || Number(p.destination_office_id) === numericOfficeId)
+                .map((p) => String(p.id));
+
+            if (keysToDelete.length > 0) {
+                await this.deleteMany(STORES.transitParcels, keysToDelete);
+            }
+
+            const filtered = list
+                .filter((p) => p && p.id && !pendingReceiveIds.has(String(p.id)))
+                .map((p) => ({
+                    ...plain(p),
+                    id: String(p.id),
+                    destination_office_id: Number(p.destination_office_id || numericOfficeId),
+                }))
+                .sort((a, b) => (new Date(b.dispatched_at || 0).getTime() || 0) - (new Date(a.dispatched_at || 0).getTime() || 0));
+
+            if (filtered.length > 0) {
+                await this.putMany(STORES.transitParcels, filtered);
+            }
+
+            if (numericOfficeId > 0) {
+                try {
+                    localStorage.setItem('mursal_transit_count_' + numericOfficeId, String(filtered.length));
+                } catch (_) {}
+            }
+            window.dispatchEvent(new CustomEvent('transit-count-updated', { detail: { count: filtered.length } }));
+
+            return filtered;
+        },
+
+        async getLocalTransitParcels(officeId) {
+            await this.open();
+            const numericOfficeId = Number(officeId || 0);
+            const [all, pendingReceiveIds] = await Promise.all([
+                this.getAll(STORES.transitParcels),
+                this.getPendingTransitReceiveIds(),
+            ]);
+
+            return all
+                .filter((p) => {
+                    if (!p || !p.id) return false;
+                    if (numericOfficeId && Number(p.destination_office_id) !== numericOfficeId) return false;
+                    return !pendingReceiveIds.has(String(p.id));
+                })
+                .sort((a, b) => (new Date(b.dispatched_at || 0).getTime() || 0) - (new Date(a.dispatched_at || 0).getTime() || 0));
+        },
+
+        async removeLocalTransitParcel(officeId, parcelId) {
+            await this.open();
+            const idStr = String(parcelId || '');
+            if (idStr) {
+                await this.delete(STORES.transitParcels, idStr);
+            }
+            const remaining = await this.getLocalTransitParcels(officeId);
+            const numericOfficeId = Number(officeId || 0);
+            if (numericOfficeId > 0) {
+                try {
+                    localStorage.setItem('mursal_transit_count_' + numericOfficeId, String(remaining.length));
+                } catch (_) {}
+            }
+            return remaining.length;
+        },
+
+        async receiveTransitParcelOffline(officeId, parcel, options = {}) {
+            await this.open();
+            if (!parcel || !parcel.id) return null;
+
+            const numericOfficeId = Number(officeId || parcel.destination_office_id || 0);
+            const parcelId = String(parcel.id);
+            const channel = ['sms', 'whatsapp', 'both'].includes(options.channel) ? options.channel : 'both';
+            const cleanSlot = options.slotNumber ? String(options.slotNumber).trim() : null;
+            const endpoint = options.url
+                ? MursalSync.extractPathname(options.url)
+                : ('/office/transit-parcels/' + parcelId + '/receive');
+
+            // 1. إزالة الطرد من قائمة "قادمة في الطريق" المحلية فوراً
+            await this.delete(STORES.transitParcels, parcelId);
+
+            // 2. إدراج نسخة محلية فورية في قائمة "الطرود المستلمة" (STORES.parcels) ليظهر فوراً أوفلاين
+            const tempIncomingId = 'temp-transit-' + parcelId;
+            const localIncomingParcel = {
+                id: tempIncomingId,
+                office_id: numericOfficeId || undefined,
+                recipient_name: parcel.recipient_name_raw || (parcel.recipient_name && parcel.recipient_name !== 'بدون اسم' ? parcel.recipient_name : null),
+                recipient_phone: String(parcel.recipient_phone || ''),
+                package_type: String(parcel.package_type || 'طرد'),
+                receipt_number: parcel.receipt_number ? String(parcel.receipt_number) : null,
+                slot_number: cleanSlot || null,
+                cod_amount: parcel.is_deferred ? Number(parcel.cod_amount_raw || 0) : null,
+                source_office_id: parcel.source_office_id || null,
+                source_office_name: parcel.source_office || null,
+                source_region: parcel.source_region || null,
+                status: 'in_office',
+                created_at: new Date().toISOString(),
+                is_local_temp: true,
+            };
+            await this.put(STORES.parcels, localIncomingParcel);
+
+            // 3. جدولة طلب الاستلام في طابور المزامنة العام MursalSync
+            await MursalSync.enqueue(endpoint, {
+                channel,
+                slot_number: cleanSlot || null,
+                _transit_parcel_id: parcelId,
+                _local_incoming_snapshot: localIncomingParcel,
+            }, 'POST');
+
+            const remaining = await this.getLocalTransitParcels(numericOfficeId);
+            if (numericOfficeId > 0) {
+                try {
+                    localStorage.setItem('mursal_transit_count_' + numericOfficeId, String(remaining.length));
+                } catch (_) {}
+            }
+            window.dispatchEvent(new CustomEvent('transit-count-updated', { detail: { count: remaining.length } }));
+            window.dispatchEvent(new CustomEvent('mursal-queue-updated'));
+
+            return {
+                remainingCount: remaining.length,
+                localIncomingParcel,
+            };
+        },
+
+        async syncTransitFromServer(officeId = 0) {
+            if (!navigator.onLine) return null;
+            try {
+                const res = await fetch('/office/transit-parcels?_t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!res.ok) return null;
+                const data = await res.json().catch(() => null);
+                if (data && data.ok && Array.isArray(data.items)) {
+                    return await this.saveTransitParcels(data.office_id || officeId, data.items);
+                }
+            } catch (_) {
+                // العمل يستمر بصمت من IndexedDB
+            }
+            return null;
         }
     };
 
@@ -663,9 +841,15 @@
                                 }
                             };
 
-                            // لا نرسل body في طلبات DELETE أو GET أو HEAD
+                            // لا نرسل body في طلبات DELETE أو GET أو HEAD، وننظّف الحقول الداخلية التي تبدأ بـ _
                             if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE' && item.payload !== null && item.payload !== undefined) {
-                                fetchOptions.body = JSON.stringify(item.payload);
+                                let outgoingPayload = item.payload;
+                                if (outgoingPayload && typeof outgoingPayload === 'object' && !Array.isArray(outgoingPayload)) {
+                                    outgoingPayload = Object.fromEntries(
+                                        Object.entries(outgoingPayload).filter(([k]) => !k.startsWith('_'))
+                                    );
+                                }
+                                fetchOptions.body = JSON.stringify(outgoingPayload);
                             }
 
                             const res = await fetch(endpoint, fetchOptions);
@@ -679,9 +863,40 @@
                             const isNonRetryable = (res.status === 400 || res.status === 422 || (method === 'PUT' && res.status === 404));
 
                             if (res.ok || isDeleteAlreadyDone) {
+                                if (res.ok && item.payload?._transit_parcel_id) {
+                                    const resData = await res.json().catch(() => ({}));
+                                    const tempId = 'temp-transit-' + String(item.payload._transit_parcel_id);
+                                    await MursalDB.delete(STORES.parcels, tempId).catch(() => {});
+
+                                    // إذا عدّل الموظف حالة الطرد محلياً بعد استلامه أوفلاين، نربط التحديث اللاحق بالمعرّف الحقيقي من السيرفر
+                                    if (resData && resData.incoming_id) {
+                                        const allQueued = await MursalDB.getAll(STORES.queue);
+                                        for (let qIdx = 0; qIdx < allQueued.length; qIdx++) {
+                                            const qItem = allQueued[qIdx];
+                                            if (qItem.seq === item.seq || !Array.isArray(qItem?.payload?.updates)) continue;
+                                            let touched = false;
+                                            const mappedUpdates = qItem.payload.updates.map((u) => {
+                                                if (u && String(u.id) === tempId) {
+                                                    touched = true;
+                                                    return { ...u, id: resData.incoming_id };
+                                                }
+                                                return u;
+                                            });
+                                            if (touched) {
+                                                await MursalDB.put(STORES.queue, {
+                                                    ...qItem,
+                                                    payload: { ...qItem.payload, updates: mappedUpdates },
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
                                 await MursalDB.delete(STORES.queue, item.seq);
                             } else if (isNonRetryable) {
                                 // خطأ في البيانات لا يمكن حله بإعادة المحاولة: نحذفه من الطابور حتى لا يعلق
+                                if (item.payload?._transit_parcel_id) {
+                                    await MursalDB.delete(STORES.parcels, 'temp-transit-' + String(item.payload._transit_parcel_id)).catch(() => {});
+                                }
                                 console.warn('MursalSync: Item unprocessable (' + res.status + '), removing from queue:', item);
                                 await MursalDB.delete(STORES.queue, item.seq);
                             } else {
@@ -703,6 +918,7 @@
                 }
             } finally {
                 this.isSyncing = false;
+                window.dispatchEvent(new CustomEvent('mursal-queue-updated'));
             }
         }
     };
@@ -1029,6 +1245,27 @@
 
                 this.watchConnection(() => this.syncData());
 
+                window.addEventListener('mursal-queue-updated', async () => {
+                    if (window.MursalDB) {
+                        this.syncQueue = await window.MursalDB.getAll(window.MURSAL_STORES.queue);
+                    }
+                });
+
+                // تحميل مسبق خفيف بالخلفية للطرود القادمة في الطريق لتكون جاهزة فوراً أوفلاين حتى قبل فتح الصفحة
+                if (navigator.onLine && window.MursalDB && !window.location.pathname.startsWith('/office/transit-parcels')) {
+                    try {
+                        const lastBg = parseInt(sessionStorage.getItem('mursal_transit_bg_sync_at') || '0', 10) || 0;
+                        if (Date.now() - lastBg > 45000) {
+                            sessionStorage.setItem('mursal_transit_bg_sync_at', String(Date.now()));
+                            setTimeout(() => {
+                                if (navigator.onLine && window.MursalDB) {
+                                    window.MursalDB.syncTransitFromServer();
+                                }
+                            }, 1200);
+                        }
+                    } catch (_) {}
+                }
+
                 // استقبال إشعار المزامنة التلقائية من الـ Service Worker
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.addEventListener('message', async (event) => {
@@ -1165,6 +1402,8 @@
                     }
                     if (typeof this.refreshFromServer === 'function') {
                         await this.refreshFromServer();
+                    } else if (typeof window.__mursalPageRefresh === 'function') {
+                        await window.__mursalPageRefresh();
                     } else if (navigator.onLine) {
                         window.location.reload();
                     }
