@@ -826,7 +826,7 @@
                     if (buttons.length === 0) return;
 
                     const keys = await caches.keys();
-                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v34';
+                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v36';
                     const cache = await caches.open(pwaCacheName);
 
                     for (const btn of buttons) {

@@ -114,19 +114,29 @@
             },
 
             async resendWhatsapp(parcelId) {
-                const res = await fetch(ROUTES.resendWhatsapp(parcelId), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': this.csrfToken,
-                    },
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    throw new Error(data.message || `تعذر إرسال الواتساب (رمز: ${res.status})`);
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 7500);
+                try {
+                    const res = await fetch(ROUTES.resendWhatsapp(parcelId), {
+                        method: 'POST',
+                        signal: controller.signal,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': this.csrfToken,
+                        },
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const err = new Error(data.message || `تعذر إرسال الواتساب (رمز: ${res.status})`);
+                        err.status = res.status;
+                        err.offline = Boolean(data.offline);
+                        throw err;
+                    }
+                    return data;
+                } finally {
+                    clearTimeout(timer);
                 }
-                return data;
             },
 
             async quickSendSms(items) {
@@ -189,6 +199,7 @@
             filter: 'all',
             filters: FILTERS,
             desktopView: localStorage.getItem('mursal_incoming_desktop_view') === 'cards' ? 'cards' : 'table',
+            isDesktopViewport: window.matchMedia ? window.matchMedia('(min-width: 1024px)').matches : (window.innerWidth >= 1024),
             isLoading: true,
             clientReady: false,
             isSyncing: false,
@@ -239,9 +250,12 @@
                 }
             },
 
-            // تتبع حالة رسائل SMS و WhatsApp
+            // تتبع حالة رسائل SMS و WhatsApp بشكل مستقل غير معطّل لبقية الطرود
             sendingSmsId: null,
             sendingWhatsappId: null,
+            sendingWhatsappIds: {},
+            _waDirectFallbackUntil: 0,
+            _actionsCache: {},
 
             // حالة بوابة الرسائل SMS ورصيد الشريحة
             smsGateway: {
@@ -273,6 +287,19 @@
             },
 
             async init() {
+                if (window.matchMedia) {
+                    const mq = window.matchMedia('(min-width: 1024px)');
+                    const syncMq = (e) => {
+                        this.isDesktopViewport = Boolean(e.matches);
+                        this.$nextTick(() => this.refreshScrollObserver());
+                    };
+                    if (typeof mq.addEventListener === 'function') {
+                        mq.addEventListener('change', syncMq);
+                    } else if (typeof mq.addListener === 'function') {
+                        mq.addListener(syncMq);
+                    }
+                }
+
                 try {
                     // 1. فتح قاعدة البيانات الموحدة بإصدارها الأحدث
                     await window.MursalDB.open();
@@ -537,8 +564,12 @@
                 }
             },
 
+            isSendingWhatsapp(parcelId) {
+                return Boolean(this.sendingWhatsappIds[parcelId]) || this.sendingWhatsappId === parcelId;
+            },
+
             async resendWhatsapp(parcel) {
-                if (this.sendingWhatsappId) return;
+                if (!parcel || this.isSendingWhatsapp(parcel.id)) return;
 
                 if (typeof window.requireOnlineAction === 'function') {
                     if (!window.requireOnlineAction('يتطلب إرسال الواتساب اتصالاً نشطاً بالإنترنت.')) return;
@@ -547,9 +578,10 @@
                     return;
                 }
 
-                this.sendingWhatsappId = parcel.id;
+                this.sendingWhatsappIds = { ...this.sendingWhatsappIds, [parcel.id]: true };
                 try {
                     const response = await ParcelApi.resendWhatsapp(parcel.id);
+                    this._waDirectFallbackUntil = 0;
                     this.showFeedback(response.message || 'تم إرسال إشعار الواتساب بنجاح!', false);
                 } catch (err) {
                     if (!err.status && typeof window.notifyNetworkError === 'function') {
@@ -558,11 +590,13 @@
                         this.showFeedback(err.message || 'تعذر إرسال إشعار الواتساب.', true);
                     }
                 } finally {
-                    this.sendingWhatsappId = null;
+                    const nextMap = { ...this.sendingWhatsappIds };
+                    delete nextMap[parcel.id];
+                    this.sendingWhatsappIds = nextMap;
                 }
             },
 
-            getWhatsAppDirectUrl(parcel, preparedTemplate) {
+            formatWhatsAppPayload(parcel, preparedTemplate) {
                 const text = (preparedTemplate || '')
                     .replace('{package}', parcel.package_type || 'طرد')
                     .replace('{receipt}', parcel.receipt_number || '')
@@ -575,45 +609,77 @@
                     cleanPhone = '967' + cleanPhone;
                 }
 
-                return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+                const encodedText = encodeURIComponent(text);
+                return {
+                    phone: cleanPhone,
+                    encodedText,
+                    webUrl: `https://wa.me/${cleanPhone}?text=${encodedText}`,
+                    protocolUrl: `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`,
+                };
             },
 
-            openWhatsAppDirect(url) {
-                const win = window.open(url, '_blank');
-                if (!win || win.closed || typeof win.closed === 'undefined') {
-                    window.location.href = url;
+            getWhatsAppDirectUrl(parcel, preparedTemplate) {
+                return this.formatWhatsAppPayload(parcel, preparedTemplate).webUrl;
+            },
+
+            openWhatsAppDirect(url, protocolUrl = null) {
+                const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+                if (isMobileDevice) {
+                    const win = window.open(url, '_blank');
+                    if (!win || win.closed || typeof win.closed === 'undefined') {
+                        window.location.href = url;
+                    }
+                    return;
+                }
+
+                // على الكمبيوتر: نعيد استخدام تبويب واحد بدلاً من فتح عشرات التبويبات ولا نخرج من تطبيق مُرسَل أبداً
+                const win = window.open(url, 'mursal_whatsapp_direct', 'noopener');
+                if ((!win || win.closed || typeof win.closed === 'undefined') && protocolUrl) {
+                    const a = document.createElement('a');
+                    a.href = protocolUrl;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => a.remove(), 150);
                 }
             },
 
             async handleWhatsAppClick(parcel, preparedTemplate, hasConfiguredGateway = true) {
-                if (this.sendingWhatsappId) return;
+                if (!parcel || this.isSendingWhatsapp(parcel.id)) return;
 
-                const directUrl = this.getWhatsAppDirectUrl(parcel, preparedTemplate);
+                const waPayload = this.formatWhatsAppPayload(parcel, preparedTemplate);
+                const gatewayTemporarilyDown = Date.now() < this._waDirectFallbackUntil;
 
-                // إذا كان الجهاز غير متصل بالإنترنت أو لم يتم ضبط بوابة واتساب للمكتب، نفتح واتساب فوراً (الطريقة السابقة)
-                if (!this.isOnline || !hasConfiguredGateway) {
-                    this.openWhatsAppDirect(directUrl);
+                // إذا كان الجهاز أوفلاين أو البوابة غير مفعلة/متوقفة مؤقتاً، نفتح واتساب فوراً (0ms) بدون انتظار الشبكة
+                if (!this.isOnline || !hasConfiguredGateway || gatewayTemporarilyDown) {
+                    this.openWhatsAppDirect(waPayload.webUrl, waPayload.protocolUrl);
                     return;
                 }
 
-                // محاولة الإرسال التلقائي عبر السيرفر
-                this.sendingWhatsappId = parcel.id;
+                // إرسال متوازٍ سريع عبر السيرفر بدون تعطيل بقية أزرار الطرود في الجدول
+                this.sendingWhatsappIds = { ...this.sendingWhatsappIds, [parcel.id]: true };
                 try {
                     const response = await ParcelApi.resendWhatsapp(parcel.id);
                     if (response && response.success) {
+                        this._waDirectFallbackUntil = 0;
                         this.showFeedback(response.message || 'تم إرسال إشعار الواتساب تلقائياً بنجاح!', false);
                     } else {
-                        // في حال فشل الإرسال التلقائي، التحويل الفوري لواتساب بالطريقة القديمة
-                        this.openWhatsAppDirect(directUrl);
+                        this._waDirectFallbackUntil = Date.now() + 90000;
+                        this.openWhatsAppDirect(waPayload.webUrl, waPayload.protocolUrl);
                         this.showFeedback('تعذر الإرسال التلقائي، تم فتح واتساب للمراسلة المباشرة.', false);
                     }
                 } catch (err) {
-                    // في حال أي خطأ بالسيرفر أو انقطاع، التحويل لواتساب بالطريقة السابقة فوراً
                     console.warn('WhatsApp API not reachable, falling back to direct link:', err);
-                    this.openWhatsAppDirect(directUrl);
+                    if (err.offline || !err.status || err.status >= 500 || err.status === 422) {
+                        this._waDirectFallbackUntil = Date.now() + 90000;
+                    }
+                    this.openWhatsAppDirect(waPayload.webUrl, waPayload.protocolUrl);
                     this.showFeedback('تعذر الإرسال عبر السيرفر، تم فتح واتساب للمراسلة المباشرة.', false);
                 } finally {
-                    this.sendingWhatsappId = null;
+                    const nextMap = { ...this.sendingWhatsappIds };
+                    delete nextMap[parcel.id];
+                    this.sendingWhatsappIds = nextMap;
                 }
             },
 
@@ -1061,7 +1127,14 @@
             },
 
             actionsFor(parcel) {
-                return (TRANSITIONS[parcel.status] || [])
+                if (!parcel) return [];
+                const st = parcel.status || '';
+                const srcKey = st === 'in_office' ? (parcel.source_office_name || '') : '';
+                const cacheKey = st + '|' + srcKey;
+                if (this._actionsCache[cacheKey]) {
+                    return this._actionsCache[cacheKey];
+                }
+                const built = (TRANSITIONS[st] || [])
                     .filter((status) => ACTIONS[status])
                     .map((status) => ({
                         status,
@@ -1069,6 +1142,8 @@
                         icon: ACTIONS[status].icon,
                         classes: ACTIONS[status].classes,
                     }));
+                this._actionsCache[cacheKey] = built;
+                return built;
             },
 
             statusLabel(status) {

@@ -358,6 +358,18 @@
         }
     </script>
 
+    {{-- التحميل المسبق الذكي لروابط القائمة الجانبية على متصفحات سطح المكتب (Chrome / Edge) لانتقال لحظي --}}
+    <script type="speculationrules">
+    {
+        "prefetch": [
+            {
+                "where": { "selector_matches": ".mursal-desktop-sidebar a[href]" },
+                "eagerness": "moderate"
+            }
+        ]
+    }
+    </script>
+
     @stack('scripts')
 
     <!-- Alpine.js في الأخير لضمان جاهزية المكونات -->

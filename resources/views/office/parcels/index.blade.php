@@ -13,7 +13,8 @@
         $rawTemplate
     );
     $preparedTemplate = str_replace(' ()', '', $preparedTemplate);
-    $hasOfficeWhatsApp = !empty($currentOffice?->whatsapp_api_key) || !empty(config('whatsapp.global_api_key'));
+    $hasOfficeWhatsApp = (!empty($currentOffice?->whatsapp_api_key) || !empty(config('whatsapp.global_api_key')))
+        && \Illuminate\Support\Facades\Cache::get('whatsapp_status_office_' . ($currentOffice?->id ?? 0)) !== 'offline';
 
     $rawSmsTemplate = !empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl;
     $preparedSmsTemplate = str_replace(
@@ -92,10 +93,10 @@
     <!-- قائمة الطرود -->
     <main x-ref="parcelsContainer" class="flex-1 p-3 lg:px-6 lg:py-4 overflow-y-auto">
 
-        <!-- أ. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) -->
+        <!-- أ. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات — لا يُرسم في DOM عند تفعيل جدول الكمبيوتر لمضاعفة السرعة) -->
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start'"
              class="mursal-desktop-cards space-y-2.5">
-            <template x-for="p in visibleParcels" :key="p.id">
+            <template x-for="p in ((!isDesktopViewport || desktopView === 'cards') ? visibleParcels : [])" :key="p.id">
                 @include('office.parcels.partials.parcel-card')
             </template>
 
@@ -161,9 +162,10 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
-                        <template x-for="p in visibleParcels" :key="'row-' + p.id">
+                        <template x-for="p in ((isDesktopViewport && desktopView === 'table') ? visibleParcels : [])" :key="'row-' + p.id">
                             <tr data-incoming-row="true"
-                                class="hover:bg-gray-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                                style="content-visibility: auto; contain-intrinsic-size: auto 52px;"
+                                class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
 
                                 <!-- 1. النوع ورقم السند -->
                                 <td class="py-3 pr-4 pl-3 align-middle">
@@ -217,26 +219,35 @@
                                 </td>
 
                                 <!-- 4. الحالة -->
-                                <td class="py-3 px-3 align-middle whitespace-nowrap">
-                                    <div class="flex items-center gap-1.5 flex-wrap">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold"
-                                              :class="statusBadge(p.status)"
-                                              x-text="statusLabel(p.status)"></span>
+                                <td class="py-3 px-3 align-middle">
+                                    <div class="space-y-1 max-w-[240px]">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold"
+                                                  :class="statusBadge(p.status)"
+                                                  x-text="statusLabel(p.status)"></span>
 
-                                        <template x-if="isPending(p.id)">
-                                            <span title="بانتظار توفر الإنترنت للمزامنة"
-                                                  class="inline-flex items-center gap-0.5 text-amber-700 bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-bold">
-                                                <span class="material-symbols-outlined text-[12px] animate-pulse">schedule</span>
-                                                <span>معلق</span>
-                                            </span>
-                                        </template>
+                                            <template x-if="isPending(p.id)">
+                                                <span title="بانتظار توفر الإنترنت للمزامنة"
+                                                      class="inline-flex items-center gap-0.5 text-amber-700 bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-bold">
+                                                    <span class="material-symbols-outlined text-[12px] animate-pulse">schedule</span>
+                                                    <span>معلق</span>
+                                                </span>
+                                            </template>
+
+                                            <template x-if="isTodayFailedSms(p)">
+                                                <span :title="p.sms_failure_reason || 'فشل إرسال الرسالة تلقائياً'"
+                                                      class="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold">
+                                                    <span class="material-symbols-outlined text-[12px]">sms_failed</span>
+                                                    <span>فشل SMS</span>
+                                                </span>
+                                            </template>
+                                        </div>
 
                                         <template x-if="isTodayFailedSms(p)">
-                                            <span :title="p.sms_failure_reason || 'فشل إرسال الرسالة تلقائياً'"
-                                                  class="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold">
-                                                <span class="material-symbols-outlined text-[12px]">sms_failed</span>
-                                                <span>فشل SMS</span>
-                                            </span>
+                                            <p class="text-[10px] font-bold text-rose-600 dark:text-rose-400 leading-snug"
+                                               x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
+                                                   ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب.'
+                                                   : 'تعذر إرسال الرسالة تلقائياً — اضغط (إعادة SMS) للمحاولة.')"></p>
                                         </template>
                                     </div>
                                 </td>
@@ -253,13 +264,13 @@
                                         <button type="button"
                                                 x-show="p.status === 'in_office'"
                                                 @click="handleWhatsAppClick(p, {{ Js::from($preparedTemplate) }}, {{ Js::from($hasOfficeWhatsApp) }})"
-                                                :disabled="sendingWhatsappId === p.id"
-                                                :title="sendingWhatsappId === p.id ? 'جاري إرسال إشعار الواتساب...' : 'إرسال إشعار عبر واتساب'"
+                                                :disabled="isSendingWhatsapp(p.id)"
+                                                :title="isSendingWhatsapp(p.id) ? 'جاري إرسال إشعار الواتساب...' : 'إرسال إشعار عبر واتساب'"
                                                 class="w-8 h-8 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] dark:text-[#4ade80] border border-[#25D366]/30 flex items-center justify-center transition-colors disabled:opacity-60">
-                                            <template x-if="sendingWhatsappId === p.id">
+                                            <template x-if="isSendingWhatsapp(p.id)">
                                                 <span class="w-3.5 h-3.5 border-2 border-[#25D366] border-t-transparent rounded-full animate-spin"></span>
                                             </template>
-                                            <template x-if="sendingWhatsappId !== p.id">
+                                            <template x-if="!isSendingWhatsapp(p.id)">
                                                 <svg class="w-4 h-4 fill-[#25D366]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
                                                     <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z" />
                                                 </svg>
@@ -270,7 +281,7 @@
                                                 x-show="p.status === 'in_office'"
                                                 @click="resendSms(p)"
                                                 :disabled="sendingSmsId === p.id"
-                                                :title="isTodayFailedSms(p) ? 'فشل إرسال الـ SMS - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
+                                                :title="isTodayFailedSms(p) ? ((p.sms_failure_reason || 'فشل إرسال الـ SMS') + ' — انقر لإعادة الإرسال') : 'إعادة إرسال إشعار SMS للمستلم'"
                                                 :class="isTodayFailedSms(p)
                                                     ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 dark:text-rose-400 dark:border-rose-500/30'
                                                     : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 dark:text-blue-400 dark:border-blue-500/30'"

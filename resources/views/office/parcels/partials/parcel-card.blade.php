@@ -64,7 +64,7 @@
                 <!-- زر إعادة إرسال SMS (يظهر فقط إذا كان الطرد بالمكتب) -->
                 <button type="button" x-show="p.status === 'in_office'" @click="resendSms(p)"
                     :disabled="sendingSmsId === p.id"
-                    :title="isTodayFailedSms(p) ? 'فشل إرسال الـ SMS - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
+                    :title="isTodayFailedSms(p) ? ((p.sms_failure_reason || 'فشل إرسال الـ SMS') + ' — انقر لإعادة الإرسال') : 'إعادة إرسال إشعار SMS للمستلم'"
                     :class="isTodayFailedSms(p) ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-200 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 lg:dark:border-rose-500/30 lg:dark:ring-rose-500/20' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80 lg:dark:bg-blue-500/15 lg:dark:hover:bg-blue-500/25 lg:dark:text-blue-400 lg:dark:border-blue-500/30'"
                     class="h-8 px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
                     <span class="material-symbols-outlined text-[15px]"
@@ -74,43 +74,44 @@
                 </button>
 
                 @php
-                    $currentOffice = Auth::guard('office')->user();
-                    $defaultTpl = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
-                    $rawTemplate = !empty($currentOffice?->whatsapp_template)
-                        ? $currentOffice->whatsapp_template
-                        : (!empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl);
+                    if (!isset($preparedTemplate) || !isset($hasOfficeWhatsApp) || !isset($preparedSmsTemplate)) {
+                        $currentOffice = Auth::guard('office')->user();
+                        $defaultTpl = "عميلنا العزيز،\nمكتب: {office} ({branch})\nتم استلام طردكم: {package}\nيرجى التوجه للفرع للاستلام. شكراً لتعاملكم معنا.";
+                        $rawTemplate = !empty($currentOffice?->whatsapp_template)
+                            ? $currentOffice->whatsapp_template
+                            : (!empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl);
 
-                    // تعويض بيانات المكتب الثابتة مسبقاً من السيرفر
-                    $preparedTemplate = str_replace(
-                        ['{office}', '{branch}'],
-                        [$currentOffice?->name ?? '', $currentOffice?->branch_name ?? ''],
-                        $rawTemplate
-                    );
-                    $preparedTemplate = str_replace(' ()', '', $preparedTemplate);
-                    $hasOfficeWhatsApp = !empty($currentOffice?->whatsapp_api_key) || !empty(config('whatsapp.global_api_key'));
+                        $preparedTemplate = str_replace(
+                            ['{office}', '{branch}'],
+                            [$currentOffice?->name ?? '', $currentOffice?->branch_name ?? ''],
+                            $rawTemplate
+                        );
+                        $preparedTemplate = str_replace(' ()', '', $preparedTemplate);
+                        $hasOfficeWhatsApp = (!empty($currentOffice?->whatsapp_api_key) || !empty(config('whatsapp.global_api_key')))
+                            && \Illuminate\Support\Facades\Cache::get('whatsapp_status_office_' . ($currentOffice?->id ?? 0)) !== 'offline';
 
-                    // قالب الـ SMS المختصر والمعتمد للإرسال اليدوي عبر شريحة جوال المكتب عند الطوارئ
-                    $rawSmsTemplate = !empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl;
-                    $preparedSmsTemplate = str_replace(
-                        ['{office}', '{branch}'],
-                        [$currentOffice?->name ?? '', $currentOffice?->branch_name ?? ''],
-                        $rawSmsTemplate
-                    );
-                    $preparedSmsTemplate = str_replace(' ()', '', $preparedSmsTemplate);
+                        $rawSmsTemplate = !empty($currentOffice?->sms_template) ? $currentOffice->sms_template : $defaultTpl;
+                        $preparedSmsTemplate = str_replace(
+                            ['{office}', '{branch}'],
+                            [$currentOffice?->name ?? '', $currentOffice?->branch_name ?? ''],
+                            $rawSmsTemplate
+                        );
+                        $preparedSmsTemplate = str_replace(' ()', '', $preparedSmsTemplate);
+                    }
                 @endphp
 
                 <!-- زر الواتساب الذكي (أيقونة الواتساب الرسمية: إرسال تلقائي عبر السيرفر إن وُجد اتصال، أو التحويل للواتساب المباشر) -->
                 <button type="button" x-show="p.status === 'in_office'"
                     @click="handleWhatsAppClick(p, {{ Js::from($preparedTemplate) }}, {{ Js::from($hasOfficeWhatsApp) }})"
-                    :disabled="sendingWhatsappId === p.id"
-                    :title="sendingWhatsappId === p.id ? 'جاري إرسال إشعار الواتساب...' : 'إرسال إشعار عبر واتساب'"
+                    :disabled="isSendingWhatsapp(p.id)"
+                    :title="isSendingWhatsapp(p.id) ? 'جاري إرسال إشعار الواتساب...' : 'إرسال إشعار عبر واتساب'"
                     class="w-8 h-8 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center shadow-sm transition-all active:scale-95 disabled:opacity-75 disabled:cursor-wait shrink-0">
                     
-                    <template x-if="sendingWhatsappId === p.id">
+                    <template x-if="isSendingWhatsapp(p.id)">
                         <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                     </template>
                     
-                    <template x-if="sendingWhatsappId !== p.id">
+                    <template x-if="!isSendingWhatsapp(p.id)">
                         <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
                             <path
                                 d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z" />
@@ -127,22 +128,25 @@
         </div>
 
 
-        <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) مع زر الإرسال اليدوي من رسائل الجوال -->
+        <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (يظهر السبب في الجوال والكمبيوتر، وزر الإرسال اليدوي للجوال فقط) -->
         <div x-show="isTodayFailedSms(p)"
              x-cloak
-             class="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 lg:dark:bg-rose-500/15 lg:dark:text-rose-300 lg:dark:border-rose-500/30 rounded-xl px-2.5 py-2 space-y-2 leading-relaxed">
+             class="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 lg:dark:bg-rose-500/15 lg:dark:text-rose-300 lg:dark:border-rose-500/30 rounded-xl px-2.5 py-2 space-y-2 lg:space-y-0 leading-relaxed">
             <div class="flex items-start gap-1.5">
                 <span class="material-symbols-outlined text-sm text-rose-600 lg:dark:text-rose-400 shrink-0 mt-0.5">sms_failed</span>
-                <span x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
-                    ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).'
-                    : 'تعذر إرسال الرسالة تلقائياً. يرجى التأكد من الشبكة والرقم ثم إعادة المحاولة، أو إرسالها يدوياً.')"></span>
+                <div>
+                    <span x-show="p.sms_failure_reason" x-text="p.sms_failure_reason"></span>
+                    <span x-show="!p.sms_failure_reason && p.sms_status === 'failed_balance'">انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).</span>
+                    <span x-show="!p.sms_failure_reason && p.sms_status !== 'failed_balance'" class="lg:hidden">تعذر إرسال الرسالة تلقائياً. يرجى التأكد من الشبكة والرقم ثم إعادة المحاولة، أو إرسالها يدوياً.</span>
+                    <span x-show="!p.sms_failure_reason && p.sms_status !== 'failed_balance'" class="hidden lg:inline">تعذر إرسال الرسالة تلقائياً. يرجى التأكد من الشبكة والرقم ثم الضغط على زر (إعادة SMS).</span>
+                </div>
             </div>
 
-            <!-- زر الإرسال اليدوي من رسائل الجوال (يظهر في جميع حالات فشل الـ SMS فقط) -->
+            <!-- زر الإرسال اليدوي من رسائل الجوال (للجوال فقط < 1024px لأن الكمبيوتر لا يدعم فتح تطبيق الرسائل) -->
             <template x-if="isManualSmsFallbackNeeded(p)">
                 <button type="button"
                         @click="sendManualDeviceSms(p, {{ Js::from($preparedSmsTemplate) }})"
-                        class="w-full py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all">
+                        class="lg:hidden w-full py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all">
                     <span class="material-symbols-outlined text-[15px]">sms</span>
                     <span>إرسال يدوي من رسائل الجوال</span>
                 </button>

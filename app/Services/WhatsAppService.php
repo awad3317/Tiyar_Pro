@@ -176,6 +176,7 @@ class WhatsAppService
     protected function client()
     {
         return Http::baseUrl($this->baseUrl)
+            ->connectTimeout(min(4, max(1, $this->timeout)))
             ->timeout($this->timeout)
             ->withHeaders([
                 'Apikey'       => $this->token ?? '',

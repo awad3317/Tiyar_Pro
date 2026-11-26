@@ -232,9 +232,14 @@ class ParcelController extends Controller
     /**
      * إعادة / إرسال إشعار WhatsApp للمستلم (مخصص للطرود المتواجدة في المكتب فقط عبر WhatsAppService).
      */
-    public function resendWhatsapp(Parcel $parcel, WhatsAppService $whatsAppService)
+    public function resendWhatsapp(Request $request, Parcel $parcel, WhatsAppService $whatsAppService)
     {
         $office = Auth::guard('office')->user();
+
+        // تحرير قفل الجلسة فوراً حتى لا تتجمد أي نقرات أو طلبات متزامنة أخرى في متصفح الكمبيوتر أثناء انتظار بوابة الواتساب
+        if ($request->hasSession()) {
+            $request->session()->save();
+        }
 
         // 1. التحقق من تبعية الطرد لنفس المكتب
         if ($parcel->office_id !== $office->id) {
@@ -253,20 +258,23 @@ class ParcelController extends Controller
         }
 
         // 3. التحقق من كاش الاتصال: إذا كانت الخدمة مسجلة كـ offline في الكاش نرجع فوراً لتوفير الوقت
-        $cacheStatus = Cache::get('whatsapp_status_office_' . $office->id);
+        $cacheKey = 'whatsapp_status_office_' . $office->id;
+        $cacheStatus = Cache::get($cacheKey);
         if ($cacheStatus === 'offline') {
             return response()->json([
                 'success' => false,
+                'offline' => true,
                 'message' => 'خدمة WhatsApp غير متصلة حالياً (حسب الكاش). يمكنك المراسلة المباشرة عبر الرابط.'
             ], 503);
         }
 
-        // 4. تهيئة خدمة الواتساب للمكتب الحالي
-        $wa = $whatsAppService->forOffice($office);
+        // 4. تهيئة خدمة الواتساب للمكتب الحالي بمهلة سريعة للاستجابة التفاعلية
+        $wa = $whatsAppService->forOffice($office)->withConfig(['timeout' => 6]);
 
         if (!$wa->isConfigured()) {
             return response()->json([
                 'success' => false,
+                'offline' => true,
                 'message' => 'بيانات بوابة الواتساب غير مكتملة في إعدادات المكتب (الرابط أو مفتاح الـ API غير معرّف).'
             ], 422);
         }
@@ -275,11 +283,11 @@ class ParcelController extends Controller
         $message = app(WhatsAppMessageComposer::class)->composeArrival($office, $parcel, $wa);
 
         try {
-            // delay عشوائي ليظهر للمستلم "يكتب الآن..." قبل وصول الرسالة
-            $result = $wa->sendText($parcel->recipient_phone, $message, random_int(4000, 9000));
+            // تأخير خفيف (0.3 - 0.7 ثانية) للإرسال اليدوي الفردي لضمان استجابة سريعة جداً للموظف على الكمبيوتر بدلاً من انتظار 4-9 ثوانٍ
+            $result = $wa->sendText($parcel->recipient_phone, $message, random_int(300, 700));
 
             if (!empty($result['success'])) {
-                Cache::put('whatsapp_status_office_' . $office->id, 'online', now()->addMinutes(15));
+                Cache::put($cacheKey, 'online', now()->addMinutes(15));
                 $parcel->forceFill([
                     'whatsapp_status'  => 'sent',
                     'whatsapp_sent_at' => now(),
@@ -291,14 +299,23 @@ class ParcelController extends Controller
                 ]);
             }
 
+            $errMsg = (string) ($result['message'] ?? 'خطأ في خادم الواتساب');
+            $statusCode = (int) ($result['status'] ?? 500);
+            if ($statusCode === 0 || $statusCode >= 500 || str_contains(strtolower($errMsg), 'disconnect') || str_contains(strtolower($errMsg), 'not connected') || str_contains(strtolower($errMsg), 'timed out')) {
+                Cache::put($cacheKey, 'offline', now()->addSeconds(90));
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'تعذر إرسال رسالة الواتساب: ' . ($result['message'] ?? 'خطأ في خادم الواتساب')
+                'offline' => true,
+                'message' => 'تعذر إرسال رسالة الواتساب: ' . $errMsg
             ], 500);
         } catch (\Throwable $e) {
+            Cache::put($cacheKey, 'offline', now()->addSeconds(90));
             Log::error("resendWhatsapp Error for parcel #{$parcel->id}: " . $e->getMessage());
             return response()->json([
                 'success' => false,
+                'offline' => true,
                 'message' => 'حدث خطأ أثناء إرسال الواتساب: ' . $e->getMessage()
             ], 500);
         }

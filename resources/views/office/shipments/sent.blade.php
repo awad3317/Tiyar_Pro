@@ -164,7 +164,7 @@
             {{-- 2-أ. قائمة بطاقات الشحنات الحية من IndexedDB (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
             <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
                  class="mursal-desktop-cards space-y-2.5">
-                <template x-for="shipment in filteredShipments" :key="shipment.local_key">
+                <template x-for="shipment in ((!isDesktopViewport || desktopView === 'cards') ? filteredShipments : [])" :key="shipment.local_key">
                     <article
                         style="content-visibility: auto; contain-intrinsic-size: 180px;"
                         class="relative bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 lg:hover:shadow-md rounded-2xl p-3.5 lg:p-4 shadow-xs space-y-2.5 transition-all">
@@ -385,7 +385,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
-                            <template x-for="shipment in filteredShipments" :key="'row-' + shipment.local_key">
+                            <template x-for="shipment in ((isDesktopViewport && desktopView === 'table') ? filteredShipments : [])" :key="'row-' + shipment.local_key">
                                 <tr x-data="{ open: false }"
                                     :class="open ? 'relative z-30 bg-gray-50/90 dark:bg-slate-800/60' : 'hover:bg-gray-50/70 dark:hover:bg-slate-800/40'"
                                     class="transition-colors">
@@ -942,6 +942,7 @@
                 shipments: Array.isArray(config.initialShipments) ? config.initialShipments : [],
                 activeStatus: String(config.initialStatus || 'all'),
                 searchQuery: String(config.initialSearch || ''),
+                isDesktopViewport: window.matchMedia ? window.matchMedia('(min-width: 1024px)').matches : (window.innerWidth >= 1024),
                 desktopView: localStorage.getItem('mursal_sent_shipments_desktop_view') === 'cards' ? 'cards' : 'table',
                 counts: config.initialCounts || { all: 0, draft: 0, in_transit: 0, partially_received: 0, received: 0, cancelled: 0 },
                 isFetching: false,
@@ -992,6 +993,13 @@
                 _vpHandler: null,
 
                 async init() {
+                    if (window.matchMedia) {
+                        const mq = window.matchMedia('(min-width: 1024px)');
+                        const syncMq = (e) => { this.isDesktopViewport = Boolean(e.matches); };
+                        if (typeof mq.addEventListener === 'function') mq.addEventListener('change', syncMq);
+                        else if (typeof mq.addListener === 'function') mq.addListener(syncMq);
+                    }
+
                     this._vpHandler = () => {
                         if (!this.createModalOpen) return;
                         if (this._vpRafId) return;

@@ -11,6 +11,7 @@
             search: '',
             isLoading: true,
             clientReady: false,
+            isDesktopViewport: window.matchMedia ? window.matchMedia('(min-width: 1024px)').matches : (window.innerWidth >= 1024),
             desktopView: localStorage.getItem('mursal_vip_desktop_view') === 'cards' ? 'cards' : 'table',
             setDesktopView(mode) {
                 const next = mode === 'cards' ? 'cards' : 'table';
@@ -43,6 +44,13 @@
             },
 
             async init() {
+                if (window.matchMedia) {
+                    const mq = window.matchMedia('(min-width: 1024px)');
+                    const syncMq = (e) => { this.isDesktopViewport = Boolean(e.matches); };
+                    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', syncMq);
+                    else if (typeof mq.addListener === 'function') mq.addListener(syncMq);
+                }
+
                 try {
                     if (window.MursalDB) {
                         await window.MursalDB.open();

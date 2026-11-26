@@ -80,7 +80,7 @@
         <!-- أ. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) -->
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start'"
              class="mursal-desktop-cards space-y-2.5">
-            <template x-for="c in filteredCustomers" :key="c.id">
+            <template x-for="c in ((!isDesktopViewport || desktopView === 'cards') ? filteredCustomers : [])" :key="c.id">
                 @include('office.favorite-customers.partials.customer-card')
             </template>
         </div>
@@ -129,8 +129,9 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
-                        <template x-for="c in filteredCustomers" :key="'row-' + c.id">
-                            <tr class="hover:bg-gray-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                        <template x-for="c in ((isDesktopViewport && desktopView === 'table') ? filteredCustomers : [])" :key="'row-' + c.id">
+                            <tr style="content-visibility: auto; contain-intrinsic-size: auto 52px;"
+                                class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                                 <!-- 1. اسم العميل -->
                                 <td class="py-3 pr-4 pl-3 align-middle">
                                     <div class="flex items-center gap-2.5">
