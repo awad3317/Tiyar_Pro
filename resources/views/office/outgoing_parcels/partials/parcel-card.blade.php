@@ -66,6 +66,7 @@
 
 <article id="outgoing-card-{{ $parcel->id }}"
          data-outgoing-parcel-id="{{ $parcel->id }}"
+         data-parcel-status="{{ $parcel->status->value }}"
          x-data="{ menuOpen: false }"
          :class="menuOpen ? 'relative z-30' : 'relative'"
          class="bg-white border {{ $parcel->status->cardBorderClass() }} rounded-2xl p-4 shadow-sm transition-colors">

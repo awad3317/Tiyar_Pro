@@ -64,7 +64,7 @@
 
 @section('content')
     <!-- المحتوى والبطاقات الإحصائية + نتائج البحث الشامل -->
-    <main class="flex-1 p-4 space-y-4"
+    <main class="flex-1 p-4 lg:p-6 space-y-4"
           x-data="dashboardGlobalSearch({ searchUrl: '{{ route('office.global-search') }}' })"
           @dashboard-global-search.window="runSearch($event.detail?.q || '')">
 
@@ -378,7 +378,7 @@
 @endif
         <h2 class="text-sm font-bold text-slate-800 pr-1">إحصائيات الطرود</h2>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             <!-- إجمالي الطرود -->
             <a href="{{ route('office.parcels.index') }}"
                 class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-blue-300 transition-all block">
@@ -423,7 +423,7 @@
         <!-- بطاقات مخصصة للميزات والخدمات -->
         <h2 class="text-sm font-bold text-slate-800 pr-1 pt-2">الخدمات والميزات</h2>
 
-        <div class="space-y-2.5">
+        <div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3.5">
             @if(auth('office')->check() && auth('office')->user()->hasFeature('outgoing_parcels'))
                 <!-- خدمة الطرود الصادرة (تظهر فقط عند تفعيل الميزة للمكتب) -->
                 <a href="{{ route('office.outgoing-parcels.index') }}"

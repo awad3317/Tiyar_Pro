@@ -171,6 +171,7 @@
     @shipments-pending-updated.window="syncShipmentsCount($event.detail?.count)"
     @mursal-close-nav-menus.window="closeAllMenus()"
     @keydown.escape.window="closeAllMenus()"
+    class="lg:hidden print:hidden"
 >
 
     <!-- إشعار عائم للشحنات القادمة -->

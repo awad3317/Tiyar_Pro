@@ -1,4 +1,4 @@
-<div class="space-y-2.5">
+<div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
     @forelse ($shipments as $shipment)
         @php
             $destList = is_array($shipment->destinations_summary) ? $shipment->destinations_summary : [];
@@ -150,7 +150,7 @@
             </div>
         </article>
     @empty
-        <div class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
+        <div class="lg:col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
             <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
                 <span class="material-symbols-outlined text-3xl">local_shipping</span>
             </div>

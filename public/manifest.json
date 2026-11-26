@@ -1,14 +1,18 @@
 {
   "id": "/office/",
-  "name": "مرسل لإدارة طرود",
-  "short_name": "مرسل",
-  "description": "نظام إدارة طرود الشحن الداخلي للمكاتب",
+  "name": "مُرسَل لإدارة ونقل الطرود",
+  "short_name": "مُرسَل",
+  "description": "نظام إدارة طرود الشحن الداخلي للمكاتب — يعمل على الكمبيوتر والجوال مع دعم الأوفلاين والمزامنة التلقائية",
+  "dir": "rtl",
+  "lang": "ar",
   "start_url": "/office/parcels",
   "scope": "/office/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#041627",
   "theme_color": "#041627",
-  "orientation": "portrait",
+  "orientation": "any",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -27,6 +31,36 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "الطرود المستلمة",
+      "short_name": "المستلمة",
+      "description": "عرض وتسليم الطرود الواردة للمكتب",
+      "url": "/office/parcels",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "الطرود المرسلة",
+      "short_name": "المرسلة",
+      "description": "إدارة الطرود الصادرة وطباعة السندات",
+      "url": "/office/outgoing-parcels",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "الشحنات المرسلة",
+      "short_name": "الشحنات",
+      "description": "إنشاء وطباعة كشوفات الشحن A4",
+      "url": "/office/shipments/sent",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "لوحة التحكم",
+      "short_name": "الرئيسية",
+      "description": "الإحصائيات والبحث الشامل",
+      "url": "/office/dashboard",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

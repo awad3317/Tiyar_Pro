@@ -15,7 +15,7 @@
         $initialEditAction = old('_edit_action', '');
     @endphp
 
-    <main class="flex-1 p-3.5 space-y-3.5"
+    <main class="flex-1 p-3.5 lg:p-6 space-y-3.5"
           x-data="externalPartnerLinksPage({
               officeName: @js($office->name . ($office->branch_name ? ' (' . $office->branch_name . ')' : '')),
               storeUrl: @js(route('office.external-partner-links.store')),
@@ -33,7 +33,7 @@
           @open-partner-link-modal.window="openCreateModal()">
 
         {{-- قائمة الروابط --}}
-        <section class="space-y-3">
+        <section class="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
             @forelse ($links as $link)
                 @php
                     $portalUrl = url('/p/' . $link->token);
@@ -221,7 +221,7 @@
                     </div>
                 </article>
             @empty
-                <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center space-y-3">
+                <div class="lg:col-span-full bg-white rounded-2xl border border-slate-200/80 p-8 text-center space-y-3">
                     <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">add_link</span>
                     </div>

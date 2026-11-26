@@ -143,7 +143,7 @@
         }
     @endphp
 
-    <main class="flex-1 p-3.5 space-y-3.5"
+    <main class="flex-1 p-3.5 lg:p-6 space-y-3.5"
           @transit-search-change.window="searchQuery = $event.detail.q || ''"
           x-data="transitParcelsPage({
               initialCount: {{ $transitParcels->count() }},

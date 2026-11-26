@@ -111,14 +111,14 @@
             @endforeach
         </nav>
 
-        <main class="flex-1 p-3 space-y-2.5">
+        <main class="flex-1 p-3 lg:p-6 space-y-2.5">
             {{-- 1. العرض الأولي من السيرفر قبل تهيئة Alpine / IndexedDB --}}
             <div x-show="!clientReady" x-ref="cardsContainer">
                 @include('office.shipments.partials.sent-cards-list', ['shipments' => $shipments])
             </div>
 
             {{-- 2. قائمة الشحنات الحية من IndexedDB (0ms تصفية وبحث وطباعة أوفلاين) --}}
-            <div x-show="clientReady" x-cloak class="space-y-2.5">
+            <div x-show="clientReady" x-cloak class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
                 <template x-for="shipment in filteredShipments" :key="shipment.local_key">
                     <article
                         style="content-visibility: auto; contain-intrinsic-size: 180px;"

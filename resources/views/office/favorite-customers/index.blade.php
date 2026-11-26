@@ -39,13 +39,13 @@
     </div>
 
     <!-- قائمة بطاقات العملاء المميزين -->
-    <main class="flex-1 p-3 space-y-2.5 overflow-y-auto">
+    <main class="flex-1 p-3 lg:p-6 space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start overflow-y-auto">
         <template x-for="c in filteredCustomers" :key="c.id">
             @include('office.favorite-customers.partials.customer-card')
         </template>
 
         <!-- حالة عدم وجود نتائج مطابقة للبحث -->
-        <div x-show="filteredCustomers.length === 0 && search.trim().length > 0" x-cloak class="text-center py-16 text-slate-400">
+        <div x-show="filteredCustomers.length === 0 && search.trim().length > 0" x-cloak class="lg:col-span-full text-center py-16 text-slate-400">
             <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
                 <span class="material-symbols-outlined text-2xl">search_off</span>
             </div>
@@ -54,7 +54,7 @@
         </div>
 
         <!-- حالة القائمة فارغة تماماً بدون بحث -->
-        <div x-show="customers.length === 0 && search.trim().length === 0" x-cloak class="text-center py-16 text-slate-400">
+        <div x-show="customers.length === 0 && search.trim().length === 0" x-cloak class="lg:col-span-full text-center py-16 text-slate-400">
             <div class="w-14 h-14 rounded-2xl bg-amber-50 text-secondary flex items-center justify-center mx-auto mb-3 shadow-2xs">
                 <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">stars</span>
             </div>

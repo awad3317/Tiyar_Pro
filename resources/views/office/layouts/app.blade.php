@@ -11,6 +11,14 @@
     $brandPrimary   = $officeProfile['primary_color'] ?? '#041627';
     $brandSecondary = $officeProfile['secondary_color'] ?? '#fe9d20';
     $brandIconUrl   = $officeProfile['icon_url'] ?? $officeProfile['logo_url'] ?? asset('icons/icon-192.png');
+
+    if (! isset($pendingReceivedShipmentsCount) && $brandOffice && class_exists(\App\Services\ShipmentService::class)) {
+        try {
+            $pendingReceivedShipmentsCount = \App\Services\ShipmentService::countPendingReceivedShipments($brandOffice);
+        } catch (\Throwable $e) {
+            $pendingReceivedShipmentsCount = null;
+        }
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -45,6 +53,7 @@
     <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
     <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
     <script src="{{ asset('js/receipt-image-share.js') }}?v=27"></script>
+    <script src="{{ asset('js/desktop-pwa.js') }}?v=29"></script>
 
     <style>
         :root {
@@ -74,20 +83,24 @@
         $flashToast = ['message' => (string) session('status'), 'type' => 'success'];
     }
 @endphp
-<body class="bg-slate-100 text-slate-900 pb-20 select-none print:bg-white print:pb-0">
+<body class="bg-slate-100 text-slate-900 pb-20 lg:pb-0 select-none print:bg-white print:pb-0">
 
     <div x-data="@yield('alpine', 'officeShell()')"
          @office-toast.window="showFeedback($event.detail?.message, $event.detail?.type ?? ($event.detail?.isError ? 'error' : 'success'))"
          @if ($flashToast)
              x-init="$nextTick(() => showFeedback(@js($flashToast['message']), @js($flashToast['type'])))"
          @endif
-         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white')">
+         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white')">
 
-        @section('header')
-            @include('office.layouts.header')
-        @show
+        @include('office.layouts.desktop-sidebar')
 
-        @yield('content')
+        <div class="flex-1 min-w-0 flex flex-col min-h-screen">
+            @section('header')
+                @include('office.layouts.header')
+            @show
+
+            @yield('content')
+        </div>
 
         @include('office.layouts.bottom-nav')
 
@@ -108,7 +121,7 @@
              x-transition:leave="ease-in duration-200"
              x-transition:leave-start="opacity-100 translate-y-0"
              x-transition:leave-end="opacity-0 -translate-y-4"
-             class="fixed top-4 left-4 right-4 max-w-sm mx-auto z-[80] p-3.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all border print:hidden"
+             class="fixed top-4 left-4 right-4 max-w-sm mx-auto lg:left-6 lg:right-auto lg:mx-0 z-[80] p-3.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all border print:hidden"
              :class="{
                 'bg-rose-600 text-white border-rose-500 shadow-rose-600/30': smsFeedback && (smsFeedback.type === 'error' || smsFeedback.isError),
                 'bg-amber-500 text-white border-amber-400 shadow-amber-500/30': smsFeedback && smsFeedback.type === 'warning',

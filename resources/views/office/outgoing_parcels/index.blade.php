@@ -114,7 +114,7 @@
             @endforeach
         </nav>
 
-        <main class="flex-1 p-3 space-y-2.5">
+        <main class="flex-1 p-3 lg:p-6 space-y-2.5">
 
             @if ($errors->any())
                 <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-1 shadow-2xs">
@@ -758,6 +758,48 @@
                 if (this.showModal) {
                     this.attachViewportListeners();
                 }
+
+                // تخزين سندات الطرود المعروضة في الكاش بالخلفية لضمان جاهزية إعادة طباعتها أوفلاين على الكمبيوتر
+                this.scheduleReceiptPrecache();
+            },
+
+            scheduleReceiptPrecache() {
+                if (!navigator.onLine || !('caches' in window)) return;
+                const runner = () => this.precacheVisibleReceipts();
+                if (typeof window.requestIdleCallback === 'function') {
+                    window.requestIdleCallback(runner, { timeout: 2500 });
+                } else {
+                    setTimeout(runner, 900);
+                }
+            },
+
+            async precacheVisibleReceipts() {
+                if (!navigator.onLine || !('caches' in window) || !this.$refs.cardsContainer) return;
+                try {
+                    const buttons = Array.from(this.$refs.cardsContainer.querySelectorAll('[data-receipt-url]'));
+                    if (buttons.length === 0) return;
+
+                    const keys = await caches.keys();
+                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v29';
+                    const cache = await caches.open(pwaCacheName);
+
+                    for (const btn of buttons) {
+                        if (!navigator.onLine) break;
+                        const rawUrl = btn.getAttribute('data-receipt-url');
+                        if (!rawUrl) continue;
+
+                        const parsed = new URL(rawUrl, window.location.origin);
+                        const alreadyCached = await cache.match(parsed.pathname, { ignoreVary: true });
+                        if (alreadyCached) continue;
+
+                        try {
+                            const res = await fetch(parsed.href, { credentials: 'same-origin' });
+                            if (res && res.status === 200) {
+                                await cache.put(parsed.pathname, res.clone());
+                            }
+                        } catch (_) {}
+                    }
+                } catch (_) {}
             },
 
             attachViewportListeners() {
@@ -868,13 +910,11 @@
                 }
             },
 
-            printReceipt(url) {
+            async printReceipt(url) {
                 if (!url) return;
-                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
-                    return;
-                }
                 const fallbackUrl = url + (url.includes('?') ? '&' : '?') + 'auto_print=1';
-                try {
+
+                const mountPrintIframe = (configureFrame) => {
                     let iframe = document.getElementById('outgoing-receipt-print-iframe');
                     if (iframe) {
                         iframe.remove();
@@ -891,11 +931,13 @@
                                     if (iframe.contentWindow) {
                                         iframe.contentWindow.focus();
                                         iframe.contentWindow.print();
-                                    } else {
+                                    } else if (navigator.onLine) {
                                         window.open(fallbackUrl, '_blank');
                                     }
                                 } catch (e) {
-                                    window.open(fallbackUrl, '_blank');
+                                    if (navigator.onLine) {
+                                        window.open(fallbackUrl, '_blank');
+                                    }
                                 }
                             }, 220);
                         };
@@ -915,12 +957,45 @@
                         }
                     };
 
-                    iframe.onerror = () => {
-                        window.open(fallbackUrl, '_blank');
-                    };
-
                     document.body.appendChild(iframe);
-                    iframe.src = url;
+                    configureFrame(iframe);
+                };
+
+                // في وضع عدم الاتصال: طباعة السند المحفوظ محلياً مباشرة بدون أي حاجة للسيرفر
+                if (!navigator.onLine) {
+                    try {
+                        if ('caches' in window) {
+                            const parsed = new URL(url, window.location.origin);
+                            const cachedRes = (await caches.match(parsed.pathname, { ignoreVary: true }))
+                                || (await caches.match(url, { ignoreVary: true }));
+
+                            if (cachedRes) {
+                                let html = await cachedRes.text();
+                                const baseTag = `<base href="${window.location.origin}/">`;
+                                if (/<head[^>]*>/i.test(html)) {
+                                    html = html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+                                } else {
+                                    html = baseTag + html;
+                                }
+                                mountPrintIframe((iframe) => {
+                                    iframe.srcdoc = html;
+                                });
+                                return;
+                            }
+                        }
+                    } catch (_) {}
+
+                    this.notifyToast('سند هذا الطرد غير محفوظ محلياً بعد؛ يرجى الاتصال بالإنترنت لطباعته لأول مرة.', true);
+                    return;
+                }
+
+                try {
+                    mountPrintIframe((iframe) => {
+                        iframe.onerror = () => {
+                            window.open(fallbackUrl, '_blank');
+                        };
+                        iframe.src = url;
+                    });
                 } catch (e) {
                     window.open(fallbackUrl, '_blank');
                 }
@@ -943,8 +1018,22 @@
                 this.fetchFilteredList();
             },
 
+            filterCachedCardsLocally() {
+                if (!this.$refs.cardsContainer) return;
+                const cards = Array.from(this.$refs.cardsContainer.querySelectorAll('[data-outgoing-parcel-id]'));
+                const q = this.norm(this.searchQuery || '');
+
+                cards.forEach((card) => {
+                    const cardStatus = card.getAttribute('data-parcel-status') || '';
+                    const matchesStatus = !this.activeStatus || this.activeStatus === 'all' || cardStatus === this.activeStatus;
+                    const matchesQuery = !q || this.norm(card.textContent || '').includes(q);
+                    card.style.display = (matchesStatus && matchesQuery) ? '' : 'none';
+                });
+            },
+
             async fetchFilteredList() {
-                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                if (!navigator.onLine) {
+                    this.filterCachedCardsLocally();
                     return;
                 }
                 if (this._abortController) {
@@ -990,6 +1079,7 @@
                             if (window.Alpine) {
                                 window.Alpine.initTree(this.$refs.cardsContainer);
                             }
+                            this.scheduleReceiptPrecache();
                         }
                         window.history.replaceState({}, '', cleanUrl);
                     }
@@ -1248,6 +1338,9 @@
             },
 
             openModal() {
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction('إضافة طرد صادر جديد تتطلب اتصالاً بالإنترنت لضمان إصدار رقم سند رسمي متسلسل.')) {
+                    return;
+                }
                 this.modalMode = 'create';
                 this.editingParcelId = null;
                 this.editingReceiptNumber = '';
@@ -1272,6 +1365,9 @@
 
             openEditModal(data) {
                 if (!data || !data.url) return;
+                if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) {
+                    return;
+                }
                 this.modalMode = 'edit';
                 this.editingParcelId = data.id || null;
                 this.editingReceiptNumber = String(data.receipt_number || '');

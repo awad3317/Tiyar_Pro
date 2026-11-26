@@ -91,7 +91,7 @@
      aria-live="polite"
      aria-hidden="true"
      style="display: none; background: radial-gradient(circle at 50% 38%, #0b2948 0%, #041627 62%, #020c17 100%);"
-     class="fixed inset-0 max-w-md mx-auto z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
+     class="fixed inset-0 max-w-md mx-auto lg:max-w-none lg:mx-0 lg:right-72 xl:right-80 z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
 
     {{-- شريط الليزر العلوي المتوهج --}}
     <div class="absolute top-0 left-0 right-0 h-1 bg-white/5 overflow-hidden">
@@ -195,19 +195,21 @@
         const OFFLINE_CAPABLE_PATHS = new Set([
             '/office/dashboard',
             '/office/parcels',
+            '/office/outgoing-parcels',
             '/office/shipments/sent',
             '/office/favorite-customers',
         ]);
 
         const ROUTE_LABELS = [
-            { match: '/office/dashboard',          label: 'جاري فتح الرئيسية...' },
-            { match: '/office/outgoing-parcels',   label: 'جاري تجهيز الطرود المرسلة...' },
-            { match: '/office/transit-parcels',    label: 'جاري فحص الطرود في الطريق...' },
-            { match: '/office/parcels',            label: 'جاري فتح الطرود المستلمة...' },
-            { match: '/office/shipments/sent',     label: 'جاري فتح الشحنات المرسلة...' },
-            { match: '/office/shipments/received', label: 'جاري فحص الشحنات المستلمة...' },
-            { match: '/office/favorite-customers', label: 'جاري فتح العملاء المميزين...' },
-            { match: '/office/whatsapp',           label: 'جاري فتح إعدادات الواتساب...' },
+            { match: '/office/dashboard',              label: 'جاري فتح الرئيسية...' },
+            { match: '/office/outgoing-parcels',       label: 'جاري تجهيز الطرود المرسلة...' },
+            { match: '/office/transit-parcels',        label: 'جاري فحص الطرود في الطريق...' },
+            { match: '/office/parcels',                label: 'جاري فتح الطرود المستلمة...' },
+            { match: '/office/shipments/sent',         label: 'جاري فتح الشحنات المرسلة...' },
+            { match: '/office/shipments/received',     label: 'جاري فحص الشحنات المستلمة...' },
+            { match: '/office/external-partner-links', label: 'جاري فتح روابط المكاتب الخارجية...' },
+            { match: '/office/favorite-customers',     label: 'جاري فتح العملاء المميزين...' },
+            { match: '/office/whatsapp',               label: 'جاري فتح إعدادات الواتساب...' },
         ];
 
         let safetyTimer = null;

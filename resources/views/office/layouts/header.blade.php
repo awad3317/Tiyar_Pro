@@ -5,12 +5,17 @@
 @endphp
 
 <!-- شريط الهيدر الموحد -->
-<header class="bg-primary text-white p-4 sticky top-0 z-30 shadow-md">
+<header class="bg-primary text-white p-4 lg:px-6 sticky top-0 z-30 shadow-md print:hidden">
     <div class="flex items-center justify-between gap-3">
         <!-- شعار واسم المكتب والفرع (قائمة منسدلة) -->
-        <div class="min-w-0 flex-1 relative" x-data="{ menuOpen: false }">
+        <div class="min-w-0 flex-1 relative"
+             x-data="{
+                 menuOpen: false,
+                 canInstallPwa: window.MursalDesktopPWA ? window.MursalDesktopPWA.canInstall() : false
+             }"
+             @mursal-pwa-state.window="canInstallPwa = Boolean($event.detail?.canInstall)">
             <button type="button" @click="menuOpen = !menuOpen"
-                    class="w-full text-right flex items-center gap-2 group">
+                    class="w-full lg:w-auto text-right flex items-center gap-2 group">
                 @if ($headerBrandIcon)
                     <div class="w-9 h-9 rounded-xl bg-white/95 border border-white/20 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
                         <img src="{{ $headerBrandIcon }}"
@@ -53,6 +58,20 @@
                     </div>
                 </a>
 
+                <!-- زر تثبيت البرنامج على الكمبيوتر / الجهاز (يظهر عند توفر إمكانية التثبيت) -->
+                <button type="button"
+                        x-show="canInstallPwa"
+                        x-cloak
+                        @click="menuOpen = false; window.MursalDesktopPWA && window.MursalDesktopPWA.promptInstall()"
+                        class="w-full text-right flex items-center gap-3 px-4 py-3 hover:bg-amber-50/70 border-t border-slate-100 transition-colors group/item">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center group-hover/item:bg-amber-200 transition-colors">
+                        <span class="material-symbols-outlined text-base">install_desktop</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-extrabold text-slate-800">تثبيت البرنامج على الجهاز</p>
+                    </div>
+                </button>
+
                 @if ($office && $office->hasFeature('external_partner_links'))
                     <div class="border-t border-slate-100"></div>
 
@@ -86,44 +105,56 @@
             <!-- زر الإضافة السريع في الهيدر (يتكيف حسب الصفحة الحالية) -->
             @if (request()->routeIs('office.outgoing-parcels.*'))
                 <button type="button"
+                        data-desktop-primary-add="true"
                         @click="window.dispatchEvent(new CustomEvent('open-outgoing-parcel-modal'))"
-                        title="إضافة طرد صادر"
-                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                        title="إضافة طرد صادر (Alt+N)"
+                        class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">إضافة طرد صادر</span>
                 </button>
             @elseif (request()->routeIs('office.shipments.sent.index'))
                 <button type="button"
+                        data-desktop-primary-add="true"
                         @click="window.dispatchEvent(new CustomEvent('open-create-shipment-modal'))"
-                        title="إنشاء كشف شحنة جديد"
-                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                        title="إنشاء كشف شحنة جديد (Alt+N)"
+                        class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">كشف شحنة جديد</span>
                 </button>
             @elseif (request()->routeIs('office.shipments.sent.*'))
                 <a href="{{ route('office.shipments.sent.index', ['create' => 1]) }}"
+                   data-desktop-primary-add="true"
                    title="إنشاء كشف شحنة جديد"
-                   class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                   class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">كشف شحنة جديد</span>
                 </a>
             @elseif (request()->routeIs('office.favorite_customers.*'))
                 <button type="button"
+                        data-desktop-primary-add="true"
                         @click="window.dispatchEvent(new CustomEvent('open-vip-customer-modal'))"
-                        title="إضافة عميل مميز"
-                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                        title="إضافة عميل مميز (Alt+N)"
+                        class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">إضافة عميل مميز</span>
                 </button>
             @elseif (request()->routeIs('office.external-partner-links.*'))
                 <button type="button"
+                        data-desktop-primary-add="true"
                         @click="window.dispatchEvent(new CustomEvent('open-partner-link-modal'))"
-                        title="إضافة مكتب خارجي"
-                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                        title="إضافة مكتب خارجي (Alt+N)"
+                        class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">إضافة مكتب خارجي</span>
                 </button>
             @else
                 <button type="button"
+                        data-desktop-primary-add="true"
                         @click="$dispatch('open-quick-sms')"
-                        title="إرسال كشف سريع SMS"
-                        class="w-8 h-8 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center text-secondary hover:text-white transition-colors">
+                        title="إرسال كشف سريع SMS (Alt+N)"
+                        class="w-8 h-8 lg:w-auto lg:px-3 rounded-xl bg-secondary/15 border border-secondary/30 hover:bg-secondary/25 flex items-center justify-center gap-1.5 text-secondary hover:text-white transition-colors">
                     <span class="material-symbols-outlined text-[19px] font-bold">add</span>
+                    <span class="hidden lg:inline text-xs font-extrabold">إرسال سريع SMS</span>
                 </button>
             @endif
 

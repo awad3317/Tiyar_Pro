@@ -26,15 +26,15 @@
     </nav>
 
     <!-- قائمة الطرود -->
-    <main x-ref="parcelsContainer" class="flex-1 p-3 space-y-2.5 overflow-y-auto">
+    <main x-ref="parcelsContainer" class="flex-1 p-3 lg:p-6 space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start overflow-y-auto">
         <template x-for="p in visibleParcels" :key="p.id">
             @include('office.parcels.partials.parcel-card')
         </template>
 
         <!-- نقطة مراقبة التمرير التلقائي لتحميل الـ 25 طرد التالية مسبقاً -->
-        <div x-ref="loadMoreSentinel" x-show="hasMoreParcels" class="h-1 w-full pointer-events-none" aria-hidden="true"></div>
+        <div x-ref="loadMoreSentinel" x-show="hasMoreParcels" class="lg:col-span-full h-1 w-full pointer-events-none" aria-hidden="true"></div>
 
-        <div x-show="filteredParcels.length === 0" x-cloak class="text-center py-12 text-slate-400">
+        <div x-show="filteredParcels.length === 0" x-cloak class="lg:col-span-full text-center py-12 text-slate-400">
             <span class="material-symbols-outlined text-4xl mb-1">inventory_2</span>
             <p class="text-xs">لا توجد طرود مطابقة</p>
         </div>

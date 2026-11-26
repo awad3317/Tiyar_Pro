@@ -1,21 +1,25 @@
-const CACHE_NAME = 'mursal-pwa-v28';
+const CACHE_NAME = 'mursal-pwa-v29';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 
 const ASSETS_TO_CACHE = [
     '/office/dashboard',
     '/office/parcels',
+    '/office/outgoing-parcels',
     '/office/favorite-customers',
     '/office/shipments/sent',
     '/manifest.json',
     '/icons/icon-192.png',
+    '/icons/icon-512.png',
     '/js/tailwind.js',
     '/js/mursal-core.js?v=22',
     '/js/shipment-manifest-print.js?v=23',
     '/js/html-to-image.min.js?v=27',
     '/js/receipt-image-share.js?v=27',
+    '/js/desktop-pwa.js?v=29',
     GOOGLE_FONTS_CSS,
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
+    'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
     'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
 ];
 
@@ -234,7 +238,34 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // د) استثناء صارم لجميع طلبات JSON/AJAX والـ API ومسارات الأونلاين الحية (Network-Only بدون أي كاش)
+    // د-1) سندات الطرود الصادرة (/office/outgoing-parcels/{id}/receipt): حفظ بالكاش لإعادة الطباعة الفورية أوفلاين على الكمبيوتر والجوال
+    const isOutgoingReceiptGet = /^\/office\/outgoing-parcels\/[^/]+\/receipt$/i.test(url.pathname);
+    if (isOutgoingReceiptGet) {
+        event.respondWith((async () => {
+            if (isOfflineNow()) {
+                const cachedReceipt = await matchCachedNavigation(event.request, url.pathname);
+                if (cachedReceipt) return cachedReceipt;
+                return new Response('', { status: 504, statusText: 'Offline Receipt Not Cached' });
+            }
+
+            try {
+                const netRes = await fetchWithTimeout(event.request, CDN_TIMEOUT_MS);
+                if (netRes && netRes.status === 200) {
+                    event.waitUntil(storeCachedNavigation(event.request, url.pathname, netRes.clone()));
+                    return netRes;
+                }
+                const fallbackReceipt = await matchCachedNavigation(event.request, url.pathname);
+                return fallbackReceipt || netRes;
+            } catch (_) {
+                const fallbackReceipt = await matchCachedNavigation(event.request, url.pathname);
+                if (fallbackReceipt) return fallbackReceipt;
+                return new Response('', { status: 504, statusText: 'Receipt Timeout' });
+            }
+        })());
+        return;
+    }
+
+    // د-2) استثناء صارم لجميع طلبات JSON/AJAX والـ API ومسارات الأونلاين الحية (Network-Only بدون أي كاش)
     const acceptHeader = event.request.headers.get('Accept') || '';
     const isAjaxJson = acceptHeader.includes('application/json') ||
         event.request.headers.get('X-Requested-With') === 'XMLHttpRequest';
@@ -244,9 +275,14 @@ self.addEventListener('fetch', (event) => {
         event.request.mode === 'navigate' &&
         url.pathname === '/office/shipments/sent';
 
+    const isOutgoingParcelsAppShell =
+        !isAjaxJson &&
+        event.request.mode === 'navigate' &&
+        url.pathname === '/office/outgoing-parcels';
+
     if (
         isAjaxJson ||
-        url.pathname.startsWith('/office/outgoing-parcels') ||
+        (url.pathname.startsWith('/office/outgoing-parcels') && !isOutgoingParcelsAppShell) ||
         url.pathname.startsWith('/office/transit-parcels') ||
         (url.pathname.startsWith('/office/shipments') && !isSentShipmentsAppShell) ||
         url.pathname.startsWith('/office/global-search') ||
