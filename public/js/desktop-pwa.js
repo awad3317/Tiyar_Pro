@@ -106,9 +106,12 @@
     }
 
     function focusSearchInput() {
-        const searchEl =
-            document.querySelector('header input[type="text"], header input[type="search"]') ||
-            document.querySelector('main input[placeholder*="باركود"], main input[placeholder*="بحث"]');
+        const candidates = Array.from(document.querySelectorAll(
+            '[data-desktop-search-input], header input[type="text"], header input[type="search"], main input[placeholder*="باركود"], main input[placeholder*="بحث"]'
+        ));
+        const searchEl = candidates.find(function (el) {
+            return el && el.offsetParent !== null && !el.disabled;
+        });
         if (searchEl && typeof searchEl.focus === 'function') {
             searchEl.focus();
             if (typeof searchEl.select === 'function') {

@@ -12,8 +12,8 @@
     <!-- تنبيه نفاد باقة الـ SMS والشريط التذكيري -->
     @include('office.parcels.partials.sms-balance-modal')
 
-    <!-- تبويبات التصفية -->
-    <nav class="flex border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
+    <!-- 1. تبويبات التصفية للجوال (< 1024px — مطابقة للأصل 100%) -->
+    <nav class="flex lg:hidden border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
         <template x-for="tab in filters" :key="tab.key">
             <button type="button"
                     @click="setFilter(tab.key)"
@@ -25,8 +25,29 @@
         </template>
     </nav>
 
+    <!-- 2. شريط التبويبات المتراصة لسطح المكتب (lg: >= 1024px — Segmented Filter Pills) -->
+    <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+            <template x-for="tab in filters" :key="'desk-' + tab.key">
+                <button type="button"
+                        @click="setFilter(tab.key)"
+                        :class="filter === tab.key
+                            ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                            : 'text-slate-600 hover:text-slate-900 font-bold'"
+                        class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span x-text="tab.label"></span>
+                    <span :class="filter === tab.key
+                              ? 'bg-secondary/20 text-amber-900'
+                              : 'bg-slate-300/60 text-slate-600'"
+                          class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
+                          x-text="countFor(tab.key)"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+
     <!-- قائمة الطرود -->
-    <main x-ref="parcelsContainer" class="flex-1 p-3 lg:p-6 space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start overflow-y-auto">
+    <main x-ref="parcelsContainer" class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start overflow-y-auto">
         <template x-for="p in visibleParcels" :key="p.id">
             @include('office.parcels.partials.parcel-card')
         </template>

@@ -99,7 +99,8 @@
                 ['key' => 'received',           'label' => 'مكتملة'],
             ];
         @endphp
-        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
+        {{-- 1. شريط تبويبات الجوال (< 1024px — مطابق للأصل 100%) --}}
+        <nav class="flex lg:hidden overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
             @foreach ($sentTabs as $tabItem)
                 <button type="button"
                         @click="setStatusFilter('{{ $tabItem['key'] }}')"
@@ -111,7 +112,28 @@
             @endforeach
         </nav>
 
-        <main class="flex-1 p-3 lg:p-6 space-y-2.5">
+        {{-- 2. شريط التبويبات المتراصة لسطح المكتب (lg: >= 1024px — Segmented Filter Pills) --}}
+        <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+                @foreach ($sentTabs as $tabItem)
+                    <button type="button"
+                            @click="setStatusFilter('{{ $tabItem['key'] }}')"
+                            :class="activeStatus === '{{ $tabItem['key'] }}'
+                                ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                                : 'text-slate-600 hover:text-slate-900 font-bold'"
+                            class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                        <span>{{ $tabItem['label'] }}</span>
+                        <span :class="activeStatus === '{{ $tabItem['key'] }}'
+                                  ? 'bg-secondary/20 text-amber-900'
+                                  : 'bg-slate-300/60 text-slate-600'"
+                              class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
+                              x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>
+                    </button>
+                @endforeach
+            </div>
+        </div>
+
+        <main class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5">
             {{-- 1. العرض الأولي من السيرفر قبل تهيئة Alpine / IndexedDB --}}
             <div x-show="!clientReady" x-ref="cardsContainer">
                 @include('office.shipments.partials.sent-cards-list', ['shipments' => $shipments])

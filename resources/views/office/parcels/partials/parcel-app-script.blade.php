@@ -1045,9 +1045,9 @@
 
             cardBorder(status) {
                 const borders = {
-                    in_office: 'border-amber-300',
-                    delivered: 'border-emerald-300',
-                    returned:  'border-rose-300',
+                    in_office: 'border-amber-300 lg:border-slate-200 lg:border-r-4 lg:border-r-amber-400',
+                    delivered: 'border-emerald-300 lg:border-slate-200 lg:border-r-4 lg:border-r-emerald-500',
+                    returned:  'border-rose-300 lg:border-slate-200 lg:border-r-4 lg:border-r-rose-400',
                 };
                 return borders[status] ?? 'border-slate-200/80';
             },

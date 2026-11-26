@@ -102,7 +102,8 @@
                 ['key' => 'cancelled',  'label' => 'ملغي'],
             ];
         @endphp
-        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
+        {{-- 1. شريط تبويبات الجوال (< 1024px فقط — مطابق للأصل 100%) --}}
+        <nav class="flex lg:hidden overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[125px] z-20 text-xs font-bold text-center">
             @foreach ($outgoingTabs as $tabItem)
                 <button type="button"
                         @click="setStatusFilter('{{ $tabItem['key'] }}')"
@@ -114,7 +115,51 @@
             @endforeach
         </nav>
 
-        <main class="flex-1 p-3 lg:p-6 space-y-2.5">
+        {{-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) في سطر واحد --}}
+        <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
+            {{-- يميناً: شريط أزرار التصفية المتراصة (Segmented Pills) --}}
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+                @foreach ($outgoingTabs as $tabItem)
+                    <button type="button"
+                            @click="setStatusFilter('{{ $tabItem['key'] }}')"
+                            :class="activeStatus === '{{ $tabItem['key'] }}'
+                                ? 'bg-white text-slate-900 shadow-xs font-extrabold'
+                                : 'text-slate-600 hover:text-slate-900 font-bold'"
+                            class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                        <span>{{ $tabItem['label'] }}</span>
+                        <span :class="activeStatus === '{{ $tabItem['key'] }}'
+                                  ? 'bg-secondary/20 text-amber-900'
+                                  : 'bg-slate-300/60 text-slate-600'"
+                              class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
+                              x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>
+                    </button>
+                @endforeach
+            </div>
+
+            {{-- يساراً: مبدّل وضع العرض (جدول / بطاقات) مع حفظ التفضيل في localStorage --}}
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <button type="button"
+                        @click="setDesktopView('table')"
+                        :class="desktopView === 'table'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">table_rows</span>
+                    <span>جدول</span>
+                </button>
+                <button type="button"
+                        @click="setDesktopView('cards')"
+                        :class="desktopView === 'cards'
+                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
+                    <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                    <span>بطاقات</span>
+                </button>
+            </div>
+        </div>
+
+        <main class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5">
 
             @if ($errors->any())
                 <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-1 shadow-2xs">
@@ -698,6 +743,7 @@
             submittingModal: false,
             activeStatus: String(config.initialStatus || 'all'),
             searchQuery: String(config.initialSearch || ''),
+            desktopView: localStorage.getItem('mursal_outgoing_desktop_view') === 'cards' ? 'cards' : 'table',
             counts: config.initialCounts || { all: 0, pending: 0, in_transit: 0, received: 0, delivered: 0, cancelled: 0 },
             isFetching: false,
             _abortController: null,
@@ -780,7 +826,7 @@
                     if (buttons.length === 0) return;
 
                     const keys = await caches.keys();
-                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v29';
+                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v30';
                     const cache = await caches.open(pwaCacheName);
 
                     for (const btn of buttons) {
@@ -845,6 +891,14 @@
                 }));
             },
 
+            setDesktopView(mode) {
+                const next = mode === 'cards' ? 'cards' : 'table';
+                this.desktopView = next;
+                try {
+                    localStorage.setItem('mursal_outgoing_desktop_view', next);
+                } catch (_) {}
+            },
+
             updateCounts(nextCounts) {
                 if (!nextCounts || typeof nextCounts !== 'object') return;
                 this.counts = {
@@ -855,6 +909,9 @@
                     delivered: Number(nextCounts.delivered ?? this.counts.delivered ?? 0),
                     cancelled: Number(nextCounts.cancelled ?? this.counts.cancelled ?? 0),
                 };
+                window.dispatchEvent(new CustomEvent('office-header-count', {
+                    detail: { count: this.counts.all }
+                }));
             },
 
             handleCardContainerClick(event) {
@@ -1020,14 +1077,14 @@
 
             filterCachedCardsLocally() {
                 if (!this.$refs.cardsContainer) return;
-                const cards = Array.from(this.$refs.cardsContainer.querySelectorAll('[data-outgoing-parcel-id]'));
+                const items = Array.from(this.$refs.cardsContainer.querySelectorAll('[data-outgoing-parcel-id], [data-outgoing-table-row]'));
                 const q = this.norm(this.searchQuery || '');
 
-                cards.forEach((card) => {
-                    const cardStatus = card.getAttribute('data-parcel-status') || '';
-                    const matchesStatus = !this.activeStatus || this.activeStatus === 'all' || cardStatus === this.activeStatus;
-                    const matchesQuery = !q || this.norm(card.textContent || '').includes(q);
-                    card.style.display = (matchesStatus && matchesQuery) ? '' : 'none';
+                items.forEach((el) => {
+                    const itemStatus = el.getAttribute('data-parcel-status') || '';
+                    const matchesStatus = !this.activeStatus || this.activeStatus === 'all' || itemStatus === this.activeStatus;
+                    const matchesQuery = !q || this.norm(el.textContent || '').includes(q);
+                    el.style.display = (matchesStatus && matchesQuery) ? '' : 'none';
                 });
             },
 
@@ -1231,6 +1288,10 @@
             },
 
             applyCardDomUpdate(parcelId, newStatus, cardHtml) {
+                if (window.innerWidth >= 1024) {
+                    this.fetchFilteredList();
+                    return;
+                }
                 const safeId = String(parcelId || '').replace(/"/g, '\\"');
                 const cardEl = document.querySelector(`[data-outgoing-parcel-id="${safeId}"]`)
                     || document.getElementById('outgoing-card-' + parcelId);

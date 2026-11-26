@@ -53,7 +53,7 @@
     <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
     <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
     <script src="{{ asset('js/receipt-image-share.js') }}?v=27"></script>
-    <script src="{{ asset('js/desktop-pwa.js') }}?v=29"></script>
+    <script src="{{ asset('js/desktop-pwa.js') }}?v=30"></script>
 
     <style>
         :root {
@@ -90,11 +90,11 @@
          @if ($flashToast)
              x-init="$nextTick(() => showFeedback(@js($flashToast['message']), @js($flashToast['type'])))"
          @endif
-         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white')">
+         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white') lg:bg-slate-50">
 
         @include('office.layouts.desktop-sidebar')
 
-        <div class="flex-1 min-w-0 flex flex-col min-h-screen">
+        <div class="flex-1 min-w-0 flex flex-col min-h-screen lg:bg-slate-50">
             @section('header')
                 @include('office.layouts.header')
             @show

@@ -1,5 +1,5 @@
 {{-- بطاقة طرد واحد — تُستخدم داخل <template x-for="p in ..."> وتتطلب وجود المتغير p --}}
-    <article class="border rounded-2xl p-3.5 bg-white shadow-sm flex flex-col gap-2 transition-colors"
+    <article class="border rounded-2xl p-3.5 lg:p-4 bg-white shadow-sm lg:shadow-2xs lg:hover:shadow-md flex flex-col lg:justify-between lg:h-full gap-2 transition-all"
         :class="cardBorder(p.status)">
 
         <!-- الرأس: نوع الطرد والسند وشارة الحالة ومدة بقائه في المكتب -->

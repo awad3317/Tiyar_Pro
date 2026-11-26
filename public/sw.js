@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v29';
+const CACHE_NAME = 'mursal-pwa-v30';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 
@@ -16,7 +16,7 @@ const ASSETS_TO_CACHE = [
     '/js/shipment-manifest-print.js?v=23',
     '/js/html-to-image.min.js?v=27',
     '/js/receipt-image-share.js?v=27',
-    '/js/desktop-pwa.js?v=29',
+    '/js/desktop-pwa.js?v=30',
     GOOGLE_FONTS_CSS,
     'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
     'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',

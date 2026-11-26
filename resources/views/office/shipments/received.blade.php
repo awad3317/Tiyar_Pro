@@ -34,7 +34,8 @@
                 ['key' => 'completed', 'label' => 'مكتملة'],
             ];
         @endphp
-        <nav class="flex overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[68px] z-20 text-xs font-bold text-center">
+        {{-- 1. شريط تبويبات الجوال (< 1024px — مطابق للأصل 100%) --}}
+        <nav class="flex lg:hidden overflow-x-auto no-scrollbar border-b border-slate-100 bg-white sticky top-[68px] z-20 text-xs font-bold text-center">
             @foreach ($receivedTabs as $tabItem)
                 <a href="{{ route('office.shipments.received.index', ['tab' => $tabItem['key']]) }}"
                    @click="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) $event.preventDefault()"
@@ -45,7 +46,26 @@
             @endforeach
         </nav>
 
-        <main class="flex-1 p-3 lg:p-6 space-y-2.5">
+        {{-- 2. شريط التبويبات المتراصة لسطح المكتب (lg: >= 1024px — Segmented Filter Pills) --}}
+        <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+                @foreach ($receivedTabs as $tabItem)
+                    @php
+                        $isActiveRecTab = $tab === $tabItem['key'];
+                    @endphp
+                    <a href="{{ route('office.shipments.received.index', ['tab' => $tabItem['key']]) }}"
+                       @click="if (typeof window.requireOnlineAction === 'function' && !window.requireOnlineAction()) $event.preventDefault()"
+                       class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all {{ $isActiveRecTab ? 'bg-white text-slate-900 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900 font-bold' }}">
+                        <span>{{ $tabItem['label'] }}</span>
+                        <span class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none {{ $isActiveRecTab ? 'bg-secondary/20 text-amber-900' : 'bg-slate-300/60 text-slate-600' }}">
+                            {{ $receivedCounts[$tabItem['key']] ?? 0 }}
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        <main class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5">
             {{-- قائمة الشحنات القادمة --}}
             <div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4">
             @forelse ($filteredShipments as $shipment)
