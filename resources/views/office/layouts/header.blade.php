@@ -241,7 +241,7 @@
 {{-- =========================================================================
      2. الشريط العلوي الأبيض النحيف لسطح المكتب (lg: >= 1024px فقط — سطر واحد نظيف)
    ========================================================================= --}}
-<header class="hidden lg:flex h-16 bg-white dark:bg-[#24303F] border-b border-gray-200 dark:border-slate-700/60 px-6 items-center justify-between gap-4 sticky top-0 z-30 transition-colors print:hidden"
+<header class="mursal-desktop-header hidden lg:flex h-16 bg-white dark:bg-[#24303F] border-b border-slate-200/90 dark:border-slate-700/60 px-6 items-center justify-between gap-4 sticky top-0 z-30 transition-colors print:hidden"
         x-data="{
             headerCount: {{ $desktopInitialCount !== null ? $desktopInitialCount : 'null' }},
             isDark: document.documentElement.classList.contains('dark'),
@@ -286,7 +286,7 @@
                        dir="rtl"
                        autocomplete="off"
                        placeholder="{{ $desktopSearchPlaceholder }}"
-                       class="w-full h-10 bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-slate-800 placeholder-slate-400 border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-amber-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
+                       class="w-full h-10 bg-slate-100/80 hover:bg-slate-100 focus:bg-white text-slate-800 placeholder-slate-400 border border-slate-200 focus:border-[#F59E0B] focus:ring-2 focus:ring-[#F59E0B]/20 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-[#F59E0B] text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
                 <div class="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <template x-if="typeof search !== 'undefined' && search.length > 0">
                         <button type="button"
@@ -350,7 +350,7 @@
                        dir="rtl"
                        autocomplete="off"
                        placeholder="{{ $desktopSearchPlaceholder }}"
-                       class="w-full h-10 bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-slate-800 placeholder-slate-400 border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-amber-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
+                       class="w-full h-10 bg-slate-100/80 hover:bg-slate-100 focus:bg-white text-slate-800 placeholder-slate-400 border border-slate-200 focus:border-[#F59E0B] focus:ring-2 focus:ring-[#F59E0B]/20 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-[#F59E0B] text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
                 <div class="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <template x-if="dq.length > 0">
                         <button type="button"
@@ -381,7 +381,7 @@
                     data-desktop-primary-add="true"
                     @click="window.dispatchEvent(new CustomEvent('open-outgoing-parcel-modal'))"
                     title="اختصار: Alt + N"
-                    class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.99] text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+                    class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 active:scale-[0.99] text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>إضافة طرد صادر</span>
             </button>
@@ -390,14 +390,14 @@
                     data-desktop-primary-add="true"
                     @click="window.dispatchEvent(new CustomEvent('open-create-shipment-modal'))"
                     title="اختصار: Alt + N"
-                    class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.99] text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+                    class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 active:scale-[0.99] text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>كشف شحنة جديد</span>
             </button>
         @elseif (request()->routeIs('office.shipments.sent.*'))
             <a href="{{ route('office.shipments.sent.index', ['create' => 1]) }}"
                data-desktop-primary-add="true"
-               class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+               class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>كشف شحنة جديد</span>
             </a>
@@ -406,7 +406,7 @@
                     data-desktop-primary-add="true"
                     @click="window.dispatchEvent(new CustomEvent('open-vip-customer-modal'))"
                     title="اختصار: Alt + N"
-                    class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.99] text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+                    class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 active:scale-[0.99] text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>إضافة عميل مميز</span>
             </button>
@@ -415,7 +415,7 @@
                     data-desktop-primary-add="true"
                     @click="window.dispatchEvent(new CustomEvent('open-partner-link-modal'))"
                     title="اختصار: Alt + N"
-                    class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.99] text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+                    class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 active:scale-[0.99] text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>إضافة مكتب خارجي</span>
             </button>
@@ -424,7 +424,7 @@
                     data-desktop-primary-add="true"
                     @click="$dispatch('open-quick-sms')"
                     title="اختصار: Alt + N"
-                    class="h-10 px-4 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.99] text-primary text-xs font-extrabold shadow-xs flex items-center gap-1.5 transition-all">
+                    class="h-10 px-4 rounded-xl bg-[#F59E0B] hover:bg-amber-600 active:scale-[0.99] text-[#1C2434] text-xs font-extrabold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#24303F] flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[18px] font-bold">add</span>
                 <span>إرسال سريع SMS</span>
             </button>

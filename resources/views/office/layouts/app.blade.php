@@ -46,7 +46,23 @@
                 if (localStorage.getItem('mursal_sidebar_collapsed') === '1') {
                     document.documentElement.classList.add('mursal-sidebar-collapsed');
                 }
-            } catch (e) {}
+                var path = window.location.pathname || '';
+                var viewKey = null;
+                if (path.indexOf('/office/outgoing-parcels') === 0) viewKey = 'mursal_outgoing_desktop_view';
+                else if (path.indexOf('/office/transit-parcels') === 0) viewKey = 'mursal_transit_desktop_view';
+                else if (path.indexOf('/office/parcels') === 0) viewKey = 'mursal_incoming_desktop_view';
+                else if (path.indexOf('/office/shipments/sent') === 0) viewKey = 'mursal_sent_shipments_desktop_view';
+                else if (path.indexOf('/office/shipments/received') === 0) viewKey = 'mursal_received_shipments_desktop_view';
+                else if (path.indexOf('/office/favorite-customers') === 0) viewKey = 'mursal_vip_desktop_view';
+                else if (path.indexOf('/office/external-partner-links') === 0) viewKey = 'mursal_partner_links_desktop_view';
+
+                var desktopView = (viewKey && localStorage.getItem(viewKey) === 'cards') ? 'cards' : 'table';
+                document.documentElement.setAttribute('data-desktop-view', desktopView);
+            } catch (e) {
+                try {
+                    document.documentElement.setAttribute('data-desktop-view', 'table');
+                } catch (_) {}
+            }
         })();
     </script>
     <script src="{{ asset('js/tailwind.js') }}"></script>
@@ -64,21 +80,91 @@
         };
     </script>
     <style>
+        @view-transition {
+            navigation: auto;
+        }
+        @keyframes mursalVtFadeOut {
+            from { opacity: 1; }
+            to { opacity: 0.92; }
+        }
+        @keyframes mursalVtFadeIn {
+            from { opacity: 0.92; }
+            to { opacity: 1; }
+        }
+        @media screen and (max-width: 1023.98px) {
+            ::view-transition-group(*),
+            ::view-transition-old(*),
+            ::view-transition-new(*) {
+                animation-duration: 0s !important;
+                animation: none !important;
+            }
+        }
         @media screen and (min-width: 1024px) {
             html.dark {
                 color-scheme: dark;
             }
+            /* تثبيت القائمة الجانبية والشريط العلوي أثناء الانتقال بين الأقسام */
             .mursal-desktop-sidebar {
                 width: 270px;
+                view-transition-name: desktop-sidebar;
+            }
+            .mursal-desktop-header {
+                view-transition-name: desktop-header;
+            }
+            .mursal-desktop-workspace main {
+                view-transition-name: desktop-main;
+            }
+            ::view-transition-group(desktop-sidebar),
+            ::view-transition-group(desktop-header) {
+                animation-duration: 0s;
+                z-index: 50;
+            }
+            ::view-transition-old(desktop-sidebar),
+            ::view-transition-new(desktop-sidebar),
+            ::view-transition-old(desktop-header),
+            ::view-transition-new(desktop-header) {
+                animation: none;
+                mix-blend-mode: normal;
+            }
+            ::view-transition-old(desktop-main) {
+                animation: mursalVtFadeOut 110ms ease-out both;
+            }
+            ::view-transition-new(desktop-main) {
+                animation: mursalVtFadeIn 150ms ease-out both;
             }
             html.mursal-sidebar-collapsed .mursal-desktop-sidebar {
                 width: 80px;
             }
-            .mursal-nav-loader-desktop {
-                right: 270px;
+            /* مؤشر التحميل على الكمبيوتر يغطي مساحة المحتوى فقط ولا يغطي السايدبار */
+            #mursal-nav-loader.mursal-nav-loader-desktop {
+                top: 4rem;
+                right: 270px !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                z-index: 25 !important;
+                max-width: none !important;
+                margin: 0 !important;
+                view-transition-name: none !important;
             }
-            html.mursal-sidebar-collapsed .mursal-nav-loader-desktop {
-                right: 80px;
+            html.mursal-sidebar-collapsed #mursal-nav-loader.mursal-nav-loader-desktop {
+                right: 80px !important;
+            }
+            /* إلغاء وميض (البطاقات <- الجدول) على الكمبيوتر قبل تهيئة Alpine */
+            html[data-desktop-view="table"] .mursal-desktop-cards {
+                display: none !important;
+            }
+            html[data-desktop-view="cards"] .mursal-desktop-cards {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 1rem;
+                align-content: start;
+            }
+            html[data-desktop-view="table"] .mursal-desktop-table,
+            html[data-desktop-view="table"] .mursal-desktop-table[x-cloak] {
+                display: block !important;
+            }
+            html[data-desktop-view="cards"] .mursal-desktop-table {
+                display: none !important;
             }
             html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-expanded-only {
                 display: none !important;
@@ -157,6 +243,11 @@
                 border-color: rgba(148, 163, 184, 0.25) !important;
             }
         }
+        @media screen and (min-width: 1536px) {
+            html[data-desktop-view="cards"] .mursal-desktop-cards {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
         @media print {
             html,
             html.dark,
@@ -203,18 +294,18 @@
         $flashToast = ['message' => (string) session('status'), 'type' => 'success'];
     }
 @endphp
-<body class="bg-slate-100 lg:bg-gray-50 lg:dark:bg-[#1A222C] text-slate-900 lg:text-slate-800 lg:dark:text-slate-100 pb-20 lg:pb-0 select-none print:!bg-white print:!text-slate-900 print:pb-0">
+<body class="bg-slate-100 lg:bg-[#F1F5F9] lg:dark:bg-[#1A222C] text-slate-900 lg:text-slate-800 lg:dark:text-slate-100 pb-20 lg:pb-0 select-none print:!bg-white print:!text-slate-900 print:pb-0">
 
     <div x-data="@yield('alpine', 'officeShell()')"
          @office-toast.window="showFeedback($event.detail?.message, $event.detail?.type ?? ($event.detail?.isError ? 'error' : 'success'))"
          @if ($flashToast)
              x-init="$nextTick(() => showFeedback(@js($flashToast['message']), @js($flashToast['type'])))"
          @endif
-         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:!bg-white print:shadow-none @yield('shell-class', 'bg-white') lg:bg-gray-50 lg:dark:bg-[#1A222C]">
+         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:!bg-white print:shadow-none @yield('shell-class', 'bg-white') lg:bg-[#F1F5F9] lg:dark:bg-[#1A222C]">
 
         @include('office.layouts.desktop-sidebar')
 
-        <div class="flex-1 min-w-0 flex flex-col min-h-screen lg:bg-gray-50 lg:dark:bg-[#1A222C] print:!bg-white">
+        <div class="mursal-desktop-workspace flex-1 min-w-0 flex flex-col min-h-screen lg:bg-[#F1F5F9] lg:dark:bg-[#1A222C] print:!bg-white">
             @section('header')
                 @include('office.layouts.header')
             @show

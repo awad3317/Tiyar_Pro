@@ -74,20 +74,20 @@
     @transit-count-updated.window="transitCount = Math.max(0, parseInt($event.detail?.count || 0, 10) || 0)"
     @shipments-pending-updated.window="pendingShipmentsCount = Math.max(0, parseInt($event.detail?.count || 0, 10) || 0)"
     @mursal-pwa-state.window="canInstallPwa = Boolean($event.detail?.canInstall); isStandalonePwa = Boolean($event.detail?.isStandalone)"
-    class="mursal-desktop-sidebar hidden lg:flex lg:flex-col lg:h-screen lg:sticky lg:top-0 bg-white dark:bg-[#1C2434] text-slate-700 dark:text-slate-200 border-l border-gray-200 dark:border-slate-700/60 shrink-0 select-none z-40 transition-[width] duration-200 print:hidden">
+    class="mursal-desktop-sidebar hidden lg:flex lg:flex-col lg:h-screen lg:sticky lg:top-0 bg-[#1C2434] text-slate-200 border-l border-slate-800/90 dark:border-slate-700/60 shrink-0 select-none z-40 transition-[width] duration-200 print:hidden">
 
     {{-- 1. هوية المكتب بالأعلى + زر طي/توسيع القائمة --}}
-    <div class="p-4 border-b border-gray-200/80 dark:border-slate-700/60">
+    <div class="p-4 border-b border-white/10 dark:border-slate-700/60">
         <div class="sb-header-row flex items-center justify-between gap-2.5">
             <div class="flex items-center gap-3 min-w-0 flex-1 sb-brand-wrap">
-                <div class="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#24303F] border border-gray-200 dark:border-slate-700/60 p-1.5 flex items-center justify-center shrink-0 overflow-hidden">
+                <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/15 p-1.5 flex items-center justify-center shrink-0 overflow-hidden">
                     <img src="{{ $sbBrandIcon }}"
                          alt="{{ $sbOffice?->name ?? 'مُرسَل' }}"
                          class="w-full h-full object-contain">
                 </div>
                 <div class="sb-expanded-only min-w-0 flex-1">
-                    <h2 class="font-extrabold text-sm text-slate-900 dark:text-slate-100 truncate">{{ $sbOffice?->name ?? 'مكتب مُرسَل' }}</h2>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{{ $sbOffice?->branch_name ?? 'المركز الرئيسي' }}</p>
+                    <h2 class="font-extrabold text-sm text-white truncate">{{ $sbOffice?->name ?? 'مكتب مُرسَل' }}</h2>
+                    <p class="text-[11px] text-slate-400 truncate mt-0.5">{{ $sbOffice?->branch_name ?? 'المركز الرئيسي' }}</p>
                 </div>
             </div>
 
@@ -95,7 +95,7 @@
                     @click="toggleSidebar()"
                     :title="sidebarCollapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية لتوسيع الجداول'"
                     aria-label="طي أو توسيع القائمة الجانبية"
-                    class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200/70 text-slate-500 hover:text-slate-800 border border-gray-200/80 dark:bg-[#24303F] dark:hover:bg-[#333A48] dark:text-slate-400 dark:hover:text-slate-100 dark:border-slate-700/60 flex items-center justify-center shrink-0 transition-colors">
+                    class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B] flex items-center justify-center shrink-0 transition-colors">
                 <span class="material-symbols-outlined text-[18px]"
                       x-text="sidebarCollapsed ? 'keyboard_double_arrow_left' : 'keyboard_double_arrow_right'">keyboard_double_arrow_right</span>
             </button>
@@ -107,7 +107,7 @@
                 x-cloak
                 @click="window.MursalDesktopPWA && window.MursalDesktopPWA.promptInstall()"
                 title="تثبيت البرنامج على الكمبيوتر"
-                class="sb-nav-link mt-3 w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 dark:text-amber-300 dark:border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-2 transition-colors">
+                class="sb-nav-link mt-3 w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-2 transition-colors">
             <span class="material-symbols-outlined text-lg shrink-0">install_desktop</span>
             <span class="sb-expanded-only truncate">تثبيت البرنامج على الكمبيوتر</span>
         </button>
@@ -118,46 +118,55 @@
 
         {{-- المجموعة أ: نظرة عامة --}}
         <div class="space-y-1">
-            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-gray-400 dark:text-slate-400/80 uppercase tracking-wider mb-1.5">نظرة عامة</p>
+            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-slate-400/80 uppercase tracking-wider mb-1.5">نظرة عامة</p>
 
             <a href="{{ route('office.dashboard') }}"
                data-nav-label="الرئيسية"
                title="لوحة التحكم والبحث"
-               class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsDashboard ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsDashboard ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-400' }}">dashboard</span>
+               class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsDashboard ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                @if ($sbIsDashboard)
+                    <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                @endif
+                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsDashboard ? 'text-[#F59E0B]' : 'text-slate-400' }}">dashboard</span>
                 <span class="sb-expanded-only flex-1 truncate">لوحة التحكم والبحث</span>
             </a>
         </div>
 
         {{-- المجموعة ب: حركة الطرود --}}
         <div class="space-y-1">
-            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-gray-400 dark:text-slate-400/80 uppercase tracking-wider mb-1.5">إدارة الطرود والسندات</p>
-            <div class="sb-collapsed-only hidden border-t border-gray-200/80 dark:border-slate-700/60 mx-2 my-2"></div>
+            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-slate-400/80 uppercase tracking-wider mb-1.5">إدارة الطرود والسندات</p>
+            <div class="sb-collapsed-only hidden border-t border-white/10 mx-2 my-2"></div>
 
             <a href="{{ route('office.parcels.index') }}"
                data-nav-label="الطرود المستلمة"
                title="الطرود المستلمة"
-               class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsIncoming ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsIncoming ? 'text-amber-600 dark:text-amber-400' : 'text-sky-600 dark:text-sky-400' }}">move_to_inbox</span>
+               class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsIncoming ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                @if ($sbIsIncoming)
+                    <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                @endif
+                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsIncoming ? 'text-[#F59E0B]' : 'text-sky-400' }}">move_to_inbox</span>
                 <span class="sb-expanded-only flex-1 truncate">الطرود المستلمة</span>
-                <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsIncoming ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-700/70 dark:text-slate-300' }}">أوفلاين</span>
+                <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsIncoming ? 'bg-[#F59E0B]/20 text-amber-300' : 'bg-white/10 text-slate-300' }}">أوفلاين</span>
             </a>
 
             @if ($sbHasOutgoing)
                 <a href="{{ route('office.outgoing-parcels.index') }}"
                    data-nav-label="الطرود المرسلة"
                    title="الطرود المرسلة والسندات"
-                   class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsOutgoing ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsOutgoing ? 'text-amber-600 dark:text-amber-400' : 'text-amber-500 dark:text-amber-400' }}">outbox</span>
+                   class="sb-nav-link group relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsOutgoing ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                    @if ($sbIsOutgoing)
+                        <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                    @endif
+                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsOutgoing ? 'text-[#F59E0B]' : 'text-amber-400' }}">outbox</span>
                     <span class="sb-expanded-only flex-1 truncate">الطرود المرسلة والسندات</span>
-                    <span class="sb-expanded-only material-symbols-outlined text-sm {{ $sbIsOutgoing ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400' }}" title="طباعة السندات">print</span>
+                    <span class="sb-expanded-only material-symbols-outlined text-sm {{ $sbIsOutgoing ? 'text-teal-300' : 'text-slate-400 group-hover:text-teal-300' }}" title="طباعة السندات">print</span>
                 </a>
             @else
                 <button type="button"
                         title="الطرود المرسلة (غير مفعّلة)"
                         @click="typeof showFeedback === 'function' && showFeedback('ميزة الطرود المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true)"
-                        class="sb-nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-slate-400 dark:text-slate-500 hover:bg-gray-100/60 dark:hover:bg-[#333A48]/30 transition-colors text-right border border-transparent">
-                    <span class="material-symbols-outlined text-xl shrink-0 text-slate-400 dark:text-slate-500">outbox</span>
+                        class="sb-nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-white/[0.04] transition-colors text-right border border-transparent">
+                    <span class="material-symbols-outlined text-xl shrink-0 text-slate-500">outbox</span>
                     <span class="sb-expanded-only flex-1 truncate">الطرود المرسلة</span>
                     <span class="sb-expanded-only material-symbols-outlined text-sm text-amber-500/80">lock</span>
                 </button>
@@ -166,36 +175,42 @@
             <a href="{{ route('office.transit-parcels.index') }}"
                data-nav-label="الطرود في الطريق"
                title="قادمة في الطريق"
-               class="sb-nav-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsTransit ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsTransit ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">local_shipping</span>
+               class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsTransit ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                @if ($sbIsTransit)
+                    <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                @endif
+                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsTransit ? 'text-[#F59E0B]' : 'text-emerald-400' }}">local_shipping</span>
                 <span class="sb-expanded-only flex-1 truncate">قادمة في الطريق</span>
                 <span x-show="transitCount > 0"
                       x-cloak
-                      class="sb-badge min-w-[22px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center {{ $sbIsTransit ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300' }}"
+                      class="sb-badge min-w-[22px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center {{ $sbIsTransit ? 'bg-[#F59E0B] text-slate-950' : 'bg-amber-500/20 text-amber-300' }}"
                       x-text="transitCount > 99 ? '99+' : transitCount"></span>
             </a>
         </div>
 
         {{-- المجموعة ج: الكشوفات والشحنات --}}
         <div class="space-y-1">
-            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-gray-400 dark:text-slate-400/80 uppercase tracking-wider mb-1.5">الكشوفات والشحنات</p>
-            <div class="sb-collapsed-only hidden border-t border-gray-200/80 dark:border-slate-700/60 mx-2 my-2"></div>
+            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-slate-400/80 uppercase tracking-wider mb-1.5">الكشوفات والشحنات</p>
+            <div class="sb-collapsed-only hidden border-t border-white/10 mx-2 my-2"></div>
 
             @if ($sbHasSentShipments)
                 <a href="{{ route('office.shipments.sent.index') }}"
                    data-nav-label="الشحنات المرسلة"
                    title="الشحنات المرسلة (A4)"
-                   class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsShipmentsSent ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsShipmentsSent ? 'text-amber-600 dark:text-amber-400' : 'text-amber-500 dark:text-amber-400' }}">outbound</span>
+                   class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsShipmentsSent ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                    @if ($sbIsShipmentsSent)
+                        <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                    @endif
+                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsShipmentsSent ? 'text-[#F59E0B]' : 'text-amber-400' }}">outbound</span>
                     <span class="sb-expanded-only flex-1 truncate">الشحنات المرسلة (A4)</span>
-                    <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsShipmentsSent ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-700/70 dark:text-slate-300' }}">أوفلاين</span>
+                    <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsShipmentsSent ? 'bg-[#F59E0B]/20 text-amber-300' : 'bg-white/10 text-slate-300' }}">أوفلاين</span>
                 </a>
             @else
                 <button type="button"
                         title="الشحنات المرسلة (غير مفعّلة)"
                         @click="typeof showFeedback === 'function' && showFeedback('ميزة الشحنات المرسلة غير مفعّلة لهذا المكتب، يرجى التواصل مع الإدارة لتفعيلها.', true)"
-                        class="sb-nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-slate-400 dark:text-slate-500 hover:bg-gray-100/60 dark:hover:bg-[#333A48]/30 transition-colors text-right border border-transparent">
-                    <span class="material-symbols-outlined text-xl shrink-0 text-slate-400 dark:text-slate-500">outbound</span>
+                        class="sb-nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-white/[0.04] transition-colors text-right border border-transparent">
+                    <span class="material-symbols-outlined text-xl shrink-0 text-slate-500">outbound</span>
                     <span class="sb-expanded-only flex-1 truncate">الشحنات المرسلة</span>
                     <span class="sb-expanded-only material-symbols-outlined text-sm text-amber-500/80">lock</span>
                 </button>
@@ -204,12 +219,15 @@
             <a href="{{ route('office.shipments.received.index') }}"
                data-nav-label="الشحنات المستلمة"
                title="الشحنات المستلمة"
-               class="sb-nav-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsShipmentsReceived ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsShipmentsReceived ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">qr_code_scanner</span>
+               class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsShipmentsReceived ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                @if ($sbIsShipmentsReceived)
+                    <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                @endif
+                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsShipmentsReceived ? 'text-[#F59E0B]' : 'text-teal-400' }}">qr_code_scanner</span>
                 <span class="sb-expanded-only flex-1 truncate">الشحنات المستلمة</span>
                 <span x-show="pendingShipmentsCount > 0"
                       x-cloak
-                      class="sb-badge min-w-[22px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center {{ $sbIsShipmentsReceived ? 'bg-rose-600 text-white' : 'bg-rose-500 text-white' }}"
+                      class="sb-badge min-w-[22px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center bg-rose-500 text-white"
                       x-text="pendingShipmentsCount > 99 ? '99+' : pendingShipmentsCount"></span>
             </a>
 
@@ -217,8 +235,11 @@
                 <a href="{{ route('office.external-partner-links.index') }}"
                    data-nav-label="روابط المكاتب الخارجية"
                    title="روابط المكاتب الخارجية"
-                   class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsExternalLinks ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsExternalLinks ? 'text-amber-600 dark:text-amber-400' : 'text-violet-600 dark:text-violet-400' }}">add_link</span>
+                   class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsExternalLinks ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                    @if ($sbIsExternalLinks)
+                        <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                    @endif
+                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsExternalLinks ? 'text-[#F59E0B]' : 'text-violet-400' }}">add_link</span>
                     <span class="sb-expanded-only flex-1 truncate">روابط المكاتب الخارجية</span>
                 </a>
             @endif
@@ -226,66 +247,72 @@
 
         {{-- المجموعة د: العملاء والإعدادات --}}
         <div class="space-y-1">
-            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-gray-400 dark:text-slate-400/80 uppercase tracking-wider mb-1.5">العملاء والإعدادات</p>
-            <div class="sb-collapsed-only hidden border-t border-gray-200/80 dark:border-slate-700/60 mx-2 my-2"></div>
+            <p class="sb-expanded-only px-3 text-[10px] font-extrabold text-slate-400/80 uppercase tracking-wider mb-1.5">العملاء والإعدادات</p>
+            <div class="sb-collapsed-only hidden border-t border-white/10 mx-2 my-2"></div>
 
             @if ($sbHasVip)
                 <a href="{{ route('office.favorite_customers.index') }}"
                    data-nav-label="العملاء المميزين"
                    title="العملاء المميزون"
-                   class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsVip ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsVip ? 'text-amber-600 dark:text-amber-400' : 'text-amber-500 dark:text-amber-300' }}">stars</span>
+                   class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsVip ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                    @if ($sbIsVip)
+                        <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                    @endif
+                    <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsVip ? 'text-[#F59E0B]' : 'text-amber-300' }}">stars</span>
                     <span class="sb-expanded-only flex-1 truncate">العملاء المميزون</span>
-                    <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsVip ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-700/70 dark:text-slate-300' }}">أوفلاين</span>
+                    <span class="sb-expanded-only text-[9px] px-1.5 py-0.5 rounded {{ $sbIsVip ? 'bg-[#F59E0B]/20 text-amber-300' : 'bg-white/10 text-slate-300' }}">أوفلاين</span>
                 </a>
             @endif
 
             <a href="{{ route('office.whatsapp.index') }}"
                data-nav-label="إعدادات الواتساب"
                title="إعدادات الواتساب"
-               class="sb-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all {{ $sbIsWhatsapp ? 'bg-amber-50/90 text-amber-900 border border-amber-200/70 font-extrabold dark:bg-[#333A48] dark:text-white dark:border-slate-600/40' : 'text-slate-600 hover:bg-gray-100/80 hover:text-slate-900 font-bold dark:text-slate-300 dark:hover:bg-[#333A48]/60 dark:hover:text-white border border-transparent' }}">
-                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsWhatsapp ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">chat</span>
+               class="sb-nav-link relative overflow-hidden flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/80 {{ $sbIsWhatsapp ? 'bg-[#333A48] text-white border border-white/10 font-extrabold shadow-xs' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white font-bold border border-transparent' }}">
+                @if ($sbIsWhatsapp)
+                    <span class="absolute right-0 top-1.5 bottom-1.5 w-1 rounded-l-full bg-[#F59E0B]"></span>
+                @endif
+                <span class="material-symbols-outlined text-xl shrink-0 {{ $sbIsWhatsapp ? 'text-[#F59E0B]' : 'text-emerald-400' }}">chat</span>
                 <span class="sb-expanded-only flex-1 truncate">إعدادات الواتساب</span>
             </a>
         </div>
     </nav>
 
     {{-- 3. شريط حالة الاتصال والمزامنة واختصارات الكيبورد أسفل القائمة --}}
-    <div class="sb-footer p-4 border-t border-gray-200/80 dark:border-slate-700/60 bg-gray-50/80 dark:bg-[#161D2A] space-y-2.5">
+    <div class="sb-footer p-4 border-t border-white/10 dark:border-slate-700/60 bg-[#161D2A] space-y-2.5">
         <div class="sb-status-row flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="w-2.5 h-2.5 rounded-full shrink-0"
                       :title="isOnline ? 'متصل وجاهز للمزامنة' : 'وضع أوفلاين (حفظ محلي)'"
-                      :class="isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
+                      :class="isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-[#F59E0B]'"></span>
                 <span class="sb-expanded-only text-[11px] font-extrabold truncate"
-                      :class="isOnline ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'"
+                      :class="isOnline ? 'text-emerald-400' : 'text-amber-400'"
                       x-text="isOnline ? 'متصل وجاهز للمزامنة' : 'وضع أوفلاين (حفظ محلي)'"></span>
             </div>
 
             <button type="button"
                     @click="(typeof syncData === 'function') ? syncData() : window.location.reload()"
                     title="مزامنة وتحديث الآن"
-                    class="px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 text-[10px] font-extrabold text-slate-700 border border-gray-200 dark:bg-[#24303F] dark:hover:bg-[#333A48] dark:text-slate-200 dark:border-slate-700/60 inline-flex items-center gap-1 transition-colors shrink-0">
+                    class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[10px] font-extrabold text-slate-200 border border-white/10 inline-flex items-center gap-1 transition-colors shrink-0">
                 <span class="material-symbols-outlined text-sm"
-                      :class="typeof isSyncing !== 'undefined' && isSyncing ? 'animate-spin text-amber-500' : ''">sync</span>
+                      :class="typeof isSyncing !== 'undefined' && isSyncing ? 'animate-spin text-[#F59E0B]' : ''">sync</span>
                 <span class="sb-expanded-only">مزامنة</span>
             </button>
         </div>
 
         <template x-if="typeof syncQueue !== 'undefined' && syncQueue.length > 0">
-            <div class="sb-expanded-only rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] font-bold text-amber-800 dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-300 flex items-center justify-between">
+            <div class="sb-expanded-only rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 text-[10px] font-bold text-amber-300 flex items-center justify-between">
                 <span>عمليات بانتظار المزامنة:</span>
                 <span class="font-mono font-black" x-text="syncQueue.length"></span>
             </div>
         </template>
 
-        <div class="sb-expanded-only flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-gray-200/80 dark:border-slate-700/60">
+        <div class="sb-expanded-only flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-white/10">
             <span class="inline-flex items-center gap-1">
-                <kbd class="px-1.5 py-0.5 rounded bg-white border border-gray-200 font-mono text-[9px] text-slate-600 dark:bg-[#24303F] dark:border-slate-700 dark:text-slate-300">Alt+N</kbd>
+                <kbd class="px-1.5 py-0.5 rounded bg-[#24303F] border border-slate-700 font-mono text-[9px] text-slate-300">Alt+N</kbd>
                 <span>إضافة سريعة</span>
             </span>
             <span class="inline-flex items-center gap-1">
-                <kbd class="px-1.5 py-0.5 rounded bg-white border border-gray-200 font-mono text-[9px] text-slate-600 dark:bg-[#24303F] dark:border-slate-700 dark:text-slate-300">/</kbd>
+                <kbd class="px-1.5 py-0.5 rounded bg-[#24303F] border border-slate-700 font-mono text-[9px] text-slate-300">/</kbd>
                 <span>بحث فوري</span>
             </span>
         </div>

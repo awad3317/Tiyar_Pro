@@ -40,10 +40,10 @@
 
     <!-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): ملخص العداد + مبدّل (جدول / بطاقات) -->
     <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
-        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs text-xs">
-            <span class="material-symbols-outlined text-[16px] text-secondary" style="font-variation-settings: 'FILL' 1;">stars</span>
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs text-xs">
+            <span class="material-symbols-outlined text-[16px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">stars</span>
             <span class="font-extrabold text-slate-800 dark:text-slate-100">قائمة العملاء المميزين</span>
-            <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 font-mono font-extrabold text-[11px] leading-none"
+            <span class="px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200/80 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30 font-mono font-extrabold text-[11px] leading-none"
                   x-text="filteredCustomers.length"></span>
             <template x-if="search.trim().length > 0">
                 <span class="text-[11px] text-slate-400 font-bold">
@@ -52,11 +52,11 @@
             </template>
         </div>
 
-        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
             <button type="button"
                     @click="setDesktopView('table')"
                     :class="desktopView === 'table'
-                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">table_rows</span>
@@ -65,7 +65,7 @@
             <button type="button"
                     @click="setDesktopView('cards')"
                     :class="desktopView === 'cards'
-                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">grid_view</span>
@@ -79,20 +79,21 @@
 
         <!-- أ. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) -->
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start'"
-             class="space-y-2.5">
+             class="mursal-desktop-cards space-y-2.5">
             <template x-for="c in filteredCustomers" :key="c.id">
                 @include('office.favorite-customers.partials.customer-card')
             </template>
         </div>
 
         <!-- ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px عند اختيار وضع الجدول) -->
-        <div x-show="desktopView === 'table' && filteredCustomers.length > 0"
+        <div x-show="desktopView === 'table'"
              x-cloak
-             class="hidden lg:block">
-            <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+             class="mursal-desktop-table hidden lg:block">
+            <div x-show="filteredCustomers.length > 0"
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
                 <table class="w-full text-right border-collapse">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                        <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
                             <th class="py-3 pr-4 pl-3">اسم العميل المميز</th>
                             <th class="py-3 px-3">رقم الهاتف</th>
                             <th class="py-3 px-3">حالة المزامنة</th>

@@ -385,6 +385,7 @@
             setDesktopView(mode) {
                 const next = mode === 'cards' ? 'cards' : 'table';
                 this.desktopView = next;
+                document.documentElement.setAttribute('data-desktop-view', next);
                 try {
                     localStorage.setItem('mursal_incoming_desktop_view', next);
                 } catch (_) {}

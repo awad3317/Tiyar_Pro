@@ -49,29 +49,29 @@
 
     <!-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) -->
     <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
-        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white/90 border border-slate-200 dark:bg-[#1C2434] dark:border-slate-700/60 shadow-2xs">
             <template x-for="tab in filters" :key="'desk-' + tab.key">
                 <button type="button"
                         @click="setFilter(tab.key)"
                         :class="filter === tab.key
-                            ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
-                            : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
+                            ? 'bg-teal-600 text-white shadow-xs font-extrabold dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/30'
+                            : 'text-slate-600 hover:text-slate-900 font-bold border border-transparent dark:text-slate-400 dark:hover:text-slate-200'"
                         class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span x-text="tab.label"></span>
                     <span :class="filter === tab.key
-                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
-                              : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
+                              ? 'bg-white/20 text-white dark:bg-teal-500/30 dark:text-teal-200'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                           class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                           x-text="countFor(tab.key)"></span>
                 </button>
             </template>
         </div>
 
-        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
             <button type="button"
                     @click="setDesktopView('table')"
                     :class="desktopView === 'table'
-                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">table_rows</span>
@@ -80,7 +80,7 @@
             <button type="button"
                     @click="setDesktopView('cards')"
                     :class="desktopView === 'cards'
-                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">grid_view</span>
@@ -94,7 +94,7 @@
 
         <!-- أ. عرض البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) -->
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4 lg:content-start'"
-             class="space-y-2.5">
+             class="mursal-desktop-cards space-y-2.5">
             <template x-for="p in visibleParcels" :key="p.id">
                 @include('office.parcels.partials.parcel-card')
             </template>
@@ -108,19 +108,20 @@
         <!-- ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px فقط عند اختيار وضع الجدول) -->
         <div x-show="desktopView === 'table'"
              x-cloak
-             class="hidden lg:block">
+             class="mursal-desktop-table hidden lg:block">
             <div x-show="filteredParcels.length === 0"
-                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 p-10 text-center text-slate-400 shadow-2xs">
+                 x-cloak
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 p-10 text-center text-slate-400 shadow-2xs">
                 <span class="material-symbols-outlined text-4xl mb-1 text-slate-300 dark:text-slate-600">inventory_2</span>
                 <p class="text-xs font-bold text-slate-500 dark:text-slate-300">لا توجد طرود مطابقة</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">اضغط على (+ إرسال سريع SMS) أعلى الشاشة لتسجيل طرد وارد جديد</p>
             </div>
 
             <div x-show="filteredParcels.length > 0"
-                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
                 <table class="w-full text-right border-collapse">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                        <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
                             <th class="py-3 pr-4 pl-3">النوع ورقم السند</th>
                             <th class="py-3 px-3">المستلم والهاتف</th>
                             <th class="py-3 px-3">المصدر / الخانة</th>

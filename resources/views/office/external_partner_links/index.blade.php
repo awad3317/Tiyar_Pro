@@ -34,10 +34,10 @@
 
         {{-- شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): ملخص سريع + مبدّل (جدول / بطاقات) --}}
         <div class="hidden lg:flex items-center justify-between gap-4">
-            <div class="inline-flex items-center gap-2 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60 text-xs">
-                <span class="px-3 py-1.5 rounded-lg bg-white text-slate-900 dark:bg-[#24303F] dark:text-slate-100 shadow-xs font-extrabold inline-flex items-center gap-1.5">
+            <div class="inline-flex items-center gap-2 p-1 rounded-xl bg-white/90 border border-slate-200 dark:bg-[#1C2434] dark:border-slate-700/60 shadow-2xs text-xs">
+                <span class="px-3 py-1.5 rounded-lg bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/30 shadow-xs font-extrabold inline-flex items-center gap-1.5">
                     <span>إجمالي الروابط</span>
-                    <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 font-mono text-[11px] leading-none">{{ $totalLinksCount }}</span>
+                    <span class="px-1.5 py-0.5 rounded-md bg-white/20 text-white dark:bg-teal-500/30 dark:text-teal-200 font-mono text-[11px] leading-none">{{ $totalLinksCount }}</span>
                 </span>
                 <span class="px-3 py-1.5 text-slate-600 dark:text-slate-300 font-bold inline-flex items-center gap-1.5">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -49,11 +49,11 @@
                 </span>
             </div>
 
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
                 <button type="button"
                         @click="setDesktopView('table')"
                         :class="desktopView === 'table'
-                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                             : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">table_rows</span>
@@ -62,7 +62,7 @@
                 <button type="button"
                         @click="setDesktopView('cards')"
                         :class="desktopView === 'cards'
-                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                             : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">grid_view</span>
@@ -73,7 +73,7 @@
 
         {{-- أ. قائمة البطاقات (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
         <section :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
-                 class="space-y-3">
+                 class="mursal-desktop-cards space-y-3">
             @forelse ($links as $link)
                 @php
                     $portalUrl = url('/p/' . $link->token);
@@ -284,9 +284,9 @@
         {{-- ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px عند اختيار وضع الجدول) --}}
         <section x-show="desktopView === 'table'"
                  x-cloak
-                 class="hidden lg:block">
+                 class="mursal-desktop-table hidden lg:block">
             @if ($links->isEmpty())
-                <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 p-10 text-center space-y-3 shadow-2xs">
+                <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 p-10 text-center space-y-3 shadow-2xs">
                     <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-100 dark:bg-amber-500/15 dark:border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">add_link</span>
                     </div>
@@ -296,10 +296,10 @@
                     </div>
                 </div>
             @else
-                <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-visible">
+                <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-visible">
                     <table class="w-full text-right border-collapse">
                         <thead>
-                            <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                            <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
                                 <th class="py-3 pr-4 pl-3 rounded-tr-2xl">المكتب الشريك والمدينة</th>
                                 <th class="py-3 px-3">بادئة السند ورمز PIN</th>
                                 <th class="py-3 px-3">الشحنات وآخر استخدام</th>
@@ -729,6 +729,7 @@
                 setDesktopView(mode) {
                     const next = mode === 'cards' ? 'cards' : 'table';
                     this.desktopView = next;
+                    document.documentElement.setAttribute('data-desktop-view', next);
                     try {
                         localStorage.setItem('mursal_partner_links_desktop_view', next);
                     } catch (_) {}

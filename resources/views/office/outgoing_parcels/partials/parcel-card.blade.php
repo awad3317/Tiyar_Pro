@@ -286,8 +286,8 @@
         <button type="button"
                 data-card-action="print-receipt"
                 data-receipt-url="{{ $receiptUrl }}"
-                class="shrink-0 h-8 px-3 rounded-lg bg-gray-100 hover:bg-primary text-slate-700 hover:text-secondary border border-gray-200 hover:border-primary dark:bg-[#1A222C] dark:hover:bg-amber-500 dark:text-slate-200 dark:hover:text-slate-950 dark:border-slate-700 dark:hover:border-amber-500 text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
-            <span class="material-symbols-outlined text-[16px]">print</span>
+                class="group shrink-0 h-8 px-3 rounded-lg bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-700 border border-slate-200 hover:border-teal-300 dark:bg-[#1A222C] dark:hover:bg-teal-500/15 dark:text-slate-200 dark:hover:text-teal-300 dark:border-slate-700 dark:hover:border-teal-500/40 text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
+            <span class="material-symbols-outlined text-[16px] text-slate-500 group-hover:text-teal-600 dark:text-slate-400 dark:group-hover:text-teal-300 transition-colors">print</span>
             <span>طباعة السند</span>
         </button>
     </div>

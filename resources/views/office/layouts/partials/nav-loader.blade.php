@@ -244,6 +244,14 @@
                 els.label.textContent = resolveLabelForPath(targetPath || '', customLabel);
             }
 
+            if (global.innerWidth >= 1024) {
+                const mainEl = document.querySelector('.mursal-desktop-workspace main');
+                const mainTop = mainEl ? Math.max(64, Math.round(mainEl.getBoundingClientRect().top)) : 64;
+                els.root.style.top = mainTop + 'px';
+            } else {
+                els.root.style.top = '';
+            }
+
             els.root.style.display = 'flex';
             els.root.setAttribute('aria-hidden', 'false');
             global.requestAnimationFrame(function () {

@@ -269,17 +269,17 @@
         <div x-show="remainingCount > 0"
              @if ($transitParcels->count() === 0) x-cloak @endif
              class="hidden lg:flex items-center justify-between gap-4">
-            <div class="inline-flex items-center flex-wrap gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60">
+            <div class="inline-flex items-center flex-wrap gap-1 p-1 rounded-xl bg-white/90 border border-slate-200 dark:bg-[#1C2434] dark:border-slate-700/60 shadow-2xs">
                 <button type="button"
                         @click="activeShipmentFilter = 'all'"
                         :class="activeShipmentFilter === 'all'
-                            ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
-                            : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
+                            ? 'bg-teal-600 text-white shadow-xs font-extrabold dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/30'
+                            : 'text-slate-600 hover:text-slate-900 font-bold border border-transparent dark:text-slate-400 dark:hover:text-slate-200'"
                         class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span>الكل</span>
                     <span :class="activeShipmentFilter === 'all'
-                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
-                              : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
+                              ? 'bg-white/20 text-white dark:bg-teal-500/30 dark:text-teal-200'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                           class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                           x-text="remainingCount"></span>
                 </button>
@@ -288,26 +288,26 @@
                     <button type="button"
                             @click="activeShipmentFilter = grp.key"
                             :class="activeShipmentFilter === grp.key
-                                ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
-                                : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
+                                ? 'bg-teal-600 text-white shadow-xs font-extrabold dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/30'
+                                : 'text-slate-600 hover:text-slate-900 font-bold border border-transparent dark:text-slate-400 dark:hover:text-slate-200'"
                             class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                         <span class="material-symbols-outlined text-[14px]"
                               x-text="grp.key === 'standalone' ? 'package_2' : 'receipt_long'"></span>
                         <span x-text="grp.label"></span>
                         <span :class="activeShipmentFilter === grp.key
-                                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
-                                  : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
+                                  ? 'bg-white/20 text-white dark:bg-teal-500/30 dark:text-teal-200'
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                               class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                               x-text="grp.count"></span>
                     </button>
                 </template>
             </div>
 
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs shrink-0">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs shrink-0">
                 <button type="button"
                         @click="setDesktopView('table')"
                         :class="desktopView === 'table'
-                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                             : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">table_rows</span>
@@ -316,7 +316,7 @@
                 <button type="button"
                         @click="setDesktopView('cards')"
                         :class="desktopView === 'cards'
-                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            ? 'bg-[#1C2434] text-[#F59E0B] dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
                             : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">grid_view</span>
@@ -327,7 +327,7 @@
 
         {{-- أ. قائمة بطاقات الطرود القادمة (دائماً على الجوال < 1024px، وعلى الكمبيوتر عند اختيار وضع البطاقات) --}}
         <div :class="desktopView === 'table' ? 'lg:hidden' : 'lg:space-y-0 lg:grid lg:grid-cols-2 2xl:grid-cols-3 lg:gap-4'"
-             class="space-y-3"
+             class="mursal-desktop-cards space-y-3"
              x-ref="transitList">
             @foreach ($transitParcels as $parcel)
                 @php
@@ -450,13 +450,15 @@
         </div>
 
         {{-- ب. وضع الجدول الاحترافي لسطح المكتب (lg: >= 1024px عند اختيار وضع الجدول) --}}
-        <div x-show="desktopView === 'table' && remainingCount > 0 && visibleCount > 0"
+        <div x-show="desktopView === 'table'"
              x-cloak
-             class="hidden lg:block">
-            <div class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+             class="mursal-desktop-table hidden lg:block">
+            <div x-show="remainingCount > 0 && visibleCount > 0"
+                 @if ($transitParcels->count() === 0) x-cloak @endif
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
                 <table class="w-full text-right border-collapse">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                        <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
                             <th class="py-3 pr-4 pl-3">رقم السند والنوع</th>
                             <th class="py-3 px-3">المستلم</th>
                             <th class="py-3 px-3">المرسل</th>
@@ -871,6 +873,7 @@
                 setDesktopView(mode) {
                     const next = mode === 'cards' ? 'cards' : 'table';
                     this.desktopView = next;
+                    document.documentElement.setAttribute('data-desktop-view', next);
                     try {
                         localStorage.setItem('mursal_transit_desktop_view', next);
                     } catch (_) {}
