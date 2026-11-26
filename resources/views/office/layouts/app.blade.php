@@ -83,11 +83,7 @@
         @view-transition {
             navigation: auto;
         }
-        @keyframes mursalVtFadeOut {
-            from { opacity: 1; }
-            to { opacity: 0.92; }
-        }
-        @keyframes mursalVtFadeIn {
+        @keyframes mursalMainEnter {
             from { opacity: 0.92; }
             to { opacity: 1; }
         }
@@ -103,7 +99,7 @@
             html.dark {
                 color-scheme: dark;
             }
-            /* تثبيت القائمة الجانبية والشريط العلوي أثناء الانتقال بين الأقسام */
+            /* تثبيت القائمة الجانبية والشريط العلوي وإلغاء أي تداخل شفاف أثناء الانتقال */
             .mursal-desktop-sidebar {
                 width: 270px;
                 view-transition-name: desktop-sidebar;
@@ -126,28 +122,29 @@
                 animation: none;
                 mix-blend-mode: normal;
             }
+            ::view-transition-old(root),
             ::view-transition-old(desktop-main) {
-                animation: mursalVtFadeOut 110ms ease-out both;
+                display: none;
+                animation: none;
+                opacity: 0;
+            }
+            ::view-transition-new(root) {
+                animation: none;
+                mix-blend-mode: normal;
             }
             ::view-transition-new(desktop-main) {
-                animation: mursalVtFadeIn 150ms ease-out both;
+                animation: mursalMainEnter 100ms ease-out both;
+                mix-blend-mode: normal;
             }
             html.mursal-sidebar-collapsed .mursal-desktop-sidebar {
                 width: 80px;
             }
-            /* مؤشر التحميل على الكمبيوتر يغطي مساحة المحتوى فقط ولا يغطي السايدبار */
-            #mursal-nav-loader.mursal-nav-loader-desktop {
-                top: 4rem;
-                right: 270px !important;
-                left: 0 !important;
-                bottom: 0 !important;
-                z-index: 25 !important;
-                max-width: none !important;
-                margin: 0 !important;
-                view-transition-name: none !important;
+            /* إخفاء شاشة التحميل السوداء على الكمبيوتر واستبدالها بشريط التقدم العلوي */
+            #mursal-nav-loader {
+                display: none !important;
             }
-            html.mursal-sidebar-collapsed #mursal-nav-loader.mursal-nav-loader-desktop {
-                right: 80px !important;
+            #mursal-desktop-top-progress {
+                view-transition-name: none !important;
             }
             /* إلغاء وميض (البطاقات <- الجدول) على الكمبيوتر قبل تهيئة Alpine */
             html[data-desktop-view="table"] .mursal-desktop-cards {

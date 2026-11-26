@@ -309,7 +309,8 @@
                 </template>
 
                 {{-- حالة عدم وجود نتائج مطابقة في الذاكرة المحلية --}}
-                <div x-show="filteredShipments.length === 0"
+                <div x-show="!isLoading && clientReady && filteredShipments.length === 0"
+                     x-cloak
                      class="lg:col-span-full bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 p-10 text-center space-y-2.5">
                     <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 lg:dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">local_shipping</span>
@@ -330,7 +331,8 @@
             {{-- 2-ب. وضع الجدول الاحترافي لسطح المكتب للشحنات المرسلة (lg: >= 1024px عند اختيار وضع الجدول — يعمل 100% أوفلاين) --}}
             <div x-show="desktopView === 'table'"
                  class="mursal-desktop-table hidden lg:block">
-                <div x-show="filteredShipments.length === 0"
+                <div x-show="!isLoading && clientReady && filteredShipments.length === 0"
+                     x-cloak
                      class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 p-10 text-center space-y-2.5 shadow-2xs">
                     <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">local_shipping</span>
@@ -339,7 +341,37 @@
                     <p class="text-[11px] text-slate-400">اضغط على (+ كشف شحنة جديد) أعلى الشاشة لإنشاء كشف بمسح الباركود.</p>
                 </div>
 
+                <div x-show="isLoading && clientReady && filteredShipments.length === 0"
+                     x-cloak
+                     class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+                    <table class="w-full text-right border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+                                <th class="py-3 pr-4 pl-3 rounded-tr-2xl">رقم الكشف والوقت</th>
+                                <th class="py-3 px-3">السائق</th>
+                                <th class="py-3 px-3">الوجهات</th>
+                                <th class="py-3 px-3">المجاميع المالية (ر.ي)</th>
+                                <th class="py-3 px-3">الحالة والاستلام</th>
+                                <th class="py-3 pr-3 pl-4 text-left rounded-tl-2xl">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 animate-pulse">
+                            @for ($i = 0; $i < 4; $i++)
+                                <tr>
+                                    <td class="py-3.5 pr-4 pl-3"><div class="h-3.5 w-28 rounded bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                    <td class="py-3.5 px-3"><div class="h-3.5 w-28 rounded bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                    <td class="py-3.5 px-3"><div class="h-4 w-24 rounded bg-slate-200/70 dark:bg-slate-700/50"></div></td>
+                                    <td class="py-3.5 px-3"><div class="h-5 w-32 rounded-md bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                    <td class="py-3.5 px-3"><div class="h-5 w-20 rounded-md bg-slate-200/70 dark:bg-slate-700/50"></div></td>
+                                    <td class="py-3.5 pr-3 pl-4"><div class="h-7 w-24 rounded-lg bg-slate-200/70 dark:bg-slate-700/50 mr-auto"></div></td>
+                                </tr>
+                            @endfor
+                        </tbody>
+                    </table>
+                </div>
+
                 <div x-show="filteredShipments.length > 0"
+                     x-cloak
                      class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-visible">
                     <table class="w-full text-right border-collapse">
                         <thead>
@@ -906,6 +938,7 @@
                 syncUrl: config.syncUrl || '/office/shipments/sent/sync',
 
                 clientReady: false,
+                isLoading: !(Array.isArray(config.initialShipments) && config.initialShipments.length > 0),
                 shipments: Array.isArray(config.initialShipments) ? config.initialShipments : [],
                 activeStatus: String(config.initialStatus || 'all'),
                 searchQuery: String(config.initialSearch || ''),
@@ -979,18 +1012,32 @@
                         this.attachViewportListeners();
                     }
 
-                    // 1. تفعيل العرض المحلي بـ 0ms فوراً
+                    // 1. قراءة البيانات من IndexedDB أولاً لمنع أي وميض لرسالة الفراغ
+                    await this.hydrateFromIndexedDB();
+
                     if (this.shipments.length > 0) {
                         this.recomputeCounts();
                     }
                     this.clientReady = true;
+                    if (this.shipments.length > 0 || !navigator.onLine) {
+                        this.isLoading = false;
+                    }
 
-                    // 2. قراءة البيانات من IndexedDB أو بذر البيانات الأولية
-                    await this.hydrateFromIndexedDB();
-
-                    // 3. مزامنة خلفية صامتة عند توفر الإنترنت
+                    // 2. مزامنة خلفية صامتة عند توفر الإنترنت
                     if (navigator.onLine) {
-                        this.syncWithServer();
+                        if (this.shipments.length === 0) {
+                            try {
+                                await this.syncWithServer();
+                            } finally {
+                                this.isLoading = false;
+                            }
+                        } else {
+                            this.syncWithServer().finally(() => {
+                                this.isLoading = false;
+                            });
+                        }
+                    } else {
+                        this.isLoading = false;
                     }
 
                     window.addEventListener('online', () => {

@@ -99,7 +99,7 @@
                 @include('office.parcels.partials.parcel-card')
             </template>
 
-            <div x-show="filteredParcels.length === 0" x-cloak class="lg:col-span-full text-center py-12 text-slate-400">
+            <div x-show="!isLoading && clientReady && filteredParcels.length === 0" x-cloak class="lg:col-span-full text-center py-12 text-slate-400">
                 <span class="material-symbols-outlined text-4xl mb-1">inventory_2</span>
                 <p class="text-xs">لا توجد طرود مطابقة</p>
             </div>
@@ -109,7 +109,7 @@
         <div x-show="desktopView === 'table'"
              x-cloak
              class="mursal-desktop-table hidden lg:block">
-            <div x-show="filteredParcels.length === 0"
+            <div x-show="!isLoading && clientReady && filteredParcels.length === 0"
                  x-cloak
                  class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 p-10 text-center text-slate-400 shadow-2xs">
                 <span class="material-symbols-outlined text-4xl mb-1 text-slate-300 dark:text-slate-600">inventory_2</span>
@@ -117,7 +117,37 @@
                 <p class="text-[11px] text-slate-400 mt-0.5">اضغط على (+ إرسال سريع SMS) أعلى الشاشة لتسجيل طرد وارد جديد</p>
             </div>
 
+            {{-- صفوف هيكلية خفيفة أثناء قراءة البيانات من IndexedDB لمنع وميض رسالة الفراغ --}}
+            <div x-show="(isLoading || !clientReady) && filteredParcels.length === 0"
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 dark:border-slate-700/60 bg-slate-100/90 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+                            <th class="py-3 pr-4 pl-3">النوع ورقم السند</th>
+                            <th class="py-3 px-3">المستلم والهاتف</th>
+                            <th class="py-3 px-3">المصدر / الخانة</th>
+                            <th class="py-3 px-3">الحالة</th>
+                            <th class="py-3 px-3">التواصل</th>
+                            <th class="py-3 pr-3 pl-4 text-left">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 animate-pulse">
+                        @for ($i = 0; $i < 4; $i++)
+                            <tr>
+                                <td class="py-3.5 pr-4 pl-3"><div class="h-3.5 w-28 rounded bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                <td class="py-3.5 px-3"><div class="h-3.5 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                <td class="py-3.5 px-3"><div class="h-3.5 w-24 rounded bg-slate-200/70 dark:bg-slate-700/50"></div></td>
+                                <td class="py-3.5 px-3"><div class="h-5 w-16 rounded-md bg-slate-200/80 dark:bg-slate-700/60"></div></td>
+                                <td class="py-3.5 px-3"><div class="h-7 w-24 rounded-lg bg-slate-200/70 dark:bg-slate-700/50"></div></td>
+                                <td class="py-3.5 pr-3 pl-4"><div class="h-7 w-20 rounded-lg bg-slate-200/70 dark:bg-slate-700/50 mr-auto"></div></td>
+                            </tr>
+                        @endfor
+                    </tbody>
+                </table>
+            </div>
+
             <div x-show="filteredParcels.length > 0"
+                 x-cloak
                  class="bg-white dark:bg-[#24303F] rounded-2xl border border-slate-200/90 dark:border-slate-700/60 shadow-2xs overflow-hidden">
                 <table class="w-full text-right border-collapse">
                     <thead>

@@ -189,6 +189,8 @@
             filter: 'all',
             filters: FILTERS,
             desktopView: localStorage.getItem('mursal_incoming_desktop_view') === 'cards' ? 'cards' : 'table',
+            isLoading: true,
+            clientReady: false,
             isSyncing: false,
 
             // إعدادات العرض التدريجي الذكي في الشاشة (Capped DOM Rendering)
@@ -271,35 +273,52 @@
             },
 
             async init() {
-                // 1. فتح قاعدة البيانات الموحدة بإصدارها الأحدث
-                await window.MursalDB.open();
+                try {
+                    // 1. فتح قاعدة البيانات الموحدة بإصدارها الأحدث
+                    await window.MursalDB.open();
 
-                // 2. إعادة ضبط نافذة العرض عند الكتابة في البحث لنتائج فورية
-                this.$watch('search', () => {
-                    this.resetVisibleWindow();
-                });
+                    // 2. إعادة ضبط نافذة العرض عند الكتابة في البحث لنتائج فورية
+                    this.$watch('search', () => {
+                        this.resetVisibleWindow();
+                    });
 
-                // مراقبة أي تغير في الطابور أو الطرود لتحديث الكاش بدورة واحدة فقط
-                this.$watch('syncQueue', () => {
-                    this.recomputePendingIds();
-                });
-                this.$watch('parcels', () => {
-                    this.recomputeStatusCounts();
-                });
+                    // مراقبة أي تغير في الطابور أو الطرود لتحديث الكاش بدورة واحدة فقط
+                    this.$watch('syncQueue', () => {
+                        this.recomputePendingIds();
+                    });
+                    this.$watch('parcels', () => {
+                        this.recomputeStatusCounts();
+                    });
 
-                // 3. تهيئة المراقب الذكي لتحميل الـ 25 طرد التالية عند الوصول للطرد 20
-                this.initInfiniteScroll();
+                    // 3. تهيئة المراقب الذكي لتحميل الـ 25 طرد التالية عند الوصول للطرد 20
+                    this.initInfiniteScroll();
 
-                // 4. مراقبة الاتصال وبدء المزامنة فور عودة الشبكة
-                this.watchConnection(() => this.syncData());
+                    // 4. مراقبة الاتصال وبدء المزامنة فور عودة الشبكة
+                    this.watchConnection(() => this.syncData());
 
-                // 5. تحميل البيانات المخزنة محلياً للعرض الفوري
-                await this.loadLocal();
+                    // 5. تحميل البيانات المخزنة محلياً للعرض الفوري
+                    await this.loadLocal();
+                } finally {
+                    this.clientReady = true;
+                    if (!this.isOnline || this.parcels.length > 0) {
+                        this.isLoading = false;
+                    }
+                }
 
                 // 6. مزامنة البيانات وتحديث القائمة في حال توفر اتصال
                 if (this.isOnline) {
-                    this.syncData();
+                    if (this.parcels.length === 0) {
+                        try {
+                            await this.syncData();
+                        } finally {
+                            this.isLoading = false;
+                        }
+                    } else {
+                        this.syncData();
+                    }
                     this.checkSmsGatewayStatus();
+                } else {
+                    this.isLoading = false;
                 }
 
                 // 7. الاستماع لأمر الـ Service Worker للمزامنة بالخلفية

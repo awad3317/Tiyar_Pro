@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mursal-pwa-v33';
+const CACHE_NAME = 'mursal-pwa-v34';
 
 const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap';
 

@@ -9,6 +9,8 @@
             officeId: OFFICE_ID,
             customers: [],
             search: '',
+            isLoading: true,
+            clientReady: false,
             desktopView: localStorage.getItem('mursal_vip_desktop_view') === 'cards' ? 'cards' : 'table',
             setDesktopView(mode) {
                 const next = mode === 'cards' ? 'cards' : 'table';
@@ -41,21 +43,38 @@
             },
 
             async init() {
-                if (window.MursalDB) {
-                    await window.MursalDB.open();
+                try {
+                    if (window.MursalDB) {
+                        await window.MursalDB.open();
+                    }
+
+                    // 1. تنظيف ذاتي فوري لأي مهام تالفة في الطابور وأي سجلات مكررة محلياً
+                    await this.sanitizeSyncQueueAndLocalStore();
+
+                    // 2. تحميل البيانات المحلية النظيفة
+                    await this.loadLocal();
+                } finally {
+                    this.clientReady = true;
+                    if (!this.isOnline || this.customers.length > 0) {
+                        this.isLoading = false;
+                    }
                 }
-
-                // 1. تنظيف ذاتي فوري لأي مهام تالفة في الطابور وأي سجلات مكررة محلياً
-                await this.sanitizeSyncQueueAndLocalStore();
-
-                // 2. تحميل البيانات المحلية النظيفة
-                await this.loadLocal();
 
                 // 3. مراقبة الاتصال ومحاولة المزامنة
                 this.watchConnection(() => this.syncData());
 
                 if (this.isOnline) {
-                    this.syncData();
+                    if (this.customers.length === 0) {
+                        try {
+                            await this.syncData();
+                        } finally {
+                            this.isLoading = false;
+                        }
+                    } else {
+                        this.syncData();
+                    }
+                } else {
+                    this.isLoading = false;
                 }
 
                 if ('serviceWorker' in navigator) {

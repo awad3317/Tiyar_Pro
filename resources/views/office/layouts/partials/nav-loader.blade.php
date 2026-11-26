@@ -86,12 +86,22 @@
     }
 </style>
 
+{{-- شريط التقدم العلوي النحيف لسطح المكتب فقط (YouTube / GitHub style — بدون شاشة سوداء) --}}
+<div id="mursal-desktop-top-progress"
+     aria-hidden="true"
+     style="display: none;"
+     class="hidden lg:block fixed top-0 left-0 right-0 h-[3px] z-[80] pointer-events-none opacity-0 transition-opacity duration-150 print:hidden">
+    <div id="mursal-desktop-top-progress-bar"
+         class="h-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.65)] transition-[width] duration-200 ease-out"
+         style="width: 0%;"></div>
+</div>
+
 <div id="mursal-nav-loader"
      role="status"
      aria-live="polite"
      aria-hidden="true"
      style="display: none; background: radial-gradient(circle at 50% 38%, #0b2948 0%, #041627 62%, #020c17 100%);"
-     class="mursal-nav-loader-desktop fixed inset-0 max-w-md mx-auto lg:max-w-none lg:mx-0 z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
+     class="mursal-nav-loader-desktop lg:hidden fixed inset-0 max-w-md mx-auto z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
 
     {{-- شريط الليزر العلوي المتوهج --}}
     <div class="absolute top-0 left-0 right-0 h-1 bg-white/5 overflow-hidden">
@@ -213,11 +223,14 @@
         ];
 
         let safetyTimer = null;
+        let progressTimer = null;
 
         function getElements() {
             return {
                 root: document.getElementById('mursal-nav-loader'),
                 label: document.getElementById('mursal-nav-loader-label'),
+                progressWrap: document.getElementById('mursal-desktop-top-progress'),
+                progressBar: document.getElementById('mursal-desktop-top-progress-bar'),
             };
         }
 
@@ -238,20 +251,45 @@
 
         function showNavLoader(customLabel, targetPath) {
             const els = getElements();
+
+            // على الكمبيوتر (>= 1024px): شريط التقدم العلوي النحيف فقط بدون تغطية المحتوى
+            if (global.innerWidth >= 1024) {
+                if (els.root) {
+                    els.root.style.display = 'none';
+                    els.root.setAttribute('aria-hidden', 'true');
+                }
+                if (els.progressWrap && els.progressBar) {
+                    if (progressTimer) clearInterval(progressTimer);
+                    els.progressBar.style.transition = 'none';
+                    els.progressBar.style.width = '0%';
+                    els.progressWrap.style.display = 'block';
+
+                    global.requestAnimationFrame(function () {
+                        if (!els.progressWrap || !els.progressBar) return;
+                        els.progressWrap.classList.remove('opacity-0');
+                        els.progressWrap.classList.add('opacity-100');
+                        els.progressBar.style.transition = '';
+                        let pct = 38;
+                        els.progressBar.style.width = pct + '%';
+                        progressTimer = setInterval(function () {
+                            if (!els.progressBar) return;
+                            pct = Math.min(92, pct + (92 - pct) * 0.25);
+                            els.progressBar.style.width = pct.toFixed(1) + '%';
+                        }, 180);
+                    });
+                }
+                if (safetyTimer) clearTimeout(safetyTimer);
+                safetyTimer = setTimeout(hideNavLoader, 8000);
+                return;
+            }
+
             if (!els.root) return;
 
             if (els.label) {
                 els.label.textContent = resolveLabelForPath(targetPath || '', customLabel);
             }
 
-            if (global.innerWidth >= 1024) {
-                const mainEl = document.querySelector('.mursal-desktop-workspace main');
-                const mainTop = mainEl ? Math.max(64, Math.round(mainEl.getBoundingClientRect().top)) : 64;
-                els.root.style.top = mainTop + 'px';
-            } else {
-                els.root.style.top = '';
-            }
-
+            els.root.style.top = '';
             els.root.style.display = 'flex';
             els.root.setAttribute('aria-hidden', 'false');
             global.requestAnimationFrame(function () {
@@ -270,7 +308,18 @@
                 clearTimeout(safetyTimer);
                 safetyTimer = null;
             }
+            if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+            }
             const els = getElements();
+            if (els.progressWrap && els.progressBar) {
+                els.progressBar.style.width = '100%';
+                els.progressWrap.classList.remove('opacity-100');
+                els.progressWrap.classList.add('opacity-0');
+                els.progressWrap.style.display = 'none';
+                els.progressBar.style.width = '0%';
+            }
             if (!els.root) return;
 
             els.root.classList.remove('opacity-100');
