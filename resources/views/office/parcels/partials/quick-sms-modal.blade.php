@@ -308,7 +308,7 @@
     x-init="quickSms.channel = isWaConnected ? 'both' : 'sms'; checkWhatsAppStatus(); initFavorites()"
     x-show="quickSms.open" 
     x-cloak 
-    class="fixed inset-0 z-50 flex flex-col bg-white"
+    class="fixed inset-0 z-50 flex flex-col bg-white lg:dark:bg-slate-950/60"
     @open-quick-sms.window="isClosing = false; checkWhatsAppStatus(); loadLocalFavorites(); syncFavorites(); openQuickSmsModal()"
     @keydown.escape.window="if (quickSms.open && !isClosing && streamingPendingCount === 0) resetQuickSms()">
 
@@ -318,7 +318,7 @@
     </div>
 
     {{-- بطاقة المودال: شاشة كاملة على الجوال (h-[100dvh]) وبطاقة مركزية على الديسكتوب --}}
-    <div class="relative w-full h-[100dvh] md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-3xl md:m-auto bg-white shadow-2xl z-10 flex flex-col overflow-hidden"
+    <div class="relative w-full h-[100dvh] md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-3xl md:m-auto bg-white lg:dark:bg-[#24303F] lg:dark:border lg:dark:border-slate-700/60 shadow-2xl z-10 flex flex-col overflow-hidden"
         x-show="quickSms.open" x-transition:enter="ease-out duration-250"
         x-transition:enter-start="opacity-0 translate-y-full md:translate-y-4 md:scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 md:scale-100" x-transition:leave="ease-in duration-200"
@@ -329,14 +329,14 @@
         1. هيدر المودال الثابت بالأعلى
         ═══════════════════════════════════ --}}
         <div
-            class="px-4 pt-2.5 pb-2 mb-1.5 flex items-center justify-between border-b border-slate-100 bg-white/95 backdrop-blur-sm shrink-0">
+            class="px-4 pt-2.5 pb-2 mb-1.5 flex items-center justify-between border-b border-slate-100 lg:dark:border-slate-700/60 bg-white/95 lg:dark:bg-[#24303F] backdrop-blur-sm shrink-0">
             <div class="flex items-center gap-2">
                 <div
                     class="w-8 h-8 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-[17px]">bolt</span>
                 </div>
                 <div>
-                    <h3 class="text-sm font-extrabold text-slate-800 leading-tight">إرسال سريع</h3>
+                    <h3 class="text-sm font-extrabold text-slate-800 lg:dark:text-slate-100 leading-tight">إرسال سريع</h3>
                     <p class="text-[10px] text-slate-400 leading-tight">إدخال مباشر بالخلفية</p>
                 </div>
             </div>
@@ -344,31 +344,31 @@
             <div class="flex items-center gap-1.5">
                 {{-- عداد مصغر --}}
                 <template x-if="streamingQueue.length > 0">
-                    <div class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                    <div class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-100 lg:dark:bg-emerald-500/15 lg:dark:border-emerald-500/30">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"
                             :class="(streamingPendingCount > 0 || isClosing) && 'animate-pulse bg-amber-500'"></span>
-                        <span class="text-[10px] font-extrabold text-emerald-700" x-text="streamingSentCount"></span>
+                        <span class="text-[10px] font-extrabold text-emerald-700 lg:dark:text-emerald-400" x-text="streamingSentCount"></span>
                         <span class="text-[10px] text-slate-400">/</span>
-                        <span class="text-[10px] font-bold text-slate-500" x-text="streamingQueue.length"></span>
+                        <span class="text-[10px] font-bold text-slate-500 lg:dark:text-slate-300" x-text="streamingQueue.length"></span>
                     </div>
                 </template>
 
                 <button type="button" @click="if (!isClosing) resetQuickSms()" :disabled="isClosing"
-                    class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     <span class="material-symbols-outlined text-[15px]">close</span>
                 </button>
             </div>
         </div>
 
         {{-- اختيار قناة الإرسال (واتساب / SMS / كلاهما) --}}
-        <div class="px-4 pb-0 mb-2 bg-white shrink-0">
-            <div class="flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/80">
+        <div class="px-4 pb-0 mb-2 bg-white lg:dark:bg-[#24303F] shrink-0">
+            <div class="flex p-0.5 bg-slate-100 lg:dark:bg-[#1A222C] rounded-xl border border-slate-200/80 lg:dark:border-slate-700/60">
                 <button type="button" 
                     @click="if (isWaConnected) quickSms.channel = 'whatsapp'"
                     :disabled="!isWaConnected"
                     :class="{
-                        'bg-white text-emerald-600 shadow-xs border border-emerald-100 font-extrabold': quickSms.channel === 'whatsapp' && isWaConnected,
-                        'text-slate-500 hover:text-slate-700 font-bold': quickSms.channel !== 'whatsapp' && isWaConnected,
+                        'bg-white text-emerald-600 shadow-xs border border-emerald-100 lg:dark:bg-[#24303F] lg:dark:text-emerald-400 lg:dark:border-emerald-500/30 font-extrabold': quickSms.channel === 'whatsapp' && isWaConnected,
+                        'text-slate-500 hover:text-slate-700 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold': quickSms.channel !== 'whatsapp' && isWaConnected,
                         'opacity-40 cursor-not-allowed text-slate-400': !isWaConnected
                     }"
                     class="flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1 transition-all"
@@ -381,7 +381,7 @@
                 </button>
                 <button type="button" 
                     @click="quickSms.channel = 'sms'"
-                    :class="quickSms.channel === 'sms' ? 'bg-white text-blue-600 shadow-xs border border-blue-100 font-extrabold' : 'text-slate-500 hover:text-slate-700 font-bold'"
+                    :class="quickSms.channel === 'sms' ? 'bg-white text-blue-600 shadow-xs border border-blue-100 lg:dark:bg-[#24303F] lg:dark:text-blue-400 lg:dark:border-blue-500/30 font-extrabold' : 'text-slate-500 hover:text-slate-700 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold'"
                     class="flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
                     <span class="material-symbols-outlined text-[15px]">sms</span>
                     <span>SMS</span>
@@ -390,8 +390,8 @@
                     @click="if (isWaConnected) quickSms.channel = 'both'"
                     :disabled="!isWaConnected"
                     :class="{
-                        'bg-white text-amber-600 shadow-xs border border-amber-100 font-extrabold': quickSms.channel === 'both' && isWaConnected,
-                        'text-slate-500 hover:text-slate-700 font-bold': quickSms.channel !== 'both' && isWaConnected,
+                        'bg-white text-amber-600 shadow-xs border border-amber-100 lg:dark:bg-[#24303F] lg:dark:text-amber-400 lg:dark:border-amber-500/30 font-extrabold': quickSms.channel === 'both' && isWaConnected,
+                        'text-slate-500 hover:text-slate-700 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold': quickSms.channel !== 'both' && isWaConnected,
                         'opacity-40 cursor-not-allowed text-slate-400': !isWaConnected
                     }"
                     class="flex-1 py-1 px-2 rounded-lg text-xs flex items-center justify-center gap-1 transition-all"
@@ -404,7 +404,7 @@
                 </button>
             </div>
             <template x-if="!isWaConnected">
-                <p class="text-[10px] text-amber-600 font-bold mt-1 px-1 flex items-center gap-1">
+                <p class="text-[10px] text-amber-600 lg:dark:text-amber-400 font-bold mt-1 px-1 flex items-center gap-1">
                     <span class="material-symbols-outlined text-[12px]">info</span>
                     <span>واتساب غير متصل (متاح SMS فقط). يمكنك ربط الجلسة من الإعدادات.</span>
                 </p>
@@ -414,7 +414,7 @@
         {{-- ═══════════════════════════════════
         2. حقول الإدخال السريعة (تبقى واضحة أعلى الكيبورد)
         ═══════════════════════════════════ --}}
-        <div class="px-4 pb-2 space-y-2 bg-white shrink-0 border-b border-slate-100">
+        <div class="px-4 pb-2 space-y-2 bg-white lg:dark:bg-[#24303F] shrink-0 border-b border-slate-100 lg:dark:border-slate-700/60">
 
             @php
                 $hasSlotNumberFeature = auth('office')->check() && auth('office')->user()->hasFeature('parcel_slot_number');
@@ -423,9 +423,9 @@
             {{-- 1. حقل رقم الهاتف (+ رقم الخانة بجانبه عند تفعيل الميزة) --}}
             <div class="relative {{ $hasSlotNumberFeature ? 'grid grid-cols-12 gap-2' : '' }}">
                 <div class="relative {{ $hasSlotNumberFeature ? 'col-span-8' : '' }}">
-                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5">رقم الهاتف</label>
+                    <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-0.5">رقم الهاتف</label>
                     <div
-                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
 
                         {{-- علم اليمن ومؤشر الحالة معاً في الجهة اليمنى --}}
                         <div
@@ -458,7 +458,7 @@
                                }
                            }
                         " dir="ltr" inputmode="numeric" maxlength="9" autocomplete="off"
-                            class="w-full py-2 {{ $hasSlotNumberFeature ? 'px-3 pr-14' : 'px-4 pr-16' }} text-sm font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                            class="w-full py-2 {{ $hasSlotNumberFeature ? 'px-3 pr-14' : 'px-4 pr-16' }} text-sm font-mono font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 placeholder:font-normal disabled:opacity-50"
                             placeholder="7XXXXXXXX" />
                     </div>
                 </div>
@@ -466,17 +466,17 @@
                 @if($hasSlotNumberFeature)
                 {{-- حقل رقم الخانة بجانب رقم الهاتف مباشرة --}}
                 <div class="col-span-4">
-                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center gap-0.5 truncate">
-                        <span class="material-symbols-outlined text-[13px] text-indigo-500 shrink-0">grid_view</span>
+                    <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-0.5 flex items-center gap-0.5 truncate">
+                        <span class="material-symbols-outlined text-[13px] text-indigo-500 lg:dark:text-indigo-400 shrink-0">grid_view</span>
                         <span class="truncate">رقم الخانة</span>
                     </label>
                     <div
-                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                        class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
                         <input type="text" x-ref="streamingSlotInput" x-model="quickSms.slotNumber" :disabled="isClosing"
                             @input="quickSms.slotNumber = normalizeText(quickSms.slotNumber).substring(0, 50)"
                             @keydown.enter.prevent="$refs.streamingDescInput.focus()"
                             dir="ltr" autocomplete="off" maxlength="50"
-                            class="w-full py-2 px-2.5 text-sm font-mono font-bold text-center text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                            class="w-full py-2 px-2.5 text-sm font-mono font-bold text-center text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 placeholder:font-normal disabled:opacity-50"
                             placeholder="مثال: 12" />
                     </div>
                 </div>
@@ -485,14 +485,14 @@
                 @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                 {{-- اقتراحات العملاء المميزين عند البحث بالرقم --}}
                 <template x-if="favoriteSuggestions('phone').length > 0">
-                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200 lg:dark:border-slate-700/60 shadow-lg overflow-hidden">
                         <template x-for="fav in favoriteSuggestions('phone')" :key="'fp-' + fav.phone">
                             <button type="button" @mousedown.prevent
                                 @click="selectFavorite(fav); $nextTick(() => { if ($refs.streamingSlotInput) { $refs.streamingSlotInput.focus(); } else { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); } })"
-                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 border-b border-slate-50 last:border-b-0 transition-colors">
+                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 lg:dark:hover:bg-slate-700/50 border-b border-slate-50 lg:dark:border-slate-700/50 last:border-b-0 transition-colors">
                                 <span class="material-symbols-outlined text-[16px] text-amber-500">star</span>
-                                <span class="flex-1 truncate text-xs font-bold text-slate-700" x-text="fav.name"></span>
-                                <span class="text-xs font-mono font-bold text-slate-500" dir="ltr" x-text="fav.phone"></span>
+                                <span class="flex-1 truncate text-xs font-bold text-slate-700 lg:dark:text-slate-100" x-text="fav.name"></span>
+                                <span class="text-xs font-mono font-bold text-slate-500 lg:dark:text-slate-400" dir="ltr" x-text="fav.phone"></span>
                             </button>
                         </template>
                     </div>
@@ -503,7 +503,7 @@
             {{-- 2. صف نوع الطرد + اسم المستلم (اختياري) --}}
             <div class="relative grid grid-cols-2 gap-2">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5">نوع الطرد</label>
+                    <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-0.5">نوع الطرد</label>
                     <input type="text" x-ref="streamingDescInput" x-model="quickSms.description" :disabled="isClosing" @keydown.enter.prevent="
                         if (isClosing) return;
                         const phone = normalizeText(quickSms.phone).replace(/\D/g, '');
@@ -520,12 +520,12 @@
                             document.getElementById('streaming-phone-input').focus();
                         }
                     " dir="rtl" autocomplete="off"
-                        class="w-full py-2 px-3 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
+                        class="w-full py-2 px-3 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 transition-all disabled:opacity-50"
                         placeholder="طرد" />
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5">
+                    <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-0.5">
                         اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span>
                     </label>
                     <input type="text" x-ref="streamingRecipientInput" x-model="quickSms.recipientName" :disabled="isClosing"
@@ -548,21 +548,21 @@
                             document.getElementById('streaming-phone-input').focus();
                         }
                     " dir="rtl" autocomplete="off"
-                        class="w-full py-2 px-3 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 transition-all disabled:opacity-50"
+                        class="w-full py-2 px-3 text-xs font-bold text-slate-700 rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 transition-all disabled:opacity-50"
                         placeholder="بدون اسم" />
                 </div>
 
                 @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                 {{-- اقتراحات العملاء المميزين عند البحث بالاسم --}}
                 <template x-if="favoriteSuggestions('name').length > 0">
-                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                    <div class="absolute left-0 right-0 top-full mt-1 z-30 bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200 lg:dark:border-slate-700/60 shadow-lg overflow-hidden">
                         <template x-for="fav in favoriteSuggestions('name')" :key="'fn-' + fav.phone">
                             <button type="button" @mousedown.prevent
                                 @click="selectFavorite(fav); $nextTick(() => { $refs.streamingDescInput.focus(); $refs.streamingDescInput.select(); })"
-                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 border-b border-slate-50 last:border-b-0 transition-colors">
+                                class="w-full flex items-center gap-2 px-3 py-2 text-right hover:bg-amber-50 active:bg-amber-100 lg:dark:hover:bg-slate-700/50 border-b border-slate-50 lg:dark:border-slate-700/50 last:border-b-0 transition-colors">
                                 <span class="material-symbols-outlined text-[16px] text-amber-500">star</span>
-                                <span class="flex-1 truncate text-xs font-bold text-slate-700" x-text="fav.name"></span>
-                                <span class="text-xs font-mono font-bold text-slate-500" dir="ltr" x-text="fav.phone"></span>
+                                <span class="flex-1 truncate text-xs font-bold text-slate-700 lg:dark:text-slate-100" x-text="fav.name"></span>
+                                <span class="text-xs font-mono font-bold text-slate-500 lg:dark:text-slate-400" dir="ltr" x-text="fav.phone"></span>
                             </button>
                         </template>
                     </div>
@@ -608,7 +608,7 @@
                             <button type="button" :disabled="isClosing" @click="
                                 quickSms.description = cat + ' ';
                                 $refs.streamingDescInput.focus();
-                            " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
+                            " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
                                 <span x-text="cat"></span>
                                 <span class="text-[9px] text-slate-400">◀</span>
                             </button>
@@ -622,7 +622,7 @@
                         <button type="button" :disabled="isClosing" @click="
                             quickSms.description = '';
                             $refs.streamingDescInput.focus();
-                        " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير النوع">
+                        " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير النوع">
                             <span x-text="activeCategory + ' ✕'"></span>
                         </button>
 
@@ -630,7 +630,7 @@
                             <button type="button" :disabled="isClosing" @click="
                                 quickSms.description = activeCategory + ' ' + color;
                                 $refs.streamingDescInput.focus();
-                            " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
+                            " class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40 flex items-center gap-1">
                                 <span x-text="color"></span>
                                 <span class="text-[9px] text-slate-400">◀</span>
                             </button>
@@ -644,14 +644,14 @@
                         <button type="button" :disabled="isClosing" @click="
                             quickSms.description = '';
                             $refs.streamingDescInput.focus();
-                        " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير الفئة">
+                        " class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير الفئة">
                             <span x-text="activeCategory + ' ✕'"></span>
                         </button>
 
                         <button type="button" :disabled="isClosing" @click="
                             quickSms.description = activeCategory + ' ';
                             $refs.streamingDescInput.focus();
-                        " class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير اللون">
+                        " class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40" title="تغيير اللون">
                             <span x-text="activeColor + ' ✕'"></span>
                         </button>
 
@@ -661,7 +661,7 @@
                                 $refs.streamingDescInput.focus();
                             " :class="activeSize === size
                                 ? 'bg-secondary text-white shadow-sm'
-                                : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
+                                : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300'"
                             class="py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95 disabled:opacity-40">
                                 <span x-text="size"></span>
                             </button>
@@ -703,9 +703,9 @@
                         this.regionOpen = false;
                     }
                 }" class="relative min-w-0" @click.outside="regionOpen = false">
-                    <label class="block text-[11px] font-bold text-slate-600 mb-0.5 flex items-center justify-between gap-1">
+                    <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-0.5 flex items-center justify-between gap-1">
                         <span class="flex items-center gap-0.5 truncate">
-                            <span class="material-symbols-outlined text-[14px] text-purple-600 shrink-0">location_on</span>
+                            <span class="material-symbols-outlined text-[14px] text-purple-600 lg:dark:text-purple-400 shrink-0">location_on</span>
                             <span class="truncate">منطقة القدوم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
                         </span>
                         <template x-if="quickSms.sourceRegion">
@@ -714,7 +714,7 @@
                         </template>
                     </label>
 
-                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
                         <input type="text"
                                :value="regionOpen ? regionSearch : (quickSms.sourceRegion || '')"
                                @focus="regionOpen = true; regionSearch = ''"
@@ -724,7 +724,7 @@
                                dir="rtl"
                                autocomplete="off"
                                placeholder="اختر المنطقة..."
-                               class="w-full py-2 pr-3 pl-8 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal disabled:opacity-50" />
+                               class="w-full py-2 pr-3 pl-8 text-xs font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400 lg:dark:placeholder:text-slate-500 placeholder:font-normal disabled:opacity-50" />
                         <button type="button"
                                 @click="regionOpen = !regionOpen; if (regionOpen) regionSearch = ''"
                                 class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 flex items-center">
@@ -735,16 +735,16 @@
                     <div x-show="regionOpen"
                          x-cloak
                          x-transition
-                         class="absolute left-0 right-0 top-full mt-1 z-30 max-h-44 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
+                         class="absolute left-0 right-0 top-full mt-1 z-30 max-h-44 overflow-y-auto bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200 lg:dark:border-slate-700/60 shadow-xl divide-y divide-slate-50 lg:dark:divide-slate-700/50">
                         <template x-for="reg in filteredRegions" :key="reg">
                             <button type="button"
                                     @mousedown.prevent
                                     @click="chooseRegion(reg)"
-                                    :class="quickSms.sourceRegion === reg ? 'bg-purple-50 text-purple-800 font-extrabold' : 'text-slate-700 hover:bg-slate-50 font-bold'"
+                                    :class="quickSms.sourceRegion === reg ? 'bg-purple-50 text-purple-800 lg:dark:bg-purple-500/20 lg:dark:text-purple-300 font-extrabold' : 'text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 font-bold'"
                                     class="w-full px-3 py-2 text-right text-xs flex items-center justify-between transition-colors">
                                 <span x-text="reg" class="truncate"></span>
                                 <template x-if="quickSms.sourceRegion === reg">
-                                    <span class="material-symbols-outlined text-sm text-purple-600 shrink-0">check</span>
+                                    <span class="material-symbols-outlined text-sm text-purple-600 lg:dark:text-purple-400 shrink-0">check</span>
                                 </template>
                             </button>
                         </template>
@@ -753,7 +753,7 @@
                             <button type="button"
                                     @mousedown.prevent
                                     @click="chooseRegion(regionSearch.trim())"
-                                    class="w-full px-3 py-2 text-right text-xs font-extrabold text-secondary bg-amber-50/50 hover:bg-amber-50 flex items-center gap-1">
+                                    class="w-full px-3 py-2 text-right text-xs font-extrabold text-secondary bg-amber-50/50 hover:bg-amber-50 lg:dark:bg-amber-500/15 lg:dark:hover:bg-amber-500/25 flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm shrink-0">add_location_alt</span>
                                 <span class="truncate" x-text="'اعتماد: ' + regionSearch.trim()"></span>
                             </button>
@@ -765,14 +765,14 @@
                 @if($hasCodAmountFeature)
                 {{-- حقل المبلغ المطلوب عند التسليم (اختياري) --}}
                 <div class="relative min-w-0">
-                    <label class="block text-[11px] font-bold text-amber-700 mb-0.5 flex items-center justify-between gap-1">
+                    <label class="block text-[11px] font-bold text-amber-700 lg:dark:text-amber-400 mb-0.5 flex items-center justify-between gap-1">
                         <span class="flex items-center gap-0.5 truncate">
-                            <span class="material-symbols-outlined text-[14px] text-amber-600 shrink-0">payments</span>
+                            <span class="material-symbols-outlined text-[14px] text-amber-600 lg:dark:text-amber-400 shrink-0">payments</span>
                             <span class="truncate">مبلغ التسليم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></span>
                         </span>
-                        <span class="text-[10px] font-mono text-amber-700 font-bold shrink-0" x-show="quickSms.codAmount && Number(quickSms.codAmount) > 0" x-text="Number(quickSms.codAmount).toLocaleString('en-US')"></span>
+                        <span class="text-[10px] font-mono text-amber-700 lg:dark:text-amber-300 font-bold shrink-0" x-show="quickSms.codAmount && Number(quickSms.codAmount) > 0" x-text="Number(quickSms.codAmount).toLocaleString('en-US')"></span>
                     </label>
-                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+                    <div class="relative rounded-2xl border border-slate-200 bg-slate-50/80 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
                         <input type="number" step="any" min="0" inputmode="numeric"
                                x-ref="streamingCodInput"
                                x-model="quickSms.codAmount"
@@ -794,7 +794,7 @@
                                    }
                                "
                                dir="ltr"
-                               class="w-full py-2 px-3 pl-9 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal disabled:opacity-50"
+                               class="w-full py-2 px-3 pl-9 text-xs font-mono font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 placeholder:font-normal disabled:opacity-50"
                                placeholder="مثال: 5000" />
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 select-none pointer-events-none">ر.ي</span>
                     </div>
@@ -829,22 +829,22 @@
         {{-- ═══════════════════════════════════
         3. القائمة الحية (Scrollable Area)
         ═══════════════════════════════════ --}}
-        <div class="flex-1 overflow-y-auto px-4 py-2.5 space-y-1.5 min-h-0 bg-slate-50/50">
+        <div class="flex-1 overflow-y-auto px-4 py-2.5 space-y-1.5 min-h-0 bg-slate-50/50 lg:dark:bg-[#1A222C]">
             {{-- حالة عدم وجود طرود --}}
             <div x-show="streamingQueue.length === 0"
                 class="flex flex-col items-center justify-center h-full min-h-[140px] text-center text-slate-400">
-                <span class="material-symbols-outlined text-3xl mb-1 text-slate-300">playlist_add</span>
-                <p class="text-xs font-bold text-slate-500">القائمة فارغة حالياً</p>
+                <span class="material-symbols-outlined text-3xl mb-1 text-slate-300 lg:dark:text-slate-600">playlist_add</span>
+                <p class="text-xs font-bold text-slate-500 lg:dark:text-slate-300">القائمة فارغة حالياً</p>
                 <p class="text-[10px] text-slate-400">الطرود التي تدخلها ستظهر هنا وتُرسل مباشرة</p>
             </div>
 
             {{-- بنود الطرود المضافة --}}
             <template x-for="entry in streamingQueue" :key="entry.id">
-                <div class="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 border shadow-2xs transition-all"
+                <div class="flex items-center gap-2.5 bg-white lg:dark:bg-[#24303F] rounded-xl px-3 py-2 border shadow-2xs transition-all"
                     :class="{
-                         'border-slate-100': entry.status === 'pending',
-                         'border-emerald-200 bg-emerald-50/30': entry.status === 'success',
-                         'border-rose-200 bg-rose-50/30': entry.status === 'failed',
+                         'border-slate-100 lg:dark:border-slate-700/60': entry.status === 'pending',
+                         'border-emerald-200 bg-emerald-50/30 lg:dark:border-emerald-500/30 lg:dark:bg-emerald-500/10': entry.status === 'success',
+                         'border-rose-200 bg-rose-50/30 lg:dark:border-rose-500/30 lg:dark:bg-rose-500/10': entry.status === 'failed',
                      }">
 
                     {{-- أيقونة الحالة --}}
@@ -866,16 +866,16 @@
                     </div>
 
                     {{-- رقم الهاتف --}}
-                    <span class="text-xs font-mono font-bold text-slate-700 dir-ltr shrink-0"
+                    <span class="text-xs font-mono font-bold text-slate-700 lg:dark:text-slate-100 dir-ltr shrink-0"
                         x-text="entry.phone"></span>
 
                     {{-- نوع الطرد واسم المستلم إن وُجد --}}
-                    <span class="text-[11px] font-bold text-slate-500 flex-1 truncate"
+                    <span class="text-[11px] font-bold text-slate-500 lg:dark:text-slate-400 flex-1 truncate"
                         x-text="entry.recipientName ? (entry.description + ' • ' + entry.recipientName) : entry.description"></span>
 
                     @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_slot_number'))
                     <template x-if="entry.slotNumber">
-                        <span class="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5">
+                        <span class="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 lg:dark:bg-indigo-500/15 lg:dark:text-indigo-300 lg:dark:border-indigo-500/30 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5">
                             <span class="material-symbols-outlined text-[11px]">grid_view</span>
                             <span x-text="'#' + entry.slotNumber"></span>
                         </span>
@@ -884,7 +884,7 @@
 
                     @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_source_region'))
                     <template x-if="entry.sourceRegion">
-                        <span class="px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold shrink-0 flex items-center gap-0.5">
+                        <span class="px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 lg:dark:bg-purple-500/15 lg:dark:text-purple-300 lg:dark:border-purple-500/30 text-[10px] font-bold shrink-0 flex items-center gap-0.5">
                             <span class="material-symbols-outlined text-[11px]">location_on</span>
                             <span x-text="entry.sourceRegion"></span>
                         </span>
@@ -894,7 +894,7 @@
                     @if(auth('office')->check() && auth('office')->user()->hasFeature('parcel_cod_amount'))
                     {{-- شارة المبلغ المطلوب عند التسليم في القائمة الحية --}}
                     <template x-if="entry.codAmount && Number(entry.codAmount) > 0">
-                        <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5" dir="ltr">
+                        <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 text-[10px] font-bold font-mono shrink-0 flex items-center gap-0.5" dir="ltr">
                             <span>💰</span>
                             <span x-text="Number(entry.codAmount).toLocaleString('en-US')"></span>
                             <span>ر.ي</span>
@@ -905,7 +905,7 @@
                     {{-- زر إعادة المحاولة --}}
                     <template x-if="entry.status === 'failed'">
                         <button type="button" @click="retryStreamingEntry(entry)" :disabled="isClosing"
-                            class="shrink-0 px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 text-[10px] font-bold flex items-center gap-0.5 disabled:opacity-40">
+                            class="shrink-0 px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-600 lg:dark:bg-rose-500/20 lg:dark:text-rose-400 text-[10px] font-bold flex items-center gap-0.5 disabled:opacity-40">
                             <span class="material-symbols-outlined text-xs">refresh</span>
                             <span>إعادة</span>
                         </button>
@@ -914,26 +914,26 @@
                     {{-- مؤشرات نجاح الإرسال (واتساب / SMS) --}}
                     <div class="shrink-0 flex items-center gap-1">
                         <template x-if="entry.status === 'success' && entry.whatsappSent">
-                            <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">واتساب ✓</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30 text-[10px] font-bold">واتساب ✓</span>
                         </template>
                         <template x-if="entry.status === 'success' && entry.whatsappQueued && !entry.whatsappSent">
-                            <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold" title="سيُرسل إشعار الواتساب تلقائياً خلال دقائق لحماية رقم المكتب من الحظر">واتساب ⏳ مجدول</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 text-[10px] font-bold" title="سيُرسل إشعار الواتساب تلقائياً خلال دقائق لحماية رقم المكتب من الحظر">واتساب ⏳ مجدول</span>
                         </template>
                         <template x-if="entry.status === 'success' && entry.smsSent">
-                            <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">SMS ✓</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 lg:dark:bg-blue-500/15 lg:dark:text-blue-400 lg:dark:border-blue-500/30 text-[10px] font-bold">SMS ✓</span>
                         </template>
 
                         @if(auth('office')->check() && auth('office')->user()->hasFeature('vip_customers_tab'))
                         {{-- إضافة كعميل مميز (يتطلب اسم + رقم) --}}
                         <template x-if="canAddFavorite(entry) && isFavoritePhone(entry.phone)">
-                            <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center" title="عميل مميز">
+                            <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:border-amber-500/30 text-amber-500 flex items-center justify-center" title="عميل مميز">
                                 <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
                             </span>
                         </template>
                         <template x-if="canAddFavorite(entry) && !isFavoritePhone(entry.phone)">
                             <button type="button" @click="addFavoriteFromEntry(entry)"
                                 :disabled="savingFavoritePhone === entry.phone"
-                                class="w-6 h-6 rounded-md bg-slate-100 hover:bg-amber-100 hover:text-amber-600 text-slate-500 border border-slate-200 flex items-center justify-center transition-colors active:scale-90 disabled:opacity-40"
+                                class="w-6 h-6 rounded-md bg-slate-100 hover:bg-amber-100 hover:text-amber-600 text-slate-500 border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 lg:dark:text-slate-300 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300 flex items-center justify-center transition-colors active:scale-90 disabled:opacity-40"
                                 title="إضافة كعميل مميز">
                                 <span class="material-symbols-outlined text-[14px]">person_add</span>
                             </button>
@@ -947,7 +947,7 @@
         {{-- ═══════════════════════════════════
         4. الفوتر الثابت بالأسفل (إغلاق وإنهاء مع لودنق 5 ثوانٍ)
         ═══════════════════════════════════ --}}
-        <div class="p-3 border-t border-slate-100 bg-white shrink-0">
+        <div class="p-3 border-t border-slate-100 lg:dark:border-slate-700/60 bg-white lg:dark:bg-[#24303F] shrink-0">
             <button type="button" :disabled="streamingPendingCount > 0 || isClosing" @click="
                         if (streamingPendingCount > 0 || isClosing) {
                             return;
@@ -986,8 +986,8 @@
                     "
                 class="w-full py-2.5 px-4 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                 :class="(streamingPendingCount > 0 || isClosing)
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-wait'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 cursor-wait'
+                        : 'bg-slate-900 hover:bg-slate-800 lg:dark:bg-amber-500 lg:dark:hover:bg-amber-400 text-white lg:dark:text-slate-950 shadow-sm'
                     ">
 
                 {{-- أيقونة اللودنق أثناء إرسال الطرود أو أثناء مهلة الـ 5 ثوانٍ --}}

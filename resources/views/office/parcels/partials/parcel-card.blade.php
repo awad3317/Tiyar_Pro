@@ -1,25 +1,25 @@
 {{-- بطاقة طرد واحد — تُستخدم داخل <template x-for="p in ..."> وتتطلب وجود المتغير p --}}
-    <article class="border rounded-2xl p-3.5 lg:p-4 bg-white shadow-sm lg:shadow-2xs lg:hover:shadow-md flex flex-col lg:justify-between lg:h-full gap-2 transition-all"
+    <article class="border rounded-2xl p-3.5 lg:p-4 bg-white lg:dark:bg-[#24303F] shadow-sm lg:shadow-2xs lg:hover:shadow-md flex flex-col lg:justify-between lg:h-full gap-2 transition-all"
         :class="cardBorder(p.status)">
 
         <!-- الرأس: نوع الطرد والسند وشارة الحالة ومدة بقائه في المكتب -->
         <div class="flex justify-between items-start">
             <div class="flex items-center gap-2">
-                <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-primary">
+                <span class="w-8 h-8 rounded-lg bg-slate-100 lg:dark:bg-slate-800 flex items-center justify-center text-primary lg:dark:text-amber-400">
                     <span class="material-symbols-outlined text-lg">package_2</span>
                 </span>
                 <div>
-                    <h3 class="font-bold text-sm text-slate-800" x-text="p.package_type"></h3>
+                    <h3 class="font-bold text-sm text-slate-800 lg:dark:text-slate-100" x-text="p.package_type"></h3>
                     <div class="flex items-center gap-2 flex-wrap mt-0.5">
                         <p class="text-[11px] text-slate-400 font-mono" x-show="p.receipt_number"
                             x-text="'سند: #' + p.receipt_number"></p>
                         <span x-show="p.slot_number"
-                            class="inline-flex items-center gap-0.5 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                            class="inline-flex items-center gap-0.5 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 lg:dark:bg-indigo-500/15 lg:dark:text-indigo-300 lg:dark:border-indigo-500/30">
                             <span class="material-symbols-outlined text-[12px]">grid_view</span>
                             <span x-text="'خانة: ' + p.slot_number"></span>
                         </span>
                         <span x-show="p.source_region"
-                            class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80">
+                            class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 lg:dark:bg-purple-500/15 lg:dark:text-purple-300 lg:dark:border-purple-500/30">
                             <span class="material-symbols-outlined text-[12px]">location_on</span>
                             <span x-text="'من: ' + p.source_region"></span>
                         </span>
@@ -32,7 +32,7 @@
                 <!-- مؤشر المعلق (يظهر فقط إذا كان الطرد في طابور الأوفلاين) -->
                 <template x-if="isPending(p.id)">
                     <span title="بانتظار توفر الإنترنت للمزامنة"
-                        class="flex items-center text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-xs">
+                        class="flex items-center text-amber-700 bg-amber-50 border border-amber-300 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-xs">
                         <span class="material-symbols-outlined text-[13px] animate-pulse">schedule</span>
                         <span class="mr-1">معلق</span>
                     </span>
@@ -42,7 +42,7 @@
 
                 <!-- بادج كم له الطرد في المكتب (يظهر فقط إذا كان بالمكتب) -->
                 <span x-show="p.status === 'in_office' && p.created_at"
-                    class="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70"
+                    class="flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70 lg:dark:bg-blue-500/15 lg:dark:text-blue-300 lg:dark:border-blue-500/30"
                     :title="'تاريخ الاستلام: ' + formatDate(p.created_at)">
                     <span class="material-symbols-outlined text-[12px]">hourglass_top</span>
                     <span x-text="timeAgo(p.created_at)"></span>
@@ -55,17 +55,17 @@
         </div>
 
         <!-- تفاصيل المستلم -->
-        <div class="bg-slate-50 rounded-xl p-2.5 flex justify-between items-center text-xs">
+        <div class="bg-slate-50 lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/50 rounded-xl p-2.5 flex justify-between items-center text-xs">
             <div>
-                <p class="font-bold text-slate-700" x-text="p.recipient_name || 'بدون اسم'"></p>
-                <p class="text-slate-500 font-mono dir-ltr text-right" x-text="p.recipient_phone"></p>
+                <p class="font-bold text-slate-700 lg:dark:text-slate-100" x-text="p.recipient_name || 'بدون اسم'"></p>
+                <p class="text-slate-500 lg:dark:text-slate-400 font-mono dir-ltr text-right" x-text="p.recipient_phone"></p>
             </div>
             <div class="flex items-center gap-1.5">
                 <!-- زر إعادة إرسال SMS (يظهر فقط إذا كان الطرد بالمكتب) -->
                 <button type="button" x-show="p.status === 'in_office'" @click="resendSms(p)"
                     :disabled="sendingSmsId === p.id"
                     :title="isTodayFailedSms(p) ? 'فشل إرسال الـ SMS - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
-                    :class="isTodayFailedSms(p) ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-200' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80'"
+                    :class="isTodayFailedSms(p) ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 ring-1 ring-rose-200 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 lg:dark:border-rose-500/30 lg:dark:ring-rose-500/20' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80 lg:dark:bg-blue-500/15 lg:dark:hover:bg-blue-500/25 lg:dark:text-blue-400 lg:dark:border-blue-500/30'"
                     class="h-8 px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50">
                     <span class="material-symbols-outlined text-[15px]"
                         :class="sendingSmsId === p.id ? 'animate-spin' : ''"
@@ -130,9 +130,9 @@
         <!-- تنبيه سبب فشل رسالة الـ SMS لطرود اليوم (انتهاء الباقة أو فشل الإرسال) مع زر الإرسال اليدوي من رسائل الجوال -->
         <div x-show="isTodayFailedSms(p)"
              x-cloak
-             class="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 rounded-xl px-2.5 py-2 space-y-2 leading-relaxed">
+             class="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 lg:dark:bg-rose-500/15 lg:dark:text-rose-300 lg:dark:border-rose-500/30 rounded-xl px-2.5 py-2 space-y-2 leading-relaxed">
             <div class="flex items-start gap-1.5">
-                <span class="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">sms_failed</span>
+                <span class="material-symbols-outlined text-sm text-rose-600 lg:dark:text-rose-400 shrink-0 mt-0.5">sms_failed</span>
                 <span x-text="p.sms_failure_reason || (p.sms_status === 'failed_balance'
                     ? 'انتهت باقة الرسائل أو نفد الرصيد في شريحة المكتب. يرجى شحن الباقة ثم الضغط على زر (إعادة إرسال).'
                     : 'تعذر إرسال الرسالة تلقائياً. يرجى التأكد من الشبكة والرقم ثم إعادة المحاولة، أو إرسالها يدوياً.')"></span>
@@ -151,7 +151,7 @@
 
         <!-- تاريخ التسليم (يظهر فقط في حال تم التسليم) -->
         <p x-show="p.status === 'delivered' && p.delivered_at"
-            class="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1">
+            class="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border lg:dark:border-emerald-500/30 rounded-lg px-2 py-1">
             <span class="material-symbols-outlined text-sm">event_available</span>
             <span>تم التسليم في:</span>
             <span class="font-bold" x-text="formatDate(p.delivered_at)"></span>

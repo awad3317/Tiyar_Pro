@@ -17,7 +17,7 @@
     </div>
 
     <!-- بطاقة المودال الرئيسية -->
-    <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-4 text-right"
+    <div class="relative w-full max-w-sm bg-white lg:dark:bg-[#24303F] rounded-3xl p-5 shadow-2xl border border-slate-100 lg:dark:border-slate-700/60 z-10 transition-all transform flex flex-col gap-4 text-right"
          x-show="undoDeliveryModal.open"
          x-transition:enter="ease-out duration-250"
          x-transition:enter-start="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95"
@@ -30,63 +30,63 @@
         <button type="button"
                 @click="closeUndoDeliveryModal()"
                 title="إغلاق"
-                class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors">
+                class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors">
             <span class="material-symbols-outlined text-base">close</span>
         </button>
 
         <!-- الهيدر والأيقونة -->
         <div class="text-center pt-1">
-            <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shadow-inner mb-3">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-100 lg:dark:bg-amber-500/15 lg:dark:border-amber-500/30 text-amber-600 lg:dark:text-amber-400 flex items-center justify-center shadow-inner mb-3">
                 <span class="material-symbols-outlined text-3xl">undo</span>
             </div>
-            <h3 class="text-base font-extrabold text-slate-800">
+            <h3 class="text-base font-extrabold text-slate-800 lg:dark:text-slate-100">
                 تأكيد التراجع عن التسليم
             </h3>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+            <p class="text-xs text-slate-500 lg:dark:text-slate-400 mt-1 leading-relaxed">
                 هل أنت متأكد من رغبتك في التراجع عن تسليم هذا الطرد وإعادته كطرد متاح في المكتب؟
             </p>
         </div>
 
         <!-- ملخص بيانات الطرد المراد إرجاعه -->
         <template x-if="undoDeliveryModal.parcel">
-            <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
+            <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-2xl p-3.5 border border-slate-200/80 lg:dark:border-slate-700/60 space-y-2.5 text-xs">
                 
                 <!-- نوع الشحنة -->
                 <div class="flex items-center justify-between">
                     <span class="text-slate-400">نوع الشحنة:</span>
-                    <span class="font-bold text-slate-700" x-text="undoDeliveryModal.parcel.package_type"></span>
+                    <span class="font-bold text-slate-700 lg:dark:text-slate-100" x-text="undoDeliveryModal.parcel.package_type"></span>
                 </div>
 
                 <!-- رقم السند -->
                 <div class="flex items-center justify-between" x-show="undoDeliveryModal.parcel.receipt_number">
                     <span class="text-slate-400">رقم السند:</span>
-                    <span class="font-mono font-bold text-slate-700" x-text="'#' + undoDeliveryModal.parcel.receipt_number"></span>
+                    <span class="font-mono font-bold text-slate-700 lg:dark:text-slate-200" x-text="'#' + undoDeliveryModal.parcel.receipt_number"></span>
                 </div>
 
                 <!-- بيانات المستلم -->
                 <div class="flex items-center justify-between pt-1">
                     <span class="text-slate-400">المستلم:</span>
                     <div class="text-left">
-                        <span class="font-bold text-slate-700 block" x-text="undoDeliveryModal.parcel.recipient_name || 'بدون اسم'"></span>
+                        <span class="font-bold text-slate-700 lg:dark:text-slate-100 block" x-text="undoDeliveryModal.parcel.recipient_name || 'بدون اسم'"></span>
                         <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="undoDeliveryModal.parcel.recipient_phone"></span>
                     </div>
                 </div>
 
                 <!-- تاريخ التسليم السابق -->
-                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60" x-show="undoDeliveryModal.parcel.delivered_at">
+                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 lg:dark:border-slate-700/60" x-show="undoDeliveryModal.parcel.delivered_at">
                     <span class="text-slate-400 flex items-center gap-1 font-medium">
                         <span class="material-symbols-outlined text-sm text-slate-400">event_available</span>
                         تاريخ التسليم:
                     </span>
-                    <span class="font-bold text-emerald-600" x-text="formatDate(undoDeliveryModal.parcel.delivered_at)"></span>
+                    <span class="font-bold text-emerald-600 lg:dark:text-emerald-400" x-text="formatDate(undoDeliveryModal.parcel.delivered_at)"></span>
                 </div>
 
             </div>
         </template>
 
         <!-- تنبيه تحذيري -->
-        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 leading-snug">
-            <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">info</span>
+        <div class="bg-amber-50 border border-amber-200/80 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/30 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 lg:dark:text-amber-300 leading-snug">
+            <span class="material-symbols-outlined text-base text-amber-600 lg:dark:text-amber-400 shrink-0 mt-0.5">info</span>
             <span>
                 <strong>ملاحظة:</strong> سيتم إلغاء تسجيل التسليم وسيعود الطرد إلى قائمة الطرود المتاحة في المكتب الحالي.
             </span>
@@ -103,7 +103,7 @@
 
             <button type="button"
                     @click="closeUndoDeliveryModal()"
-                    class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center transition-colors">
+                    class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center transition-colors">
                 <span>إلغاء وتراجع</span>
             </button>
         </div>

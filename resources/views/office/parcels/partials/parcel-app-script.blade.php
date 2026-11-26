@@ -21,9 +21,9 @@
         const TRANSITIONS = @json(\App\Enums\ParcelStatus::transitionMap());
 
         const STATUS_BADGES = {
-            in_office: 'bg-amber-100 text-amber-800',
-            delivered: 'bg-emerald-100 text-emerald-800',
-            returned: 'bg-rose-100 text-rose-800',
+            in_office: 'bg-amber-100 text-amber-800 lg:dark:bg-amber-500/15 lg:dark:text-amber-400',
+            delivered: 'bg-emerald-100 text-emerald-800 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400',
+            returned: 'bg-rose-100 text-rose-800 lg:dark:bg-rose-500/15 lg:dark:text-rose-400',
         };
 
         const ACTIONS = {
@@ -35,12 +35,12 @@
             in_office: {
                 label: () => 'إرجاع للمكتب',
                 icon: 'undo',
-                classes: 'flex-1 border border-amber-300 text-amber-700 bg-amber-50',
+                classes: 'flex-1 border border-amber-300 text-amber-700 bg-amber-50 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30',
             },
             returned: {
                 label: (p) => 'إرجاع إلى ' + (p.source_office_name || 'المكتب المرسل'),
                 icon: 'assignment_return',
-                classes: 'border border-rose-200 text-rose-600',
+                classes: 'border border-rose-200 text-rose-600 lg:dark:border-rose-500/30 lg:dark:text-rose-400 lg:dark:bg-rose-500/10',
             },
         };
 
@@ -1061,11 +1061,11 @@
 
             cardBorder(status) {
                 const borders = {
-                    in_office: 'border-amber-300 lg:border-slate-200 lg:border-r-4 lg:border-r-amber-400',
-                    delivered: 'border-emerald-300 lg:border-slate-200 lg:border-r-4 lg:border-r-emerald-500',
-                    returned:  'border-rose-300 lg:border-slate-200 lg:border-r-4 lg:border-r-rose-400',
+                    in_office: 'border-amber-300 lg:border-gray-200 lg:dark:border-slate-700/60 lg:border-r-4 lg:border-r-amber-400 lg:dark:border-r-amber-400',
+                    delivered: 'border-emerald-300 lg:border-gray-200 lg:dark:border-slate-700/60 lg:border-r-4 lg:border-r-emerald-500 lg:dark:border-r-emerald-500',
+                    returned:  'border-rose-300 lg:border-gray-200 lg:dark:border-slate-700/60 lg:border-r-4 lg:border-r-rose-400 lg:dark:border-r-rose-400',
                 };
-                return borders[status] ?? 'border-slate-200/80';
+                return borders[status] ?? 'border-slate-200/80 lg:dark:border-slate-700/60';
             },
 
             rowAccentDot(status) {

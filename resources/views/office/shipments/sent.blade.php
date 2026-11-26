@@ -114,30 +114,30 @@
 
         {{-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) --}}
         <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60">
                 @foreach ($sentTabs as $tabItem)
                     <button type="button"
                             @click="setStatusFilter('{{ $tabItem['key'] }}')"
                             :class="activeStatus === '{{ $tabItem['key'] }}'
-                                ? 'bg-white text-slate-900 shadow-xs font-extrabold'
-                                : 'text-slate-600 hover:text-slate-900 font-bold'"
+                                ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
+                                : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
                             class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                         <span>{{ $tabItem['label'] }}</span>
                         <span :class="activeStatus === '{{ $tabItem['key'] }}'
-                                  ? 'bg-secondary/20 text-amber-900'
-                                  : 'bg-slate-300/60 text-slate-600'"
+                                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                                  : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                               class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                               x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>
                     </button>
                 @endforeach
             </div>
 
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
                 <button type="button"
                         @click="setDesktopView('table')"
                         :class="desktopView === 'table'
-                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">table_rows</span>
                     <span>جدول</span>
@@ -145,8 +145,8 @@
                 <button type="button"
                         @click="setDesktopView('cards')"
                         :class="desktopView === 'cards'
-                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">grid_view</span>
                     <span>بطاقات</span>
@@ -168,21 +168,21 @@
                 <template x-for="shipment in filteredShipments" :key="shipment.local_key">
                     <article
                         style="content-visibility: auto; contain-intrinsic-size: 180px;"
-                        class="relative bg-white border border-slate-200/90 lg:hover:shadow-md rounded-2xl p-3.5 lg:p-4 shadow-xs space-y-2.5 transition-all">
+                        class="relative bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 lg:hover:shadow-md rounded-2xl p-3.5 lg:p-4 shadow-xs space-y-2.5 transition-all">
 
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                                <span class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
+                                <span class="w-9 h-9 rounded-xl bg-primary lg:dark:bg-[#1A222C] text-secondary flex items-center justify-center shrink-0">
                                     <span class="material-symbols-outlined text-xl">receipt_long</span>
                                 </span>
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-1.5 flex-wrap">
-                                        <span class="font-mono font-black text-sm text-primary"
+                                        <span class="font-mono font-black text-sm text-primary lg:dark:text-slate-100"
                                               x-text="'كشف #' + shipment.shipment_number"></span>
-                                        <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold"
+                                        <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 text-[10px] font-bold"
                                               x-text="Number(shipment.parcels_count || 0) + ' طرد'"></span>
                                         <template x-if="shipment.pending_sync || shipment.sync_status === 'pending_sync'">
-                                            <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-1">
+                                            <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 text-[10px] font-extrabold inline-flex items-center gap-1">
                                                 <span class="material-symbols-outlined text-[12px]">cloud_upload</span>
                                                 <span>بانتظار المزامنة</span>
                                             </span>
@@ -204,7 +204,7 @@
                                         @click="open = !open"
                                         title="خيارات الكشف"
                                         aria-label="خيارات الكشف"
-                                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                                        class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors">
                                         <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                     </button>
 
@@ -216,30 +216,30 @@
                                         x-transition:leave="ease-in duration-100"
                                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                                         x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                                        class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-lg border border-slate-200/90 py-1.5 z-30 text-right">
+                                        class="absolute left-0 top-full mt-1.5 w-44 bg-white lg:dark:bg-[#24303F] rounded-2xl shadow-lg border border-slate-200/90 lg:dark:border-slate-700/60 py-1.5 z-30 text-right">
                                         <button type="button"
                                             @click="open = false; openShipmentDetails(shipment)"
-                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                            <span class="material-symbols-outlined text-base text-primary">description</span>
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 flex items-center gap-2 transition-colors">
+                                            <span class="material-symbols-outlined text-base text-primary lg:dark:text-amber-400">description</span>
                                             <span>تفاصيل الكشف</span>
                                         </button>
 
                                         <button type="button"
                                             :data-shipment-action="'print'"
                                             @click="open = false; printShipmentOffline(shipment)"
-                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                            <span class="material-symbols-outlined text-base text-slate-500">print</span>
+                                            class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 flex items-center gap-2 transition-colors">
+                                            <span class="material-symbols-outlined text-base text-slate-500 lg:dark:text-slate-400">print</span>
                                             <span>طباعة الكشف</span>
                                         </button>
 
                                         <template x-if="canCancelShipment(shipment)">
                                             <div>
-                                                <div class="my-1 border-t border-slate-100"></div>
+                                                <div class="my-1 border-t border-slate-100 lg:dark:border-slate-700/60"></div>
                                                 <button type="button"
                                                     :data-shipment-action="'cancel'"
                                                     @click="open = false; openCancelModal(shipment)"
-                                                    class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
-                                                    <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                                    class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 lg:dark:text-rose-400 lg:dark:hover:bg-rose-500/15 flex items-center gap-2 transition-colors">
+                                                    <span class="material-symbols-outlined text-base text-rose-600 lg:dark:text-rose-400">cancel</span>
                                                     <span>إلغاء الكشف</span>
                                                 </button>
                                             </div>
@@ -251,30 +251,30 @@
 
                         <div class="space-y-2.5">
                             {{-- السائق والوجهات --}}
-                            <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
+                            <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-xl p-2.5 border border-slate-100 lg:dark:border-slate-700/50 space-y-1.5 text-xs">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="text-slate-400 text-[11px] font-bold flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-sm text-primary">person</span>
+                                        <span class="material-symbols-outlined text-sm text-primary lg:dark:text-amber-400">person</span>
                                         السائق:
                                     </span>
-                                    <span class="font-extrabold text-slate-800 truncate">
+                                    <span class="font-extrabold text-slate-800 lg:dark:text-slate-100 truncate">
                                         <span x-text="shipment.driver_name"></span>
-                                        <span class="font-mono text-[11px] text-slate-500 mr-1"
+                                        <span class="font-mono text-[11px] text-slate-500 lg:dark:text-slate-400 mr-1"
                                               dir="ltr"
                                               x-text="'(' + (shipment.driver_phone || '') + ')'"></span>
                                     </span>
                                 </div>
 
                                 <template x-if="Array.isArray(shipment.destinations_summary) && shipment.destinations_summary.length > 0">
-                                    <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
+                                    <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60 lg:dark:border-slate-700/60">
                                         <span class="text-slate-400 text-[11px] font-bold shrink-0">الوجهات:</span>
                                         <div class="flex flex-wrap justify-end gap-1">
                                             <template x-for="dest in shipment.destinations_summary.slice(0, 3)" :key="dest">
-                                                <span class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-700"
+                                                <span class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 text-[10px] font-bold text-slate-700 lg:dark:text-slate-200"
                                                       x-text="dest"></span>
                                             </template>
                                             <template x-if="shipment.destinations_summary.length > 3">
-                                                <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold"
+                                                <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 lg:dark:bg-amber-500/20 lg:dark:text-amber-300 text-[10px] font-extrabold"
                                                       x-text="'+' + (shipment.destinations_summary.length - 3)"></span>
                                             </template>
                                         </div>
@@ -284,25 +284,25 @@
 
                             {{-- المجاميع المالية (آجل / محاسب / إجمالي) --}}
                             <div class="grid grid-cols-3 gap-1.5 text-center">
-                                <div class="bg-amber-50/70 border border-amber-200/70 rounded-xl py-1.5 px-1">
-                                    <p class="text-[9px] font-bold text-amber-700">الآجل</p>
-                                    <p class="text-xs font-mono font-black text-amber-800"
+                                <div class="bg-amber-50/70 border border-amber-200/70 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/25 rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-amber-700 lg:dark:text-amber-400">الآجل</p>
+                                    <p class="text-xs font-mono font-black text-amber-800 lg:dark:text-amber-300"
                                        x-text="formatMoney(shipment.total_deferred_amount)"></p>
                                 </div>
-                                <div class="bg-emerald-50/70 border border-emerald-200/70 rounded-xl py-1.5 px-1">
-                                    <p class="text-[9px] font-bold text-emerald-700">المحاسب</p>
-                                    <p class="text-xs font-mono font-black text-emerald-800"
+                                <div class="bg-emerald-50/70 border border-emerald-200/70 lg:dark:bg-emerald-500/10 lg:dark:border-emerald-500/25 rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-emerald-700 lg:dark:text-emerald-400">المحاسب</p>
+                                    <p class="text-xs font-mono font-black text-emerald-800 lg:dark:text-emerald-300"
                                        x-text="formatMoney(shipment.total_paid_amount)"></p>
                                 </div>
-                                <div class="bg-primary text-white rounded-xl py-1.5 px-1">
-                                    <p class="text-[9px] font-bold text-slate-300">الإجمالي</p>
-                                    <p class="text-xs font-mono font-black text-secondary"
+                                <div class="bg-primary lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/60 text-white rounded-xl py-1.5 px-1">
+                                    <p class="text-[9px] font-bold text-slate-300 lg:dark:text-slate-400">الإجمالي</p>
+                                    <p class="text-xs font-mono font-black text-secondary lg:dark:text-amber-400"
                                        x-text="formatMoney(shipment.total_amount)"></p>
                                 </div>
                             </div>
 
                             {{-- مؤشر نسبة الاستلام --}}
-                            <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
+                            <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 lg:dark:text-slate-400 font-bold">
                                 <span x-text="'تم استلام ' + Number(shipment.received_parcels_count || 0) + ' من ' + Number(shipment.parcels_count || 0)"></span>
                             </div>
                         </div>
@@ -311,11 +311,11 @@
 
                 {{-- حالة عدم وجود نتائج مطابقة في الذاكرة المحلية --}}
                 <div x-show="filteredShipments.length === 0"
-                     class="lg:col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                     class="lg:col-span-full bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 p-10 text-center space-y-2.5">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 lg:dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">local_shipping</span>
                     </div>
-                    <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة مطابقة</p>
+                    <p class="text-xs font-extrabold text-slate-700 lg:dark:text-slate-200">لا توجد شحنات مرسلة مطابقة</p>
                     <p class="text-[11px] text-slate-400">اضغط على زر (+) أعلى الشاشة لإنشاء كشف شحنة جديد بمسح الباركود.</p>
                     <div class="pt-1">
                         <button type="button"
@@ -333,19 +333,19 @@
                  x-cloak
                  class="hidden lg:block">
                 <div x-show="filteredShipments.length === 0"
-                     class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2.5 shadow-2xs">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                     class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 p-10 text-center space-y-2.5 shadow-2xs">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-3xl">local_shipping</span>
                     </div>
-                    <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة مطابقة</p>
+                    <p class="text-xs font-extrabold text-slate-700 dark:text-slate-200">لا توجد شحنات مرسلة مطابقة</p>
                     <p class="text-[11px] text-slate-400">اضغط على (+ كشف شحنة جديد) أعلى الشاشة لإنشاء كشف بمسح الباركود.</p>
                 </div>
 
                 <div x-show="filteredShipments.length > 0"
-                     class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-visible">
+                     class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-visible">
                     <table class="w-full text-right border-collapse">
                         <thead>
-                            <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-500">
+                            <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
                                 <th class="py-3 pr-4 pl-3 rounded-tr-2xl">رقم الكشف والوقت</th>
                                 <th class="py-3 px-3">السائق</th>
                                 <th class="py-3 px-3">الوجهات</th>
@@ -354,10 +354,10 @@
                                 <th class="py-3 pr-3 pl-4 text-left rounded-tl-2xl">الإجراءات</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 text-xs">
+                        <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
                             <template x-for="shipment in filteredShipments" :key="'row-' + shipment.local_key">
                                 <tr x-data="{ open: false }"
-                                    :class="open ? 'relative z-30 bg-slate-50/90' : 'hover:bg-slate-50/70'"
+                                    :class="open ? 'relative z-30 bg-gray-50/90 dark:bg-slate-800/60' : 'hover:bg-gray-50/70 dark:hover:bg-slate-800/40'"
                                     class="transition-colors">
 
                                     {{-- 1. رقم الكشف والوقت --}}
@@ -366,12 +366,12 @@
                                             <span class="w-1.5 h-8 rounded-full shrink-0" :class="rowAccentDot(shipment.status)"></span>
                                             <div class="min-w-0">
                                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                                    <span class="font-mono font-black text-slate-900"
+                                                    <span class="font-mono font-black text-slate-900 dark:text-slate-100"
                                                           x-text="'كشف #' + shipment.shipment_number"></span>
-                                                    <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 text-[10px] font-bold"
+                                                    <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 text-[10px] font-bold"
                                                           x-text="Number(shipment.parcels_count || 0) + ' طرد'"></span>
                                                     <template x-if="shipment.pending_sync || shipment.sync_status === 'pending_sync'">
-                                                        <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-0.5">
+                                                        <span class="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 text-[10px] font-extrabold inline-flex items-center gap-0.5">
                                                             <span class="material-symbols-outlined text-[12px]">cloud_upload</span>
                                                             <span>بانتظار المزامنة</span>
                                                         </span>
@@ -385,8 +385,8 @@
 
                                     {{-- 2. السائق --}}
                                     <td class="py-3 px-3 align-middle">
-                                        <p class="font-bold text-slate-800 truncate max-w-[155px]" x-text="shipment.driver_name || '—'"></p>
-                                        <p class="text-[11px] font-mono text-slate-500 dir-ltr text-right" x-text="shipment.driver_phone || ''"></p>
+                                        <p class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[155px]" x-text="shipment.driver_name || '—'"></p>
+                                        <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dir-ltr text-right" x-text="shipment.driver_phone || ''"></p>
                                     </td>
 
                                     {{-- 3. الوجهات --}}
@@ -395,17 +395,17 @@
                                             <template x-if="Array.isArray(shipment.destinations_summary) && shipment.destinations_summary.length > 0">
                                                 <div class="flex flex-wrap items-center gap-1">
                                                     <template x-for="dest in shipment.destinations_summary.slice(0, 3)" :key="'d-' + dest">
-                                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 text-[11px] font-bold text-slate-700"
+                                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 dark:bg-slate-800 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200"
                                                               x-text="dest"></span>
                                                     </template>
                                                     <template x-if="shipment.destinations_summary.length > 3">
-                                                        <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold"
+                                                        <span class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 text-[10px] font-extrabold"
                                                               x-text="'+' + (shipment.destinations_summary.length - 3)"></span>
                                                     </template>
                                                 </div>
                                             </template>
                                             <template x-if="!Array.isArray(shipment.destinations_summary) || shipment.destinations_summary.length === 0">
-                                                <span class="text-slate-300 font-bold">—</span>
+                                                <span class="text-slate-300 dark:text-slate-600 font-bold">—</span>
                                             </template>
                                         </div>
                                     </td>
@@ -413,13 +413,13 @@
                                     {{-- 4. المجاميع المالية --}}
                                     <td class="py-3 px-3 align-middle whitespace-nowrap">
                                         <div class="flex items-center gap-1.5 text-[11px] font-mono">
-                                            <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 font-extrabold"
+                                            <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 font-extrabold"
                                                   :title="'الآجل'"
                                                   x-text="'آجل: ' + formatMoney(shipment.total_deferred_amount)"></span>
-                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-extrabold"
+                                            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30 font-extrabold"
                                                   :title="'المحاسب'"
                                                   x-text="'محاسب: ' + formatMoney(shipment.total_paid_amount)"></span>
-                                            <span class="px-2 py-0.5 rounded-md bg-slate-900 text-secondary font-black"
+                                            <span class="px-2 py-0.5 rounded-md bg-slate-900 dark:bg-slate-800 dark:border dark:border-slate-700 text-secondary font-black"
                                                   :title="'الإجمالي'"
                                                   x-text="'إجمالي: ' + formatMoney(shipment.total_amount)"></span>
                                         </div>
@@ -439,15 +439,15 @@
                                         <div class="inline-flex items-center justify-end gap-1.5">
                                             <button type="button"
                                                     @click="printShipmentOffline(shipment)"
-                                                    class="h-8 px-3 rounded-lg bg-slate-100 hover:bg-primary text-slate-700 hover:text-secondary border border-slate-200/90 hover:border-primary text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
+                                                    class="h-8 px-3 rounded-lg bg-gray-100 hover:bg-primary text-slate-700 hover:text-secondary border border-gray-200 hover:border-primary dark:bg-[#1A222C] dark:hover:bg-amber-500 dark:text-slate-200 dark:hover:text-slate-950 dark:border-slate-700 dark:hover:border-amber-500 text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
                                                 <span class="material-symbols-outlined text-[16px]">print</span>
                                                 <span>طباعة الكشف</span>
                                             </button>
 
                                             <button type="button"
                                                     @click="openShipmentDetails(shipment)"
-                                                    class="h-8 px-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold inline-flex items-center gap-1 transition-colors">
-                                                <span class="material-symbols-outlined text-[16px] text-primary">description</span>
+                                                    class="h-8 px-2.5 rounded-lg bg-white hover:bg-gray-100 text-slate-700 border border-gray-200 dark:bg-[#1A222C] dark:hover:bg-[#333A48] dark:text-slate-200 dark:border-slate-700 text-xs font-bold inline-flex items-center gap-1 transition-colors">
+                                                <span class="material-symbols-outlined text-[16px] text-primary dark:text-amber-400">description</span>
                                                 <span>التفاصيل</span>
                                             </button>
 
@@ -456,7 +456,7 @@
                                                     <button type="button"
                                                             @click="open = !open"
                                                             title="إجراءات إضافية"
-                                                            class="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center transition-colors">
+                                                            class="w-8 h-8 rounded-lg bg-white hover:bg-gray-100 text-slate-600 border border-gray-200 dark:bg-[#1A222C] dark:hover:bg-[#333A48] dark:text-slate-300 dark:border-slate-700 flex items-center justify-center transition-colors">
                                                         <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                                     </button>
 
@@ -468,11 +468,11 @@
                                                          x-transition:leave="ease-in duration-100"
                                                          x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                                                          x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                                                         class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-40 text-right">
+                                                         class="absolute left-0 top-full mt-1.5 w-44 bg-white dark:bg-[#24303F] rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700/60 py-1.5 z-40 text-right">
                                                         <button type="button"
                                                                 @click="open = false; openCancelModal(shipment)"
-                                                                class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
-                                                            <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                                                class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/15 flex items-center gap-2 transition-colors">
+                                                            <span class="material-symbols-outlined text-base text-rose-600 dark:text-rose-400">cancel</span>
                                                             <span>إلغاء الكشف</span>
                                                         </button>
                                                     </div>
@@ -496,10 +496,10 @@
              class="fixed left-0 right-0 z-50 bg-slate-950/60 flex items-start justify-center pt-1.5 px-1.5 sm:items-center sm:p-4">
 
             <div :style="{ maxHeight: Math.max(260, viewportHeight - 12) + 'px' }"
-                 class="bg-white w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+                 class="bg-white lg:dark:bg-[#24303F] w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 lg:dark:border-slate-700/60 lg:dark:text-slate-100 overflow-hidden">
 
                 {{-- هيدر المودال المثبّت --}}
-                <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
+                <div class="py-3 px-4 bg-primary lg:dark:bg-[#1C2434] lg:dark:border-b lg:dark:border-slate-700/60 text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-secondary text-xl">qr_code_scanner</span>
                         <div>
@@ -523,26 +523,26 @@
                     {{-- 1. بيانات السائق --}}
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم السائق <span
+                            <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">اسم السائق <span
                                     class="text-rose-500">*</span></label>
                             <input type="text" x-model="driverName" placeholder="اسم السائق"
-                                class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                                class="w-full py-2 px-3 text-xs font-bold text-slate-800 lg:dark:text-slate-100 rounded-xl border border-slate-200 lg:dark:border-slate-700/60 bg-slate-50 lg:dark:bg-[#1A222C] focus:bg-white lg:dark:focus:bg-[#1A222C] outline-none focus:border-secondary">
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">رقم السائق <span
+                            <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">رقم السائق <span
                                     class="text-rose-500">*</span></label>
                             <input type="tel" x-model="driverPhone" @input="driverPhone = sanitizePhone(driverPhone)"
                                 dir="ltr" inputmode="numeric" maxlength="9" placeholder="7XXXXXXXX"
-                                class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border bg-slate-50 focus:bg-white outline-none focus:border-secondary"
-                                :class="driverPhone.length > 0 && !isValidPhone(driverPhone) ? 'border-rose-300' :
-                                    'border-slate-200'">
+                                class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 lg:dark:text-slate-100 rounded-xl border bg-slate-50 lg:dark:bg-[#1A222C] focus:bg-white lg:dark:focus:bg-[#1A222C] outline-none focus:border-secondary"
+                                :class="driverPhone.length > 0 && !isValidPhone(driverPhone) ? 'border-rose-300 lg:dark:border-rose-500/60' :
+                                    'border-slate-200 lg:dark:border-slate-700/60'">
                         </div>
                     </div>
 
                     {{-- 2. منطقة مسح الباركود (كاميرا + قارئ خارجي / إدخال يدوي — يعمل 100% أوفلاين من IndexedDB) --}}
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
+                    <div class="bg-slate-50 lg:dark:bg-[#1A222C] border border-slate-200 lg:dark:border-slate-700/60 rounded-2xl p-3 space-y-2.5">
                         <div class="flex items-center justify-between gap-2">
-                            <span class="text-xs font-extrabold text-primary flex items-center gap-1">
+                            <span class="text-xs font-extrabold text-primary lg:dark:text-slate-100 flex items-center gap-1">
                                 <span class="material-symbols-outlined text-base text-secondary">barcode_scanner</span>
                                 <span>مسح باركود الطرود (مانع للتكرار)</span>
                             </span>
@@ -566,7 +566,7 @@
                             <input type="text" x-ref="scanInput" x-model="scanCodeInput"
                                 @keydown.enter.prevent="handleScan(scanCodeInput)" dir="ltr" autocomplete="off"
                                 placeholder="امسح بالباركود أو اكتب رقم السند ثم Enter"
-                                class="flex-1 py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-300 bg-white outline-none focus:border-secondary">
+                                class="flex-1 py-2 px-3 text-xs font-mono font-bold text-slate-800 lg:dark:text-slate-100 rounded-xl border border-slate-300 lg:dark:border-slate-700 bg-white lg:dark:bg-[#24303F] outline-none focus:border-secondary">
                             <button type="button" @click="handleScan(scanCodeInput)" :disabled="isLookingUp"
                                 class="px-3 py-2 rounded-xl bg-primary text-secondary text-xs font-extrabold hover:opacity-95 disabled:opacity-50 shrink-0">
                                 <span x-text="isLookingUp ? '...' : 'إضافة'"></span>
@@ -576,9 +576,9 @@
                         {{-- شريط حالة آخر مسح (نجاح / تحذير تكرار / خطأ) --}}
                         <div x-show="scanFeedback.text" x-cloak
                             :class="{
-                                'bg-emerald-50 border-emerald-200 text-emerald-800': scanFeedback.type === 'success',
-                                'bg-amber-50 border-amber-300 text-amber-900': scanFeedback.type === 'duplicate',
-                                'bg-rose-50 border-rose-200 text-rose-800': scanFeedback.type === 'error'
+                                'bg-emerald-50 border-emerald-200 text-emerald-800 lg:dark:bg-emerald-500/15 lg:dark:border-emerald-500/30 lg:dark:text-emerald-300': scanFeedback.type === 'success',
+                                'bg-amber-50 border-amber-300 text-amber-900 lg:dark:bg-amber-500/15 lg:dark:border-amber-500/30 lg:dark:text-amber-300': scanFeedback.type === 'duplicate',
+                                'bg-rose-50 border-rose-200 text-rose-800 lg:dark:bg-rose-500/15 lg:dark:border-rose-500/30 lg:dark:text-rose-300': scanFeedback.type === 'error'
                             }"
                             class="px-2.5 py-2 rounded-xl border text-[11px] font-extrabold flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-base shrink-0"
@@ -588,7 +588,7 @@
                     </div>
 
                     {{-- 3. المجاميع الحية والوجهات داخل الشحنة --}}
-                    <div class="bg-primary text-white rounded-2xl p-3 space-y-2">
+                    <div class="bg-primary lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/60 text-white rounded-2xl p-3 space-y-2">
                         <div class="grid grid-cols-4 gap-1.5 text-center">
                             <div class="bg-white/10 rounded-xl py-1.5 px-1">
                                 <p class="text-[9px] text-slate-300 font-bold">الطرود</p>
@@ -625,7 +625,7 @@
                     {{-- 4. قائمة الطرود الممسوحة داخل الكشف --}}
                     <div class="space-y-1.5">
                         <div class="flex items-center justify-between">
-                            <h4 class="text-xs font-extrabold text-slate-700">
+                            <h4 class="text-xs font-extrabold text-slate-700 lg:dark:text-slate-200">
                                 الطرود المضمومة (<span x-text="selectedParcels.length"></span>)
                             </h4>
                             <button type="button" @click="showManualPicker = !showManualPicker"
@@ -638,18 +638,18 @@
 
                         {{-- اختيار يدوي بديل في حال تلف ملصق الباركود --}}
                         <div x-show="showManualPicker" x-cloak
-                            class="bg-sky-50/70 border border-sky-200 rounded-xl p-2 max-h-40 overflow-y-auto space-y-1">
+                            class="bg-sky-50/70 lg:dark:bg-sky-500/10 border border-sky-200 lg:dark:border-sky-500/30 rounded-xl p-2 max-h-40 overflow-y-auto space-y-1">
                             <template x-if="unaddedAvailable.length === 0">
                                 <p class="text-[11px] text-slate-500 text-center py-2 font-bold">لا توجد طرود إضافية في
                                     الانتظار.</p>
                             </template>
                             <template x-for="p in unaddedAvailable" :key="p.id">
                                 <button type="button" @click="addParcelObject(p)"
-                                    class="w-full text-right bg-white hover:bg-sky-100/60 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+                                    class="w-full text-right bg-white lg:dark:bg-[#24303F] hover:bg-sky-100/60 lg:dark:hover:bg-sky-500/15 border border-slate-200 lg:dark:border-slate-700/60 lg:dark:text-slate-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2 text-[11px]">
                                     <div class="min-w-0">
-                                        <span class="font-mono font-black text-primary"
+                                        <span class="font-mono font-black text-primary lg:dark:text-slate-100"
                                             x-text="'#' + p.receipt_number"></span>
-                                        <span class="font-bold text-slate-700 mr-1" x-text="p.package_type"></span>
+                                        <span class="font-bold text-slate-700 lg:dark:text-slate-200 mr-1" x-text="p.package_type"></span>
                                         <span class="text-slate-400 block truncate text-[10px]"
                                             x-text="(p.destination_label || p.destination) + ' • ' + p.recipient_name"></span>
                                     </div>
@@ -662,7 +662,7 @@
                         {{-- الطرود الممسوحة فعلياً --}}
                         <template x-if="selectedParcels.length === 0">
                             <div
-                                class="border border-dashed border-slate-300 rounded-xl p-4 text-center text-[11px] text-slate-400 font-bold">
+                                class="border border-dashed border-slate-300 lg:dark:border-slate-700 rounded-xl p-4 text-center text-[11px] text-slate-400 lg:dark:text-slate-500 font-bold">
                                 امسح باركود أول طرد لتبدأ بتجهيز الشحنة
                             </div>
                         </template>
@@ -670,17 +670,17 @@
                         <div class="space-y-1.5 max-h-48 overflow-y-auto">
                             <template x-for="(p, idx) in selectedParcels" :key="p.id">
                                 <div
-                                    class="bg-white border border-slate-200 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 text-xs">
+                                    class="bg-white lg:dark:bg-[#1A222C] border border-slate-200 lg:dark:border-slate-700/60 rounded-xl px-2.5 py-2 flex items-center justify-between gap-2 text-xs">
                                     <div class="min-w-0">
                                         <div class="flex items-center gap-1.5 flex-wrap">
                                             <span
-                                                class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] font-black text-primary"
+                                                class="px-1.5 py-0.5 rounded bg-slate-100 lg:dark:bg-slate-800 font-mono text-[10px] font-black text-primary lg:dark:text-slate-200"
                                                 x-text="'#' + p.receipt_number"></span>
-                                            <span class="font-extrabold text-slate-800 truncate"
+                                            <span class="font-extrabold text-slate-800 lg:dark:text-slate-100 truncate"
                                                 x-text="p.package_type"></span>
                                             <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold"
-                                                :class="p.payment_type === 'deferred' ? 'bg-amber-50 text-amber-800' :
-                                                    'bg-emerald-50 text-emerald-700'"
+                                                :class="p.payment_type === 'deferred' ? 'bg-amber-50 text-amber-800 lg:dark:bg-amber-500/15 lg:dark:text-amber-300' :
+                                                    'bg-emerald-50 text-emerald-700 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-300'"
                                                 x-text="p.payment_label + ': ' + formatMoney(p.cod_amount)"></span>
                                         </div>
                                         <p class="text-[10px] text-slate-400 truncate mt-0.5"
@@ -688,7 +688,7 @@
                                         </p>
                                     </div>
                                     <button type="button" @click="removeParcel(p.id)" title="إزالة من الشحنة"
-                                        class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                        class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 lg:dark:bg-rose-500/15 lg:dark:hover:bg-rose-500/25 text-rose-600 lg:dark:text-rose-400 flex items-center justify-center shrink-0">
                                         <span class="material-symbols-outlined text-base">delete</span>
                                     </button>
                                 </div>
@@ -699,9 +699,9 @@
                     {{-- 5. ملاحظات + خيار الشحن الفوري --}}
                     <div class="space-y-2">
                         <textarea x-model="notes" rows="2" placeholder="ملاحظات على الكشف (اختياري)..."
-                            class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary"></textarea>
+                            class="w-full py-2 px-3 text-xs font-bold text-slate-800 lg:dark:text-slate-100 rounded-xl border border-slate-200 lg:dark:border-slate-700/60 bg-slate-50 lg:dark:bg-[#1A222C] focus:bg-white lg:dark:focus:bg-[#1A222C] outline-none focus:border-secondary"></textarea>
 
-                        <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        <label class="flex items-center gap-2 text-xs font-bold text-slate-700 lg:dark:text-slate-200 cursor-pointer select-none">
                             <input type="checkbox" x-model="dispatchNow" style="accent-color: var(--office-secondary, #fe9d20);" class="w-4 h-4 rounded">
                             <span>شحن الكشف فوراً (تحويل جميع الطرود إلى «في الطريق»)</span>
                         </label>
@@ -709,7 +709,7 @@
                 </div>
 
                     {{-- فوتر ثابت لحفظ الكشف (يظل مرئياً دائماً فوق الكيبورد) --}}
-                    <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
+                    <div class="shrink-0 border-t border-slate-100 lg:dark:border-slate-700/60 px-4 py-2.5 bg-white lg:dark:bg-[#24303F] flex items-center gap-2">
                         <button type="submit"
                             :disabled="submitting || selectedParcels.length === 0"
                             class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:brightness-105 text-primary text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
@@ -718,7 +718,7 @@
                                 x-text="submitting ? 'جاري حفظ الكشف...' : (dispatchNow ? 'اعتماد وشحن الكشف' : 'حفظ كمسودة')"></span>
                         </button>
                         <button type="button" @click="closeCreateModal()"
-                            class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                            class="py-2.5 px-4 rounded-xl border border-slate-200 lg:dark:border-slate-700 text-slate-600 lg:dark:text-slate-300 text-xs font-bold hover:bg-slate-50 lg:dark:hover:bg-slate-800">
                             إغلاق
                         </button>
                     </div>
@@ -733,8 +733,8 @@
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
             <div class="fixed inset-0 bg-slate-950/60" @click="closeDetailsModal()"></div>
 
-            <div class="relative w-full max-w-lg max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200 z-10 flex flex-col overflow-hidden text-right">
-                <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
+            <div class="relative w-full max-w-lg max-h-[88vh] bg-white lg:dark:bg-[#24303F] rounded-3xl shadow-2xl border border-slate-200 lg:dark:border-slate-700/60 lg:dark:text-slate-100 z-10 flex flex-col overflow-hidden text-right">
+                <div class="py-3 px-4 bg-primary lg:dark:bg-[#1C2434] lg:dark:border-b lg:dark:border-slate-700/60 text-white flex items-center justify-between shrink-0">
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <h3 class="text-sm font-extrabold" x-text="'تفاصيل كشف #' + (detailsModal.shipment?.shipment_number || '')"></h3>
@@ -755,17 +755,17 @@
                 <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
                     {{-- ملخص مالي وحالة الكشف --}}
                     <div class="grid grid-cols-3 gap-2 text-center">
-                        <div class="bg-amber-50 border border-amber-200 rounded-xl py-2 px-1">
-                            <p class="text-[10px] font-bold text-amber-700">الآجل</p>
+                        <div class="bg-amber-50 lg:dark:bg-amber-500/15 border border-amber-200 lg:dark:border-amber-500/30 rounded-xl py-2 px-1">
+                            <p class="text-[10px] font-bold text-amber-700 lg:dark:text-amber-300">الآجل</p>
                             <p class="text-xs font-mono font-black text-amber-800"
                                x-text="formatMoney(detailsModal.shipment?.total_deferred_amount) + ' ر.ي'"></p>
                         </div>
-                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl py-2 px-1">
-                            <p class="text-[10px] font-bold text-emerald-700">المحاسب</p>
+                        <div class="bg-emerald-50 lg:dark:bg-emerald-500/15 border border-emerald-200 lg:dark:border-emerald-500/30 rounded-xl py-2 px-1">
+                            <p class="text-[10px] font-bold text-emerald-700 lg:dark:text-emerald-300">المحاسب</p>
                             <p class="text-xs font-mono font-black text-emerald-800"
                                x-text="formatMoney(detailsModal.shipment?.total_paid_amount) + ' ر.ي'"></p>
                         </div>
-                        <div class="bg-primary text-white rounded-xl py-2 px-1">
+                        <div class="bg-primary lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/60 text-white rounded-xl py-2 px-1">
                             <p class="text-[10px] font-bold text-slate-300">الإجمالي</p>
                             <p class="text-xs font-mono font-black text-secondary"
                                x-text="formatMoney(detailsModal.shipment?.total_amount) + ' ر.ي'"></p>
@@ -773,34 +773,34 @@
                     </div>
 
                     <template x-if="detailsModal.shipment?.notes">
-                        <div class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
-                            <span class="font-extrabold text-slate-700">ملاحظات: </span>
-                            <span class="text-slate-600" x-text="detailsModal.shipment.notes"></span>
+                        <div class="bg-slate-50 lg:dark:bg-[#1A222C] border border-slate-200 lg:dark:border-slate-700/60 rounded-xl px-3 py-2 text-xs">
+                            <span class="font-extrabold text-slate-700 lg:dark:text-slate-200">ملاحظات: </span>
+                            <span class="text-slate-600 lg:dark:text-slate-300" x-text="detailsModal.shipment.notes"></span>
                         </div>
                     </template>
 
                     {{-- جدول الطرود المضمّنة في الكشف --}}
                     <div class="space-y-1.5">
-                        <h4 class="text-xs font-extrabold text-slate-800">
+                        <h4 class="text-xs font-extrabold text-slate-800 lg:dark:text-slate-100">
                             بيان الطرود في الكشف (<span x-text="(detailsModal.shipment?.parcels || []).length"></span>)
                         </h4>
 
                         <div class="space-y-1.5">
                             <template x-for="(p, idx) in (detailsModal.shipment?.parcels || [])" :key="p.id || idx">
-                                <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs space-y-1">
+                                <div class="bg-slate-50 lg:dark:bg-[#1A222C] border border-slate-200 lg:dark:border-slate-700/60 rounded-xl p-2.5 text-xs space-y-1">
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="flex items-center gap-1.5 flex-wrap">
-                                            <span class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px] font-black text-primary"
+                                            <span class="px-1.5 py-0.5 rounded bg-white lg:dark:bg-[#24303F] border border-slate-200 lg:dark:border-slate-700 font-mono text-[10px] font-black text-primary lg:dark:text-slate-100"
                                                   x-text="'سند #' + (p.receipt_number || '—')"></span>
-                                            <span class="font-extrabold text-slate-800" x-text="p.package_type || 'طرد'"></span>
+                                            <span class="font-extrabold text-slate-800 lg:dark:text-slate-100" x-text="p.package_type || 'طرد'"></span>
                                         </div>
                                         <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold"
-                                              :class="p.payment_type === 'deferred' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'"
+                                              :class="p.payment_type === 'deferred' ? 'bg-amber-100 text-amber-800 lg:dark:bg-amber-500/20 lg:dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 lg:dark:bg-emerald-500/20 lg:dark:text-emerald-300'"
                                               x-text="(p.payment_label || (p.payment_type === 'deferred' ? 'آجل' : 'محاسب')) + ': ' + formatMoney(p.cod_amount) + ' ر.ي'"></span>
                                     </div>
-                                    <div class="flex items-center justify-between text-[11px] text-slate-600">
+                                    <div class="flex items-center justify-between text-[11px] text-slate-600 lg:dark:text-slate-300">
                                         <span class="font-bold truncate" x-text="(p.recipient_name || 'بدون اسم') + ' (' + (p.recipient_phone || '') + ')'"></span>
-                                        <span class="text-[10px] text-slate-500 font-bold shrink-0" x-text="p.destination_label || p.destination || ''"></span>
+                                        <span class="text-[10px] text-slate-500 lg:dark:text-slate-400 font-bold shrink-0" x-text="p.destination_label || p.destination || ''"></span>
                                     </div>
                                 </div>
                             </template>
@@ -808,7 +808,7 @@
                     </div>
                 </div>
 
-                <div class="shrink-0 border-t border-slate-100 px-4 py-3 bg-white flex items-center gap-2">
+                <div class="shrink-0 border-t border-slate-100 lg:dark:border-slate-700/60 px-4 py-3 bg-white lg:dark:bg-[#24303F] flex items-center gap-2">
                     <button type="button"
                             @click="printShipmentOffline(detailsModal.shipment)"
                             class="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:opacity-95 text-secondary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all">
@@ -818,14 +818,14 @@
                     <template x-if="detailsModal.shipment && canCancelShipment(detailsModal.shipment)">
                         <button type="button"
                                 @click="const s = detailsModal.shipment; closeDetailsModal(); openCancelModal(s);"
-                                class="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold flex items-center justify-center gap-1 transition-colors">
+                                class="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 lg:dark:bg-rose-500/15 lg:dark:hover:bg-rose-500/25 text-rose-700 lg:dark:text-rose-300 text-xs font-extrabold flex items-center justify-center gap-1 transition-colors">
                             <span class="material-symbols-outlined text-base">cancel</span>
                             <span>إلغاء الكشف</span>
                         </button>
                     </template>
                     <button type="button"
                             @click="closeDetailsModal()"
-                            class="py-2.5 px-3 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                            class="py-2.5 px-3 rounded-xl border border-slate-200 lg:dark:border-slate-700 text-slate-600 lg:dark:text-slate-300 text-xs font-bold hover:bg-slate-50 lg:dark:hover:bg-slate-800">
                         إغلاق
                     </button>
                 </div>
@@ -839,38 +839,38 @@
              class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
             <div class="fixed inset-0 bg-slate-950/60" @click="closeCancelModal()"></div>
 
-            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 flex flex-col gap-4 text-right">
+            <div class="relative w-full max-w-sm bg-white lg:dark:bg-[#24303F] rounded-3xl p-5 shadow-2xl border border-slate-100 lg:dark:border-slate-700/60 lg:dark:text-slate-100 z-10 flex flex-col gap-4 text-right">
                 <button type="button" @click="closeCancelModal()" :disabled="cancelModal.submitting"
                         title="إغلاق"
-                        class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors disabled:opacity-50">
+                        class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 lg:dark:hover:text-slate-200 flex items-center justify-center transition-colors disabled:opacity-50">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
 
                 <div class="text-center pt-1">
-                    <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shadow-inner mb-3">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 lg:dark:bg-rose-500/15 border border-rose-100 lg:dark:border-rose-500/30 text-rose-600 lg:dark:text-rose-400 flex items-center justify-center shadow-inner mb-3">
                         <span class="material-symbols-outlined text-3xl">cancel</span>
                     </div>
-                    <h3 class="text-base font-extrabold text-slate-800">إلغاء كشف الشحنة</h3>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed"
+                    <h3 class="text-base font-extrabold text-slate-800 lg:dark:text-slate-100">إلغاء كشف الشحنة</h3>
+                    <p class="text-xs text-slate-500 lg:dark:text-slate-400 mt-1 leading-relaxed"
                        x-text="'سيتم إلغاء الكشف #' + (cancelModal.number || '') + ' وتنزيل جميع الطرود بداخله وإرجاعها إلى حالة (في الانتظار).'"></p>
                 </div>
 
-                <div class="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 space-y-1.5 text-xs">
+                <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-2xl p-3 border border-slate-200/80 lg:dark:border-slate-700/60 space-y-1.5 text-xs">
                     <div class="flex items-center justify-between">
                         <span class="text-slate-400">رقم الكشف:</span>
                         <span class="font-mono font-black text-rose-600" x-text="'#' + (cancelModal.number || '')"></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-slate-400">السائق:</span>
-                        <span class="font-bold text-slate-700" x-text="cancelModal.driver_name || '—'"></span>
+                        <span class="font-bold text-slate-700 lg:dark:text-slate-200" x-text="cancelModal.driver_name || '—'"></span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-slate-400">عدد الطرود:</span>
-                        <span class="font-mono font-bold text-slate-700" x-text="(cancelModal.parcels_count || 0) + ' طرد'"></span>
+                        <span class="font-mono font-bold text-slate-700 lg:dark:text-slate-200" x-text="(cancelModal.parcels_count || 0) + ' طرد'"></span>
                     </div>
                 </div>
 
-                <div class="bg-amber-50 border border-amber-200/80 text-amber-800 rounded-xl p-2.5 flex items-start gap-2 text-[11px] leading-snug">
+                <div class="bg-amber-50 lg:dark:bg-amber-500/10 border border-amber-200/80 lg:dark:border-amber-500/30 text-amber-800 lg:dark:text-amber-300 rounded-xl p-2.5 flex items-start gap-2 text-[11px] leading-snug">
                     <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">warning</span>
                     <span>
                         <strong>تنبيه:</strong> ستختفي جميع طرود هذا الكشف من قائمة (في الطريق) لدى الفروع المستلمة وتعود تلقائياً إلى (في الانتظار).
@@ -885,7 +885,7 @@
                         <span x-text="cancelModal.submitting ? 'جاري إلغاء الكشف...' : 'تأكيد إلغاء الكشف'"></span>
                     </button>
                     <button type="button" @click="closeCancelModal()" :disabled="cancelModal.submitting"
-                            class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors disabled:opacity-50">
+                            class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 text-slate-700 lg:dark:text-slate-200 font-bold text-xs transition-colors disabled:opacity-50">
                         تراجع
                     </button>
                 </form>
@@ -1154,13 +1154,13 @@
 
                 statusBadgeClass(status) {
                     const map = {
-                        draft: 'bg-slate-100 text-slate-700 border-slate-300',
-                        in_transit: 'bg-sky-100 text-sky-800 border-sky-200',
-                        partially_received: 'bg-amber-100 text-amber-800 border-amber-200',
-                        received: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                        cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
+                        draft: 'bg-slate-100 text-slate-700 border-slate-300 lg:dark:bg-slate-700/50 lg:dark:text-slate-300 lg:dark:border-slate-600/60',
+                        in_transit: 'bg-sky-100 text-sky-800 border-sky-200 lg:dark:bg-sky-500/15 lg:dark:text-sky-400 lg:dark:border-sky-500/30',
+                        partially_received: 'bg-amber-100 text-amber-800 border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30',
+                        received: 'bg-emerald-100 text-emerald-800 border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30',
+                        cancelled: 'bg-rose-100 text-rose-800 border-rose-200 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 lg:dark:border-rose-500/30',
                     };
-                    return map[status] || 'bg-slate-100 text-slate-700 border-slate-300';
+                    return map[status] || 'bg-slate-100 text-slate-700 border-slate-300 lg:dark:bg-slate-700/50 lg:dark:text-slate-300 lg:dark:border-slate-600/60';
                 },
 
                 rowAccentDot(status) {

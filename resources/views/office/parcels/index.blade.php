@@ -49,30 +49,30 @@
 
     <!-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) -->
     <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
-        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60">
             <template x-for="tab in filters" :key="'desk-' + tab.key">
                 <button type="button"
                         @click="setFilter(tab.key)"
                         :class="filter === tab.key
-                            ? 'bg-white text-slate-900 shadow-xs font-extrabold'
-                            : 'text-slate-600 hover:text-slate-900 font-bold'"
+                            ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
+                            : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
                         class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span x-text="tab.label"></span>
                     <span :class="filter === tab.key
-                              ? 'bg-secondary/20 text-amber-900'
-                              : 'bg-slate-300/60 text-slate-600'"
+                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                              : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                           class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                           x-text="countFor(tab.key)"></span>
                 </button>
             </template>
         </div>
 
-        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+        <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
             <button type="button"
                     @click="setDesktopView('table')"
                     :class="desktopView === 'table'
-                        ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">table_rows</span>
                 <span>جدول</span>
@@ -80,8 +80,8 @@
             <button type="button"
                     @click="setDesktopView('cards')"
                     :class="desktopView === 'cards'
-                        ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                     class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                 <span class="material-symbols-outlined text-[16px]">grid_view</span>
                 <span>بطاقات</span>
@@ -110,17 +110,17 @@
              x-cloak
              class="hidden lg:block">
             <div x-show="filteredParcels.length === 0"
-                 class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 shadow-2xs">
-                <span class="material-symbols-outlined text-4xl mb-1 text-slate-300">inventory_2</span>
-                <p class="text-xs font-bold text-slate-500">لا توجد طرود مطابقة</p>
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 p-10 text-center text-slate-400 shadow-2xs">
+                <span class="material-symbols-outlined text-4xl mb-1 text-slate-300 dark:text-slate-600">inventory_2</span>
+                <p class="text-xs font-bold text-slate-500 dark:text-slate-300">لا توجد طرود مطابقة</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">اضغط على (+ إرسال سريع SMS) أعلى الشاشة لتسجيل طرد وارد جديد</p>
             </div>
 
             <div x-show="filteredParcels.length > 0"
-                 class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                 class="bg-white dark:bg-[#24303F] rounded-2xl border border-gray-200 dark:border-slate-700/60 shadow-2xs overflow-hidden">
                 <table class="w-full text-right border-collapse">
                     <thead>
-                        <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-extrabold text-slate-500">
+                        <tr class="border-b border-gray-200 dark:border-slate-700/60 bg-gray-50/80 dark:bg-slate-800/60 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
                             <th class="py-3 pr-4 pl-3">النوع ورقم السند</th>
                             <th class="py-3 px-3">المستلم والهاتف</th>
                             <th class="py-3 px-3">المصدر / الخانة</th>
@@ -129,10 +129,10 @@
                             <th class="py-3 pr-3 pl-4 text-left">الإجراءات</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-xs">
+                    <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-xs">
                         <template x-for="p in visibleParcels" :key="'row-' + p.id">
                             <tr data-incoming-row="true"
-                                class="hover:bg-slate-50/70 transition-colors">
+                                class="hover:bg-gray-50/70 dark:hover:bg-slate-800/40 transition-colors">
 
                                 <!-- 1. النوع ورقم السند -->
                                 <td class="py-3 pr-4 pl-3 align-middle">
@@ -141,9 +141,9 @@
                                         <div class="min-w-0">
                                             <div class="flex items-center gap-1.5">
                                                 <span x-show="p.receipt_number"
-                                                      class="font-mono font-black text-slate-900"
+                                                      class="font-mono font-black text-slate-900 dark:text-slate-100"
                                                       x-text="'#' + p.receipt_number"></span>
-                                                <span class="font-bold text-slate-800 truncate max-w-[180px]"
+                                                <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[180px]"
                                                       :title="p.package_type"
                                                       x-text="p.package_type"></span>
                                             </div>
@@ -152,7 +152,7 @@
                                                :title="'تاريخ الاستلام: ' + formatDate(p.created_at)"
                                                x-text="timeAgo(p.created_at)"></p>
                                             <p x-show="p.status === 'delivered' && p.delivered_at"
-                                               class="text-[10px] text-emerald-600 font-semibold mt-0.5"
+                                               class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5"
                                                x-text="'سُلّم: ' + formatDate(p.delivered_at)"></p>
                                         </div>
                                     </div>
@@ -160,28 +160,28 @@
 
                                 <!-- 2. المستلم والهاتف -->
                                 <td class="py-3 px-3 align-middle">
-                                    <p class="font-bold text-slate-800 truncate max-w-[155px]" x-text="p.recipient_name || 'بدون اسم'"></p>
-                                    <p class="text-[11px] font-mono text-slate-500 dir-ltr text-right" x-text="p.recipient_phone"></p>
+                                    <p class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[155px]" x-text="p.recipient_name || 'بدون اسم'"></p>
+                                    <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400 dir-ltr text-right" x-text="p.recipient_phone"></p>
                                 </td>
 
                                 <!-- 3. المصدر / الخانة -->
                                 <td class="py-3 px-3 align-middle">
                                     <div class="flex items-center flex-wrap gap-1.5">
                                         <span x-show="p.slot_number"
-                                              class="inline-flex items-center gap-0.5 text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                                              class="inline-flex items-center gap-0.5 text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30">
                                             <span class="material-symbols-outlined text-[12px]">grid_view</span>
                                             <span x-text="'خانة: ' + p.slot_number"></span>
                                         </span>
                                         <span x-show="p.source_region || p.source_office_name"
-                                              class="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 truncate max-w-[160px]">
+                                              class="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 truncate max-w-[160px]">
                                             <span class="material-symbols-outlined text-[12px] text-slate-400">location_on</span>
                                             <span class="truncate" x-text="p.source_region || p.source_office_name"></span>
                                         </span>
                                         <span x-show="p.cod_amount && Number(p.cod_amount) > 0"
-                                              class="inline-flex items-center gap-0.5 text-[10px] font-extrabold font-mono px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80"
+                                              class="inline-flex items-center gap-0.5 text-[10px] font-extrabold font-mono px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30"
                                               x-text="Number(p.cod_amount).toLocaleString('en-US') + ' ر.ي'"></span>
                                         <span x-show="!p.slot_number && !p.source_region && !p.source_office_name && !(p.cod_amount && Number(p.cod_amount) > 0)"
-                                              class="text-slate-300 font-bold">—</span>
+                                              class="text-slate-300 dark:text-slate-600 font-bold">—</span>
                                     </div>
                                 </td>
 
@@ -194,7 +194,7 @@
 
                                         <template x-if="isPending(p.id)">
                                             <span title="بانتظار توفر الإنترنت للمزامنة"
-                                                  class="inline-flex items-center gap-0.5 text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-md text-[10px] font-bold">
+                                                  class="inline-flex items-center gap-0.5 text-amber-700 bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-bold">
                                                 <span class="material-symbols-outlined text-[12px] animate-pulse">schedule</span>
                                                 <span>معلق</span>
                                             </span>
@@ -202,7 +202,7 @@
 
                                         <template x-if="isTodayFailedSms(p)">
                                             <span :title="p.sms_failure_reason || 'فشل إرسال الرسالة تلقائياً'"
-                                                  class="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold">
+                                                  class="inline-flex items-center gap-0.5 text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold">
                                                 <span class="material-symbols-outlined text-[12px]">sms_failed</span>
                                                 <span>فشل SMS</span>
                                             </span>
@@ -215,7 +215,7 @@
                                     <div class="inline-flex items-center gap-1.5">
                                         <a :href="'tel:' + p.recipient_phone"
                                            title="اتصال هاتفي"
-                                           class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 flex items-center justify-center transition-colors">
+                                           class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/30 flex items-center justify-center transition-colors">
                                             <span class="material-symbols-outlined text-[16px]">call</span>
                                         </a>
 
@@ -224,7 +224,7 @@
                                                 @click="handleWhatsAppClick(p, {{ Js::from($preparedTemplate) }}, {{ Js::from($hasOfficeWhatsApp) }})"
                                                 :disabled="sendingWhatsappId === p.id"
                                                 :title="sendingWhatsappId === p.id ? 'جاري إرسال إشعار الواتساب...' : 'إرسال إشعار عبر واتساب'"
-                                                class="w-8 h-8 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 flex items-center justify-center transition-colors disabled:opacity-60">
+                                                class="w-8 h-8 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] dark:text-[#4ade80] border border-[#25D366]/30 flex items-center justify-center transition-colors disabled:opacity-60">
                                             <template x-if="sendingWhatsappId === p.id">
                                                 <span class="w-3.5 h-3.5 border-2 border-[#25D366] border-t-transparent rounded-full animate-spin"></span>
                                             </template>
@@ -241,8 +241,8 @@
                                                 :disabled="sendingSmsId === p.id"
                                                 :title="isTodayFailedSms(p) ? 'فشل إرسال الـ SMS - انقر لإعادة الإرسال' : 'إعادة إرسال إشعار SMS للمستلم'"
                                                 :class="isTodayFailedSms(p)
-                                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-                                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80'"
+                                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 dark:text-rose-400 dark:border-rose-500/30'
+                                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200/80 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 dark:text-blue-400 dark:border-blue-500/30'"
                                                 class="h-8 px-2.5 rounded-lg border inline-flex items-center gap-1 text-[11px] font-bold transition-colors disabled:opacity-50">
                                             <span class="material-symbols-outlined text-[15px]"
                                                   :class="sendingSmsId === p.id ? 'animate-spin' : ''"
@@ -266,8 +266,8 @@
                                                     :class="action.status === 'delivered'
                                                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
                                                         : (action.status === 'in_office'
-                                                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
-                                                            : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200')"
+                                                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 dark:text-amber-300 dark:border-amber-500/30'
+                                                            : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30')"
                                                     class="h-8 px-3 rounded-lg border text-xs font-extrabold inline-flex items-center gap-1 transition-all active:scale-95">
                                                 <span class="material-symbols-outlined text-[15px]" x-text="action.icon"></span>
                                                 <span x-text="action.status === 'returned' ? 'إرجاع' : action.label"></span>
@@ -275,7 +275,7 @@
                                         </template>
 
                                         <span x-show="p.status === 'returned' && actionsFor(p).length === 0"
-                                              class="text-[11px] font-bold text-rose-500">
+                                              class="text-[11px] font-bold text-rose-500 dark:text-rose-400">
                                             تم الإرجاع للمكتب المرسل
                                         </span>
                                     </div>

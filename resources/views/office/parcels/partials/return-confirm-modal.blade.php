@@ -17,7 +17,7 @@
     </div>
 
     <!-- بطاقة المودال الرئيسية -->
-    <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-4 text-right"
+    <div class="relative w-full max-w-sm bg-white lg:dark:bg-[#24303F] rounded-3xl p-5 shadow-2xl border border-slate-100 lg:dark:border-slate-700/60 z-10 transition-all transform flex flex-col gap-4 text-right"
          x-show="returnModal.open"
          x-transition:enter="ease-out duration-250"
          x-transition:enter-start="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95"
@@ -30,34 +30,34 @@
         <button type="button"
                 @click="closeReturnModal()"
                 title="إغلاق"
-                class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors">
+                class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors">
             <span class="material-symbols-outlined text-base">close</span>
         </button>
 
         <!-- الهيدر والأيقونة -->
         <div class="text-center pt-1">
-            <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shadow-inner mb-3">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 lg:dark:bg-rose-500/15 lg:dark:border-rose-500/30 text-rose-600 lg:dark:text-rose-400 flex items-center justify-center shadow-inner mb-3">
                 <span class="material-symbols-outlined text-3xl">assignment_return</span>
             </div>
-            <h3 class="text-base font-extrabold text-slate-800">
+            <h3 class="text-base font-extrabold text-slate-800 lg:dark:text-slate-100">
                 تأكيد إرجاع الطرد
             </h3>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+            <p class="text-xs text-slate-500 lg:dark:text-slate-400 mt-1 leading-relaxed">
                 هل أنت متأكد من رغبتك في إرجاع هذا الطرد إلى المكتب المُرسِل؟
             </p>
         </div>
 
         <!-- ملخص بيانات الطرد المراد إرجاعه -->
         <template x-if="returnModal.parcel">
-            <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
+            <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-2xl p-3.5 border border-slate-200/80 lg:dark:border-slate-700/60 space-y-2.5 text-xs">
                 
                 <!-- المكتب المرسل (المصدر) -->
-                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 lg:dark:border-slate-700/60">
                     <span class="text-slate-400 flex items-center gap-1 font-medium">
                         <span class="material-symbols-outlined text-sm text-slate-400">store</span>
                         المكتب المرسل:
                     </span>
-                    <span class="font-bold text-rose-600 truncate max-w-[180px]"
+                    <span class="font-bold text-rose-600 lg:dark:text-rose-400 truncate max-w-[180px]"
                           x-text="returnModal.parcel.source_office_name || 'المكتب المصدر'">
                     </span>
                 </div>
@@ -65,19 +65,19 @@
                 <!-- رقم السند ونوع الشحنة -->
                 <div class="flex items-center justify-between">
                     <span class="text-slate-400">نوع الشحنة:</span>
-                    <span class="font-bold text-slate-700" x-text="returnModal.parcel.package_type"></span>
+                    <span class="font-bold text-slate-700 lg:dark:text-slate-100" x-text="returnModal.parcel.package_type"></span>
                 </div>
 
                 <div class="flex items-center justify-between" x-show="returnModal.parcel.receipt_number">
                     <span class="text-slate-400">رقم السند:</span>
-                    <span class="font-mono font-bold text-slate-700" x-text="'#' + returnModal.parcel.receipt_number"></span>
+                    <span class="font-mono font-bold text-slate-700 lg:dark:text-slate-200" x-text="'#' + returnModal.parcel.receipt_number"></span>
                 </div>
 
                 <!-- بيانات المستلم -->
                 <div class="flex items-center justify-between pt-1">
                     <span class="text-slate-400">المستلم:</span>
                     <div class="text-left">
-                        <span class="font-bold text-slate-700 block" x-text="returnModal.parcel.recipient_name || 'بدون اسم'"></span>
+                        <span class="font-bold text-slate-700 lg:dark:text-slate-100 block" x-text="returnModal.parcel.recipient_name || 'بدون اسم'"></span>
                         <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="returnModal.parcel.recipient_phone"></span>
                     </div>
                 </div>
@@ -86,8 +86,8 @@
         </template>
 
         <!-- تنبيه تحذيري -->
-        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 leading-snug">
-            <span class="material-symbols-outlined text-base text-amber-600 shrink-0 mt-0.5">warning</span>
+        <div class="bg-amber-50 border border-amber-200/80 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/30 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-amber-800 lg:dark:text-amber-300 leading-snug">
+            <span class="material-symbols-outlined text-base text-amber-600 lg:dark:text-amber-400 shrink-0 mt-0.5">warning</span>
             <span>
                 <strong>تنبيه:</strong> سيتم تسجيل الطرد كمرتجع رسمي ولن يتمكن المستلم من استلامه من هذا الفرع.
             </span>
@@ -104,7 +104,7 @@
 
             <button type="button"
                     @click="closeReturnModal()"
-                    class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center transition-colors">
+                    class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center transition-colors">
                 <span>إلغاء وتراجع</span>
             </button>
         </div>

@@ -4,7 +4,7 @@
      x-transition:enter="ease-out duration-200"
      x-transition:enter-start="opacity-0 -translate-y-2"
      x-transition:enter-end="opacity-100 translate-y-0"
-     class="bg-rose-600 text-white px-3.5 py-2 text-xs font-bold flex items-center justify-between gap-2 sticky top-[125px] z-30 shadow-md border-b border-rose-700">
+     class="bg-rose-600 text-white px-3.5 py-2 text-xs font-bold flex items-center justify-between gap-2 sticky top-[125px] lg:top-16 z-30 shadow-md border-b border-rose-700">
     <div class="flex items-center gap-1.5 min-w-0">
         <span class="material-symbols-outlined text-base animate-pulse shrink-0">error</span>
         <span class="truncate">

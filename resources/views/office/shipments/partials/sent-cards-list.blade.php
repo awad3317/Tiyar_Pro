@@ -18,20 +18,20 @@
         @endphp
         <article
             style="content-visibility: auto; contain-intrinsic-size: 180px;"
-            class="relative bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xs space-y-2.5">
+            class="relative bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 rounded-2xl p-3.5 shadow-xs space-y-2.5">
 
             <div class="flex items-start justify-between gap-2">
                 <div class="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
-                        class="w-9 h-9 rounded-xl bg-primary text-secondary flex items-center justify-center shrink-0">
+                        class="w-9 h-9 rounded-xl bg-primary lg:dark:bg-[#1A222C] text-secondary flex items-center justify-center shrink-0">
                         <span class="material-symbols-outlined text-xl">receipt_long</span>
                     </span>
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="font-mono font-black text-sm text-primary">كشف
+                            <span class="font-mono font-black text-sm text-primary lg:dark:text-slate-100">كشف
                                 #{{ $shipment->shipment_number }}</span>
                             <span
-                                class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 text-[10px] font-bold">
                                 {{ $shipment->parcels_count }} طرد
                             </span>
                         </div>
@@ -51,7 +51,7 @@
                             @click="open = !open"
                             title="خيارات الكشف"
                             aria-label="خيارات الكشف"
-                            class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                            class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors">
                             <span class="material-symbols-outlined text-[18px]">more_vert</span>
                         </button>
 
@@ -63,28 +63,28 @@
                             x-transition:leave="ease-in duration-100"
                             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                             x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                            class="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-lg border border-slate-200/90 py-1.5 z-30 text-right">
+                            class="absolute left-0 top-full mt-1.5 w-44 bg-white lg:dark:bg-[#24303F] rounded-2xl shadow-lg border border-slate-200/90 lg:dark:border-slate-700/60 py-1.5 z-30 text-right">
                             <a href="{{ route('office.shipments.sent.show', $shipment) }}"
-                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                <span class="material-symbols-outlined text-base text-primary">description</span>
+                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 flex items-center gap-2 transition-colors">
+                                <span class="material-symbols-outlined text-base text-primary lg:dark:text-amber-400">description</span>
                                 <span>تفاصيل الكشف</span>
                             </a>
 
                             <button type="button"
                                 data-shipment-action="print"
                                 @click="open = false; printShipment('{{ route('office.shipments.sent.print', $shipment) }}')"
-                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors">
-                                <span class="material-symbols-outlined text-base text-slate-500">print</span>
+                                class="w-full px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 flex items-center gap-2 transition-colors">
+                                <span class="material-symbols-outlined text-base text-slate-500 lg:dark:text-slate-400">print</span>
                                 <span>طباعة الكشف</span>
                             </button>
 
                             @if ($canCancelShipment)
-                                <div class="my-1 border-t border-slate-100"></div>
+                                <div class="my-1 border-t border-slate-100 lg:dark:border-slate-700/60"></div>
                                 <button type="button"
                                     data-shipment-action="cancel"
                                     @click="open = false; openCancelModal(@js($cancelCardPayload))"
-                                    class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors">
-                                    <span class="material-symbols-outlined text-base text-rose-600">cancel</span>
+                                    class="w-full px-3.5 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-50 lg:dark:text-rose-400 lg:dark:hover:bg-rose-500/15 flex items-center gap-2 transition-colors">
+                                    <span class="material-symbols-outlined text-base text-rose-600 lg:dark:text-rose-400">cancel</span>
                                     <span>إلغاء الكشف</span>
                                 </button>
                             @endif
@@ -95,30 +95,30 @@
 
             <div class="space-y-2.5">
                 {{-- السائق والوجهات --}}
-                <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
+                <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-xl p-2.5 border border-slate-100 lg:dark:border-slate-700/50 space-y-1.5 text-xs">
                     <div class="flex items-center justify-between gap-2">
                         <span class="text-slate-400 text-[11px] font-bold flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm text-primary">person</span>
+                            <span class="material-symbols-outlined text-sm text-primary lg:dark:text-amber-400">person</span>
                             السائق:
                         </span>
-                        <span class="font-extrabold text-slate-800 truncate">
+                        <span class="font-extrabold text-slate-800 lg:dark:text-slate-100 truncate">
                             {{ $shipment->driver_name }}
-                            <span class="font-mono text-[11px] text-slate-500 mr-1"
+                            <span class="font-mono text-[11px] text-slate-500 lg:dark:text-slate-400 mr-1"
                                 dir="ltr">({{ $shipment->driver_phone }})</span>
                         </span>
                     </div>
 
                     @if (count($destList) > 0)
-                        <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
+                        <div class="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60 lg:dark:border-slate-700/60">
                             <span class="text-slate-400 text-[11px] font-bold shrink-0">الوجهات:</span>
                             <div class="flex flex-wrap justify-end gap-1">
                                 @foreach (array_slice($destList, 0, 3) as $dest)
                                     <span
-                                        class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-700">{{ $dest }}</span>
+                                        class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 text-[10px] font-bold text-slate-700 lg:dark:text-slate-200">{{ $dest }}</span>
                                 @endforeach
                                 @if (count($destList) > 3)
                                     <span
-                                        class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 text-[10px] font-extrabold">+{{ count($destList) - 3 }}</span>
+                                        class="px-1.5 py-0.5 rounded-md bg-secondary/15 text-amber-800 lg:dark:bg-amber-500/20 lg:dark:text-amber-300 text-[10px] font-extrabold">+{{ count($destList) - 3 }}</span>
                                 @endif
                             </div>
                         </div>
@@ -127,35 +127,35 @@
 
                 {{-- المجاميع المالية (آجل / محاسب / إجمالي) --}}
                 <div class="grid grid-cols-3 gap-1.5 text-center">
-                    <div class="bg-amber-50/70 border border-amber-200/70 rounded-xl py-1.5 px-1">
-                        <p class="text-[9px] font-bold text-amber-700">الآجل</p>
-                        <p class="text-xs font-mono font-black text-amber-800">
+                    <div class="bg-amber-50/70 border border-amber-200/70 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/25 rounded-xl py-1.5 px-1">
+                        <p class="text-[9px] font-bold text-amber-700 lg:dark:text-amber-400">الآجل</p>
+                        <p class="text-xs font-mono font-black text-amber-800 lg:dark:text-amber-300">
                             {{ number_format((float) $shipment->total_deferred_amount) }}</p>
                     </div>
-                    <div class="bg-emerald-50/70 border border-emerald-200/70 rounded-xl py-1.5 px-1">
-                        <p class="text-[9px] font-bold text-emerald-700">المحاسب</p>
-                        <p class="text-xs font-mono font-black text-emerald-800">
+                    <div class="bg-emerald-50/70 border border-emerald-200/70 lg:dark:bg-emerald-500/10 lg:dark:border-emerald-500/25 rounded-xl py-1.5 px-1">
+                        <p class="text-[9px] font-bold text-emerald-700 lg:dark:text-emerald-400">المحاسب</p>
+                        <p class="text-xs font-mono font-black text-emerald-800 lg:dark:text-emerald-300">
                             {{ number_format((float) $shipment->total_paid_amount) }}</p>
                     </div>
-                    <div class="bg-primary text-white rounded-xl py-1.5 px-1">
-                        <p class="text-[9px] font-bold text-slate-300">الإجمالي</p>
-                        <p class="text-xs font-mono font-black text-secondary">
+                    <div class="bg-primary lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/60 text-white rounded-xl py-1.5 px-1">
+                        <p class="text-[9px] font-bold text-slate-300 lg:dark:text-slate-400">الإجمالي</p>
+                        <p class="text-xs font-mono font-black text-secondary lg:dark:text-amber-400">
                             {{ number_format((float) $shipment->total_amount) }}</p>
                     </div>
                 </div>
 
                 {{-- مؤشر نسبة الاستلام (عرض فقط بدون رابط قابل للنقر) --}}
-                <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 font-bold">
+                <div class="flex items-center justify-between text-[11px] pt-0.5 text-slate-500 lg:dark:text-slate-400 font-bold">
                     <span>تم استلام {{ $shipment->received_parcels_count }} من {{ $shipment->parcels_count }}</span>
                 </div>
             </div>
         </article>
     @empty
-        <div class="lg:col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center space-y-2.5">
-            <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+        <div class="lg:col-span-full bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 p-10 text-center space-y-2.5">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 lg:dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                 <span class="material-symbols-outlined text-3xl">local_shipping</span>
             </div>
-            <p class="text-xs font-extrabold text-slate-700">لا توجد شحنات مرسلة مطابقة</p>
+            <p class="text-xs font-extrabold text-slate-700 lg:dark:text-slate-200">لا توجد شحنات مرسلة مطابقة</p>
             <p class="text-[11px] text-slate-400">اضغط على زر (+) أعلى الشاشة لإنشاء كشف شحنة جديد بمسح الباركود.</p>
             <div class="pt-1">
                 <button type="button"

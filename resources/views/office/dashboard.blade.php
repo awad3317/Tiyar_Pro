@@ -70,11 +70,11 @@
 
         {{-- لوحة نتائج البحث الشامل الحية (تظهر فقط عند كتابة بحث) --}}
         <section x-show="isActive" x-cloak class="space-y-3.5">
-            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200/90 rounded-2xl px-3.5 py-2.5 shadow-2xs">
+            <div class="flex items-center justify-between gap-2 bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 rounded-2xl px-3.5 py-2.5 shadow-2xs">
                 <div class="flex items-center gap-2 min-w-0">
                     <span class="material-symbols-outlined text-lg text-secondary shrink-0">manage_search</span>
                     <div class="min-w-0">
-                        <p class="text-xs font-extrabold text-slate-800 truncate">
+                        <p class="text-xs font-extrabold text-slate-800 lg:dark:text-slate-100 truncate">
                             نتائج البحث الشامل
                             <span x-show="!isLoading" class="text-secondary font-mono mr-1" x-text="'(' + results.total + ')'"></span>
                         </p>
@@ -83,70 +83,70 @@
                 </div>
                 <button type="button"
                         @click="clearSearch()"
-                        class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-extrabold transition-colors">
+                        class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 lg:dark:bg-rose-500/15 lg:dark:hover:bg-rose-500/25 lg:dark:text-rose-400 text-[11px] font-extrabold transition-colors">
                     <span class="material-symbols-outlined text-sm">close</span>
                     <span>مسح البحث</span>
                 </button>
             </div>
 
             {{-- مؤشر التحميل --}}
-            <div x-show="isLoading" class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center space-y-2">
+            <div x-show="isLoading" class="bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 p-8 text-center space-y-2">
                 <span class="w-6 h-6 border-2 border-secondary border-t-transparent rounded-full animate-spin inline-block"></span>
-                <p class="text-xs font-bold text-slate-500">جاري البحث في جميع طرود المكتب...</p>
+                <p class="text-xs font-bold text-slate-500 lg:dark:text-slate-400">جاري البحث في جميع طرود المكتب...</p>
             </div>
 
             {{-- حالة عدم وجود نتائج --}}
             <div x-show="!isLoading && hasSearched && results.total === 0"
-                 class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center space-y-2">
-                <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                 class="bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 p-8 text-center space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 lg:dark:bg-slate-800 text-slate-400 flex items-center justify-center">
                     <span class="material-symbols-outlined text-2xl">search_off</span>
                 </div>
-                <p class="text-xs font-extrabold text-slate-700" x-text="'لا توجد طرود مطابقة لـ &quot;' + query + '&quot;'"></p>
+                <p class="text-xs font-extrabold text-slate-700 lg:dark:text-slate-200" x-text="'لا توجد طرود مطابقة لـ &quot;' + query + '&quot;'"></p>
                 <p class="text-[11px] text-slate-400">جرّب رقم السند أو اسم أو جوال المرسل أو المستلم.</p>
             </div>
 
             {{-- المجموعة 1: قادم في الطريق إلينا --}}
             <div x-show="!isLoading && results.in_transit.length > 0" class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-xs font-extrabold text-sky-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-sky-600">local_shipping</span>
+                    <h3 class="text-xs font-extrabold text-sky-800 lg:dark:text-sky-400 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-sky-600 lg:dark:text-sky-400">local_shipping</span>
                         <span>قادم في الطريق إلينا</span>
                     </h3>
-                    <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-mono font-black"
+                    <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 lg:dark:bg-sky-500/15 lg:dark:text-sky-300 text-[10px] font-mono font-black"
                           x-text="results.in_transit.length"></span>
                 </div>
 
                 <template x-for="item in results.in_transit" :key="'tr-' + item.id">
-                    <div class="bg-white border border-sky-200 rounded-2xl p-3 shadow-2xs space-y-2">
+                    <div class="bg-white lg:dark:bg-[#24303F] border border-sky-200 lg:dark:border-sky-500/30 rounded-2xl p-3 shadow-2xs space-y-2">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="text-xs font-extrabold text-slate-900" x-text="item.package_type"></span>
+                                    <span class="text-xs font-extrabold text-slate-900 lg:dark:text-slate-100" x-text="item.package_type"></span>
                                     <span x-show="item.receipt_number"
-                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] font-bold text-slate-700"
+                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 font-mono text-[10px] font-bold text-slate-700 lg:dark:text-slate-200"
                                           x-text="'سند #' + item.receipt_number"></span>
                                 </div>
-                                <p class="text-[10px] text-sky-700 font-bold mt-0.5 truncate" x-text="'قادم من: ' + item.from_office"></p>
+                                <p class="text-[10px] text-sky-700 lg:dark:text-sky-400 font-bold mt-0.5 truncate" x-text="'قادم من: ' + item.from_office"></p>
                             </div>
-                            <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-extrabold shrink-0">في الطريق</span>
+                            <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 border border-sky-200 lg:dark:bg-sky-500/15 lg:dark:text-sky-300 lg:dark:border-sky-500/30 text-[10px] font-extrabold shrink-0">في الطريق</span>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2 text-[11px]">
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50 lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/50 rounded-xl p-2 text-[11px]">
                             <div class="min-w-0">
                                 <span class="text-[9px] text-slate-400 font-bold block">المرسل</span>
-                                <span class="font-bold text-slate-700 truncate block" x-text="item.sender_name || '—'"></span>
-                                <span class="font-mono text-[10px] text-slate-500 dir-ltr block text-right" x-text="item.sender_phone"></span>
+                                <span class="font-bold text-slate-700 lg:dark:text-slate-200 truncate block" x-text="item.sender_name || '—'"></span>
+                                <span class="font-mono text-[10px] text-slate-500 lg:dark:text-slate-400 dir-ltr block text-right" x-text="item.sender_phone"></span>
                             </div>
-                            <div class="min-w-0 border-r border-slate-200 pr-2">
+                            <div class="min-w-0 border-r border-slate-200 lg:dark:border-slate-700/60 pr-2">
                                 <span class="text-[9px] text-slate-400 font-bold block">المستلم</span>
-                                <span class="font-bold text-slate-800 truncate block" x-text="item.recipient_name"></span>
-                                <span class="font-mono text-[10px] text-slate-500 dir-ltr block text-right" x-text="item.recipient_phone"></span>
+                                <span class="font-bold text-slate-800 lg:dark:text-slate-100 truncate block" x-text="item.recipient_name"></span>
+                                <span class="font-mono text-[10px] text-slate-500 lg:dark:text-slate-400 dir-ltr block text-right" x-text="item.recipient_phone"></span>
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between gap-2 pt-0.5">
                             <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-md border"
-                                  :class="item.payment_type === 'deferred' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                                  :class="item.payment_type === 'deferred' ? 'bg-amber-50 text-amber-800 border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30'"
                                   x-text="item.payment_label + ': ' + item.cod_formatted + ' ر.ي'"></span>
                             <a :href="item.url"
                                class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-extrabold inline-flex items-center gap-1 transition-colors">
@@ -161,39 +161,39 @@
             {{-- المجموعة 2: الطرود الواردة بالمكتب --}}
             <div x-show="!isLoading && results.incoming.length > 0" class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-xs font-extrabold text-emerald-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-emerald-600">move_to_inbox</span>
+                    <h3 class="text-xs font-extrabold text-emerald-800 lg:dark:text-emerald-400 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-emerald-600 lg:dark:text-emerald-400">move_to_inbox</span>
                         <span>الطرود الواردة بالمكتب</span>
                     </h3>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-black"
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-300 text-[10px] font-mono font-black"
                           x-text="results.incoming.length"></span>
                 </div>
 
                 <template x-for="item in results.incoming" :key="'in-' + item.id">
                     <a :href="item.url"
-                       class="block bg-white border border-slate-200/90 hover:border-secondary rounded-2xl p-3 shadow-2xs space-y-1.5 transition-colors">
+                       class="block bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 hover:border-secondary lg:dark:hover:border-amber-400/60 rounded-2xl p-3 shadow-2xs space-y-1.5 transition-colors">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="text-xs font-extrabold text-slate-900" x-text="item.package_type"></span>
+                                    <span class="text-xs font-extrabold text-slate-900 lg:dark:text-slate-100" x-text="item.package_type"></span>
                                     <span x-show="item.receipt_number"
-                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] font-bold text-slate-700"
+                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 font-mono text-[10px] font-bold text-slate-700 lg:dark:text-slate-200"
                                           x-text="'سند #' + item.receipt_number"></span>
                                 </div>
-                                <p x-show="item.source_name" class="text-[10px] text-slate-500 font-bold mt-0.5 truncate" x-text="'المصدر: ' + item.source_name"></p>
+                                <p x-show="item.source_name" class="text-[10px] text-slate-500 lg:dark:text-slate-400 font-bold mt-0.5 truncate" x-text="'المصدر: ' + item.source_name"></p>
                             </div>
                             <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold shrink-0"
                                   :class="item.status === 'delivered'
-                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30'
                                       : (item.status === 'returned'
-                                          ? 'bg-rose-100 text-rose-800 border-rose-200'
-                                          : 'bg-amber-100 text-amber-800 border-amber-200')"
+                                          ? 'bg-rose-100 text-rose-800 border-rose-200 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 lg:dark:border-rose-500/30'
+                                          : 'bg-amber-100 text-amber-800 border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30')"
                                   x-text="item.status_label"></span>
                         </div>
-                        <div class="flex items-center justify-between text-[11px] bg-slate-50 rounded-xl px-2.5 py-1.5">
+                        <div class="flex items-center justify-between text-[11px] bg-slate-50 lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/50 rounded-xl px-2.5 py-1.5">
                             <div class="min-w-0 truncate">
-                                <span class="font-bold text-slate-800" x-text="item.recipient_name"></span>
-                                <span class="font-mono text-slate-500 mr-1.5" dir="ltr" x-text="item.recipient_phone"></span>
+                                <span class="font-bold text-slate-800 lg:dark:text-slate-100" x-text="item.recipient_name"></span>
+                                <span class="font-mono text-slate-500 lg:dark:text-slate-400 mr-1.5" dir="ltr" x-text="item.recipient_phone"></span>
                             </div>
                             <span class="text-[10px] text-slate-400 font-semibold shrink-0" x-text="item.created_at_human"></span>
                         </div>
@@ -204,54 +204,54 @@
             {{-- المجموعة 3: الطرود الصادرة --}}
             <div x-show="!isLoading && results.outgoing.length > 0" class="space-y-2">
                 <div class="flex items-center justify-between px-1">
-                    <h3 class="text-xs font-extrabold text-indigo-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-indigo-600">outbox</span>
+                    <h3 class="text-xs font-extrabold text-indigo-800 lg:dark:text-indigo-400 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-base text-indigo-600 lg:dark:text-indigo-400">outbox</span>
                         <span>الطرود الصادرة</span>
                     </h3>
-                    <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-black"
+                    <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 lg:dark:bg-indigo-500/15 lg:dark:text-indigo-300 text-[10px] font-mono font-black"
                           x-text="results.outgoing.length"></span>
                 </div>
 
                 <template x-for="item in results.outgoing" :key="'out-' + item.id">
                     <a :href="item.url"
-                       class="block bg-white border border-slate-200/90 hover:border-secondary rounded-2xl p-3 shadow-2xs space-y-2 transition-colors">
+                       class="block bg-white lg:dark:bg-[#24303F] border border-slate-200/90 lg:border-gray-200 lg:dark:border-slate-700/60 hover:border-secondary lg:dark:hover:border-amber-400/60 rounded-2xl p-3 shadow-2xs space-y-2 transition-colors">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="text-xs font-extrabold text-slate-900" x-text="item.package_type"></span>
+                                    <span class="text-xs font-extrabold text-slate-900 lg:dark:text-slate-100" x-text="item.package_type"></span>
                                     <span x-show="item.receipt_number"
-                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] font-bold text-slate-700"
+                                          class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 lg:dark:bg-slate-800 lg:dark:border-slate-700 font-mono text-[10px] font-bold text-slate-700 lg:dark:text-slate-200"
                                           x-text="'سند #' + item.receipt_number"></span>
                                 </div>
-                                <p class="text-[10px] text-indigo-700 font-bold mt-0.5 truncate"
+                                <p class="text-[10px] text-indigo-700 lg:dark:text-indigo-400 font-bold mt-0.5 truncate"
                                    x-text="(item.is_external ? 'خارجي: ' : 'فرع: ') + item.destination"></p>
                             </div>
                             <div class="flex flex-col items-end gap-1 shrink-0">
                                 <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold"
                                       :class="item.status === 'pending'
-                                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                          ? 'bg-amber-100 text-amber-800 border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30'
                                           : (item.status === 'in_transit'
-                                              ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                              ? 'bg-sky-100 text-sky-800 border-sky-200 lg:dark:bg-sky-500/15 lg:dark:text-sky-400 lg:dark:border-sky-500/30'
                                               : (item.status === 'cancelled'
-                                                  ? 'bg-rose-100 text-rose-800 border-rose-200'
-                                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'))"
+                                                  ? 'bg-rose-100 text-rose-800 border-rose-200 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 lg:dark:border-rose-500/30'
+                                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30'))"
                                       x-text="item.status_label"></span>
                                 <span x-show="item.linked_status_label"
-                                      class="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded"
+                                      class="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 lg:dark:bg-indigo-500/15 lg:dark:text-indigo-300 lg:dark:border-indigo-500/30 px-1.5 py-0.5 rounded"
                                       x-text="item.linked_status_label"></span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2 text-[11px]">
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50 lg:dark:bg-[#1A222C] lg:dark:border lg:dark:border-slate-700/50 rounded-xl p-2 text-[11px]">
                             <div class="min-w-0">
                                 <span class="text-[9px] text-slate-400 font-bold block">المرسل</span>
-                                <span class="font-bold text-slate-700 truncate block" x-text="item.sender_name || '—'"></span>
-                                <span class="font-mono text-[10px] text-slate-500 dir-ltr block text-right" x-text="item.sender_phone"></span>
+                                <span class="font-bold text-slate-700 lg:dark:text-slate-200 truncate block" x-text="item.sender_name || '—'"></span>
+                                <span class="font-mono text-[10px] text-slate-500 lg:dark:text-slate-400 dir-ltr block text-right" x-text="item.sender_phone"></span>
                             </div>
-                            <div class="min-w-0 border-r border-slate-200 pr-2">
+                            <div class="min-w-0 border-r border-slate-200 lg:dark:border-slate-700/60 pr-2">
                                 <span class="text-[9px] text-slate-400 font-bold block">المستلم</span>
-                                <span class="font-bold text-slate-800 truncate block" x-text="item.recipient_name"></span>
-                                <span class="font-mono text-[10px] text-slate-500 dir-ltr block text-right" x-text="item.recipient_phone"></span>
+                                <span class="font-bold text-slate-800 lg:dark:text-slate-100 truncate block" x-text="item.recipient_name"></span>
+                                <span class="font-mono text-[10px] text-slate-500 lg:dark:text-slate-400 dir-ltr block text-right" x-text="item.recipient_phone"></span>
                             </div>
                         </div>
                     </a>
@@ -303,7 +303,7 @@
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 -translate-y-1"
             x-transition:enter-end="opacity-100 translate-y-0"
-            class="bg-primary text-white rounded-2xl p-4 shadow-md border border-slate-800 relative overflow-hidden"
+            class="bg-primary lg:dark:bg-[#24303F] text-white rounded-2xl p-4 shadow-md border border-slate-800 lg:dark:border-slate-700/60 relative overflow-hidden"
         >
             {{-- شريط لمسة لونية جانبية بهوية التطبيق --}}
             <div class="absolute top-0 right-0 bottom-0 w-1 bg-secondary"></div>
@@ -311,7 +311,7 @@
             <div class="flex items-start gap-3">
                 <div class="w-11 h-11 rounded-xl bg-secondary/15 border border-secondary/30 text-secondary flex items-center justify-center shrink-0 relative">
                     <span class="material-symbols-outlined text-2xl">local_shipping</span>
-                    <span class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-primary"></span>
+                    <span class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-primary lg:dark:ring-[#24303F]"></span>
                 </div>
 
                 <div class="flex-1 min-w-0">
@@ -320,14 +320,14 @@
                             شحنات قادمة
                         </span>
                     </div>
-                    <h3 class="text-sm font-extrabold text-white mt-1" x-text="headline()"></h3>
-                    <p class="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                    <h3 class="text-sm font-extrabold text-white lg:dark:text-slate-100 mt-1" x-text="headline()"></h3>
+                    <p class="text-[11px] text-slate-300 lg:dark:text-slate-400 mt-0.5 leading-relaxed">
                         مرسلة إليك من الفروع الشريكة وبانتظار تأكيد الاستلام عند وصولها.
                     </p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 mt-3.5 pt-3 border-t border-white/10">
+            <div class="flex items-center gap-2 mt-3.5 pt-3 border-t border-white/10 lg:dark:border-slate-700/60">
                 <a
                     href="{{ $dashboardTransitUrl }}"
                     class="flex-1 py-2 px-3 rounded-xl bg-secondary hover:bg-amber-500 active:scale-[0.98] text-primary text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all"
@@ -338,7 +338,7 @@
                 <button
                     type="button"
                     @click="remindLater()"
-                    class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                    class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 lg:dark:bg-[#1A222C] lg:dark:hover:bg-slate-700/60 text-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                 >
                     <span class="material-symbols-outlined text-sm">schedule</span>
                     <span>لاحقاً</span>
@@ -353,22 +353,22 @@
             x-transition:enter="transition ease-out duration-150"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
-            class="bg-amber-50/90 border border-amber-200/90 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-2xs"
+            class="bg-amber-50/90 border border-amber-200/90 lg:dark:bg-[#24303F] lg:dark:border-amber-500/30 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-2xs"
         >
             <button
                 type="button"
                 @click="expand()"
                 class="flex items-center gap-2 min-w-0 text-right flex-1"
             >
-                <span class="w-7 h-7 rounded-lg bg-secondary/20 text-amber-800 flex items-center justify-center shrink-0">
+                <span class="w-7 h-7 rounded-lg bg-secondary/20 text-amber-800 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-base">local_shipping</span>
                 </span>
-                <span class="text-xs font-extrabold text-primary truncate" x-text="headline()"></span>
+                <span class="text-xs font-extrabold text-primary lg:dark:text-amber-300 truncate" x-text="headline()"></span>
             </button>
 
             <a
                 href="{{ $dashboardTransitUrl }}"
-                class="px-2.5 py-1 rounded-lg bg-primary text-secondary text-[11px] font-extrabold shrink-0 hover:bg-slate-800 transition-colors flex items-center gap-0.5"
+                class="px-2.5 py-1 rounded-lg bg-primary text-secondary lg:dark:bg-amber-500 lg:dark:text-slate-950 text-[11px] font-extrabold shrink-0 hover:bg-slate-800 lg:dark:hover:bg-amber-400 transition-colors flex items-center gap-0.5"
             >
                 <span>عرض</span>
                 <span class="material-symbols-outlined text-sm">chevron_left</span>
@@ -376,66 +376,66 @@
         </div>
     </div>
 @endif
-        <h2 class="text-sm font-bold text-slate-800 pr-1">إحصائيات الطرود</h2>
+        <h2 class="text-sm font-bold text-slate-800 lg:dark:text-slate-100 pr-1">إحصائيات الطرود</h2>
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             <!-- إجمالي الطرود -->
             <a href="{{ route('office.parcels.index') }}"
-                class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-blue-300 transition-all block">
-                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
-                    <span class="material-symbols-outlined text-lg">inventory_2</span>
+                class="bg-white lg:dark:bg-[#24303F] p-4 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm lg:shadow-xs hover:border-blue-300 lg:dark:hover:border-blue-500/40 transition-all block">
+                <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-blue-50 text-blue-600 lg:dark:bg-blue-500/15 lg:dark:text-blue-400 flex items-center justify-center mb-2 lg:mb-3">
+                    <span class="material-symbols-outlined text-lg lg:text-xl">inventory_2</span>
                 </div>
-                <p class="text-xs text-slate-400 font-bold">إجمالي الطرود</p>
-                <p class="text-xl font-black text-slate-800 mt-1">{{ $stats['total'] }}</p>
+                <p class="text-xs text-slate-400 lg:text-slate-500 lg:dark:text-slate-400 font-bold">إجمالي الطرود</p>
+                <p class="text-xl lg:text-2xl font-black text-slate-800 lg:dark:text-slate-100 mt-1 tabular-nums">{{ $stats['total'] }}</p>
             </a>
 
             <!-- الطرود التي بالمكتب -->
             <a href="{{ route('office.parcels.index') }}"
-                class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-amber-300 transition-all block">
-                <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
-                    <span class="material-symbols-outlined text-lg">store</span>
+                class="bg-white lg:dark:bg-[#24303F] p-4 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm lg:shadow-xs hover:border-amber-300 lg:dark:hover:border-amber-500/40 transition-all block">
+                <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-amber-50 text-amber-600 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 flex items-center justify-center mb-2 lg:mb-3">
+                    <span class="material-symbols-outlined text-lg lg:text-xl">store</span>
                 </div>
-                <p class="text-xs text-slate-400 font-bold">الطرود بالمكتب</p>
-                <p class="text-xl font-black text-amber-600 mt-1">{{ $stats['in_office'] }}</p>
+                <p class="text-xs text-slate-400 lg:text-slate-500 lg:dark:text-slate-400 font-bold">الطرود بالمكتب</p>
+                <p class="text-xl lg:text-2xl font-black text-amber-600 lg:dark:text-amber-400 mt-1 tabular-nums">{{ $stats['in_office'] }}</p>
             </a>
 
             <!-- تم التسليم -->
             <a href="{{ route('office.parcels.index') }}"
-                class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-emerald-300 transition-all block">
-                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
-                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                class="bg-white lg:dark:bg-[#24303F] p-4 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm lg:shadow-xs hover:border-emerald-300 lg:dark:hover:border-emerald-500/40 transition-all block">
+                <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-emerald-50 text-emerald-600 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 flex items-center justify-center mb-2 lg:mb-3">
+                    <span class="material-symbols-outlined text-lg lg:text-xl">check_circle</span>
                 </div>
-                <p class="text-xs text-slate-400 font-bold">تم التسليم</p>
-                <p class="text-xl font-black text-emerald-600 mt-1">{{ $stats['delivered'] }}</p>
+                <p class="text-xs text-slate-400 lg:text-slate-500 lg:dark:text-slate-400 font-bold">تم التسليم</p>
+                <p class="text-xl lg:text-2xl font-black text-emerald-600 lg:dark:text-emerald-400 mt-1 tabular-nums">{{ $stats['delivered'] }}</p>
             </a>
 
             <!-- المرتجع -->
             <a href="{{ route('office.parcels.index') }}"
-                class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-rose-300 transition-all block">
-                <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2">
-                    <span class="material-symbols-outlined text-lg">assignment_return</span>
+                class="bg-white lg:dark:bg-[#24303F] p-4 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm lg:shadow-xs hover:border-rose-300 lg:dark:hover:border-rose-500/40 transition-all block">
+                <div class="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-rose-50 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 flex items-center justify-center mb-2 lg:mb-3">
+                    <span class="material-symbols-outlined text-lg lg:text-xl">assignment_return</span>
                 </div>
-                <p class="text-xs text-slate-400 font-bold">الطرود المرتجعة</p>
-                <p class="text-xl font-black text-rose-600 mt-1">{{ $stats['returned'] }}</p>
+                <p class="text-xs text-slate-400 lg:text-slate-500 lg:dark:text-slate-400 font-bold">الطرود المرتجعة</p>
+                <p class="text-xl lg:text-2xl font-black text-rose-600 lg:dark:text-rose-400 mt-1 tabular-nums">{{ $stats['returned'] }}</p>
             </a>
         </div>
 
         <!-- بطاقات مخصصة للميزات والخدمات -->
-        <h2 class="text-sm font-bold text-slate-800 pr-1 pt-2">الخدمات والميزات</h2>
+        <h2 class="text-sm font-bold text-slate-800 lg:dark:text-slate-100 pr-1 pt-2">الخدمات والميزات</h2>
 
-        <div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3.5">
+        <div class="space-y-2.5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
             @if(auth('office')->check() && auth('office')->user()->hasFeature('outgoing_parcels'))
                 <!-- خدمة الطرود الصادرة (تظهر فقط عند تفعيل الميزة للمكتب) -->
                 <a href="{{ route('office.outgoing-parcels.index') }}"
-                   class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-secondary flex items-center justify-between shadow-xs transition-all group block">
+                   class="bg-white lg:dark:bg-[#24303F] p-3.5 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 hover:border-secondary lg:dark:hover:border-amber-400/60 flex items-center justify-between shadow-xs transition-all group block">
                     <div class="flex items-center gap-3">
-                        <span class="w-10 h-10 rounded-xl bg-amber-50 text-secondary flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <span class="w-10 h-10 rounded-xl bg-amber-50 text-secondary lg:dark:bg-amber-500/15 lg:dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <span class="material-symbols-outlined text-xl">outbox</span>
                         </span>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-xs text-slate-800 group-hover:text-primary transition-colors">الطرود الصادرة (الصادر)</h3>
-                                <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-extrabold px-2 py-0.5 rounded-md">مفعّل</span>
+                                <h3 class="font-bold text-xs text-slate-800 lg:dark:text-slate-100 group-hover:text-primary lg:dark:group-hover:text-amber-300 transition-colors">الطرود الصادرة (الصادر)</h3>
+                                <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30 font-extrabold px-2 py-0.5 rounded-md">مفعّل</span>
                             </div>
                             <p class="text-[11px] text-slate-400 mt-0.5">إرسال الشحنات إلى الفروع والمكاتب الأخرى ومتابعة استلامها</p>
                         </div>
@@ -450,15 +450,15 @@
             @if(auth('office')->check() && auth('office')->user()->hasFeature('sent_shipments'))
                 <!-- خدمة الشحنات المرسلة (تظهر فقط عند تفعيل الميزة للمكتب) -->
                 <a href="{{ route('office.shipments.sent.index') }}"
-                   class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-secondary flex items-center justify-between shadow-xs transition-all group block">
+                   class="bg-white lg:dark:bg-[#24303F] p-3.5 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 hover:border-secondary lg:dark:hover:border-amber-400/60 flex items-center justify-between shadow-xs transition-all group block">
                     <div class="flex items-center gap-3">
-                        <span class="w-10 h-10 rounded-xl bg-amber-50 text-secondary flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <span class="w-10 h-10 rounded-xl bg-amber-50 text-secondary lg:dark:bg-amber-500/15 lg:dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <span class="material-symbols-outlined text-xl">outbound</span>
                         </span>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-xs text-slate-800 group-hover:text-primary transition-colors">الشحنات المرسلة (الكشوفات)</h3>
-                                <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-extrabold px-2 py-0.5 rounded-md">مفعّل</span>
+                                <h3 class="font-bold text-xs text-slate-800 lg:dark:text-slate-100 group-hover:text-primary lg:dark:group-hover:text-amber-300 transition-colors">الشحنات المرسلة (الكشوفات)</h3>
+                                <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 lg:dark:border-amber-500/30 font-extrabold px-2 py-0.5 rounded-md">مفعّل</span>
                             </div>
                             <p class="text-[11px] text-slate-400 mt-0.5">إنشاء كشوفات الشحنات بمسح الباركود وإرسالها مع السائق ومتابعة استلامها</p>
                         </div>
@@ -472,15 +472,15 @@
 
             <!-- الخدمة الأولى: إشعارات الواتساب (تم تفعيلها) -->
             <a href="{{ route('office.whatsapp.index') }}" 
-               class="bg-white p-3.5 rounded-2xl border border-slate-200/80 hover:border-emerald-300 flex items-center justify-between shadow-xs transition-all group block">
+               class="bg-white lg:dark:bg-[#24303F] p-3.5 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 hover:border-emerald-300 lg:dark:hover:border-emerald-500/40 flex items-center justify-between shadow-xs transition-all group block">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                         <span class="material-symbols-outlined text-xl">chat</span>
                     </span>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-xs text-slate-800 group-hover:text-emerald-700 transition-colors">إشعارات الواتساب للعملاء</h3>
-                            <span class="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <h3 class="font-bold text-xs text-slate-800 lg:dark:text-slate-100 group-hover:text-emerald-700 lg:dark:group-hover:text-emerald-400 transition-colors">إشعارات الواتساب للعملاء</h3>
+                            <span class="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30 font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                 <span>تم التفعيل</span>
                             </span>
@@ -488,38 +488,38 @@
                         <p class="text-[11px] text-slate-400 mt-0.5">إرسال تنبيهات وصول الطرود وروابط الاستلام عبر واتساب تلقائياً</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-1 text-slate-400 group-hover:text-emerald-600 transition-colors">
+                <div class="flex items-center gap-1 text-slate-400 group-hover:text-emerald-600 lg:dark:group-hover:text-emerald-400 transition-colors">
                     <span class="text-[11px] font-bold hidden sm:inline">الإعدادات</span>
                     <span class="material-symbols-outlined text-base">arrow_back</span>
                 </div>
             </a>
 
             <!-- الخدمة الثانية: سندات الاستلام -->
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div class="bg-white lg:dark:bg-[#24303F] p-3.5 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 flex items-center justify-between shadow-xs">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 lg:dark:bg-blue-500/15 lg:dark:text-blue-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-xl">receipt_long</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-xs text-slate-800">سندات استلام الشحنات</h3>
+                        <h3 class="font-bold text-xs text-slate-800 lg:dark:text-slate-100">سندات استلام الشحنات</h3>
                         <p class="text-[11px] text-slate-400">إصدار وتوليد سند استلام رسمي وتوقيع إلكتروني للعميل</p>
                     </div>
                 </div>
-                <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
+                <span class="text-[10px] bg-slate-100 text-slate-500 lg:dark:bg-slate-800 lg:dark:text-slate-400 font-bold px-2 py-1 rounded-md">قريباً</span>
             </div>
 
             <!-- الخدمة الثالثة: المالية والصندوق -->
-            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-between shadow-xs">
+            <div class="bg-white lg:dark:bg-[#24303F] p-3.5 rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 flex items-center justify-between shadow-xs">
                 <div class="flex items-center gap-3">
-                    <span class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <span class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 lg:dark:bg-amber-500/15 lg:dark:text-amber-400 flex items-center justify-center">
                         <span class="material-symbols-outlined text-xl">account_balance_wallet</span>
                     </span>
                     <div>
-                        <h3 class="font-bold text-xs text-slate-800">المالية وصندوق المكتب</h3>
+                        <h3 class="font-bold text-xs text-slate-800 lg:dark:text-slate-100">المالية وصندوق المكتب</h3>
                         <p class="text-[11px] text-slate-400">حساب المبالغ المستلمة من كل طرد  </p>
                     </div>
                 </div>
-                <span class="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md">قريباً</span>
+                <span class="text-[10px] bg-slate-100 text-slate-500 lg:dark:bg-slate-800 lg:dark:text-slate-400 font-bold px-2 py-1 rounded-md">قريباً</span>
             </div>
         </div>
         </div>

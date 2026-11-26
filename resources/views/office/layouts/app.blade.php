@@ -37,9 +37,22 @@
     <link rel="manifest" href="{{ asset('manifest.json') }}">
 
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" crossorigin="anonymous">
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('mursal_office_theme') === 'dark') {
+                    document.documentElement.classList.add('dark');
+                }
+                if (localStorage.getItem('mursal_sidebar_collapsed') === '1') {
+                    document.documentElement.classList.add('mursal-sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <script src="{{ asset('js/tailwind.js') }}"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -50,6 +63,113 @@
             },
         };
     </script>
+    <style>
+        @media screen and (min-width: 1024px) {
+            html.dark {
+                color-scheme: dark;
+            }
+            .mursal-desktop-sidebar {
+                width: 270px;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar {
+                width: 80px;
+            }
+            .mursal-nav-loader-desktop {
+                right: 270px;
+            }
+            html.mursal-sidebar-collapsed .mursal-nav-loader-desktop {
+                right: 80px;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-expanded-only {
+                display: none !important;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-collapsed-only {
+                display: block !important;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-header-row {
+                flex-direction: column;
+                gap: 0.625rem;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-brand-wrap {
+                justify-content: center;
+                flex: 0 0 auto;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-nav-link {
+                justify-content: center;
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-nav-link .sb-badge {
+                position: absolute;
+                top: 4px;
+                left: 8px;
+                min-width: 18px;
+                height: 18px;
+                font-size: 9px;
+                padding: 0 4px;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-status-row {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            html.mursal-sidebar-collapsed .mursal-desktop-sidebar .sb-footer {
+                padding: 0.75rem 0.5rem;
+            }
+            html.dark span.bg-emerald-50:not([class*="dark:bg-"]),
+            html.dark span.bg-emerald-100:not([class*="dark:bg-"]) {
+                background-color: rgba(16, 185, 129, 0.15) !important;
+                color: #34d399 !important;
+                border-color: rgba(16, 185, 129, 0.3) !important;
+            }
+            html.dark span.bg-amber-50:not([class*="dark:bg-"]),
+            html.dark span.bg-amber-100:not([class*="dark:bg-"]) {
+                background-color: rgba(245, 158, 11, 0.15) !important;
+                color: #fbbf24 !important;
+                border-color: rgba(245, 158, 11, 0.3) !important;
+            }
+            html.dark span.bg-sky-50:not([class*="dark:bg-"]),
+            html.dark span.bg-sky-100:not([class*="dark:bg-"]) {
+                background-color: rgba(14, 165, 233, 0.15) !important;
+                color: #38bdf8 !important;
+                border-color: rgba(14, 165, 233, 0.3) !important;
+            }
+            html.dark span.bg-rose-50:not([class*="dark:bg-"]),
+            html.dark span.bg-rose-100:not([class*="dark:bg-"]),
+            html.dark span.bg-red-50:not([class*="dark:bg-"]),
+            html.dark span.bg-red-100:not([class*="dark:bg-"]) {
+                background-color: rgba(244, 63, 94, 0.15) !important;
+                color: #fb7185 !important;
+                border-color: rgba(244, 63, 94, 0.3) !important;
+            }
+            html.dark span.bg-indigo-50:not([class*="dark:bg-"]),
+            html.dark span.bg-indigo-100:not([class*="dark:bg-"]),
+            html.dark span.bg-blue-50:not([class*="dark:bg-"]),
+            html.dark span.bg-blue-100:not([class*="dark:bg-"]) {
+                background-color: rgba(99, 102, 241, 0.15) !important;
+                color: #818cf8 !important;
+                border-color: rgba(99, 102, 241, 0.3) !important;
+            }
+            html.dark span.bg-slate-100:not([class*="dark:bg-"]),
+            html.dark span.bg-slate-50:not([class*="dark:bg-"]),
+            html.dark span.bg-gray-100:not([class*="dark:bg-"]) {
+                background-color: rgba(148, 163, 184, 0.15) !important;
+                color: #cbd5e1 !important;
+                border-color: rgba(148, 163, 184, 0.25) !important;
+            }
+        }
+        @media print {
+            html,
+            html.dark,
+            body {
+                background-color: #ffffff !important;
+                color: #0f172a !important;
+                color-scheme: light !important;
+            }
+            html.dark .print\:bg-white {
+                background-color: #ffffff !important;
+            }
+        }
+    </style>
     <script src="{{ asset('js/mursal-core.js') }}?v=22"></script>
     <script src="{{ asset('js/shipment-manifest-print.js') }}?v=23"></script>
     <script src="{{ asset('js/receipt-image-share.js') }}?v=27"></script>
@@ -83,18 +203,18 @@
         $flashToast = ['message' => (string) session('status'), 'type' => 'success'];
     }
 @endphp
-<body class="bg-slate-100 text-slate-900 pb-20 lg:pb-0 select-none print:bg-white print:pb-0">
+<body class="bg-slate-100 lg:bg-gray-50 lg:dark:bg-[#1A222C] text-slate-900 lg:text-slate-800 lg:dark:text-slate-100 pb-20 lg:pb-0 select-none print:!bg-white print:!text-slate-900 print:pb-0">
 
     <div x-data="@yield('alpine', 'officeShell()')"
          @office-toast.window="showFeedback($event.detail?.message, $event.detail?.type ?? ($event.detail?.isError ? 'error' : 'success'))"
          @if ($flashToast)
              x-init="$nextTick(() => showFeedback(@js($flashToast['message']), @js($flashToast['type'])))"
          @endif
-         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:bg-white print:shadow-none @yield('shell-class', 'bg-white') lg:bg-slate-50">
+         class="max-w-md mx-auto min-h-screen flex flex-col shadow-lg lg:max-w-none lg:w-full lg:mx-0 lg:flex-row lg:shadow-none print:max-w-none print:w-full print:min-h-0 print:!bg-white print:shadow-none @yield('shell-class', 'bg-white') lg:bg-gray-50 lg:dark:bg-[#1A222C]">
 
         @include('office.layouts.desktop-sidebar')
 
-        <div class="flex-1 min-w-0 flex flex-col min-h-screen lg:bg-slate-50">
+        <div class="flex-1 min-w-0 flex flex-col min-h-screen lg:bg-gray-50 lg:dark:bg-[#1A222C] print:!bg-white">
             @section('header')
                 @include('office.layouts.header')
             @show

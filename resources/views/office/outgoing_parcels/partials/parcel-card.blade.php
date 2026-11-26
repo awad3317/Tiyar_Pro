@@ -80,19 +80,19 @@
          data-parcel-status="{{ $parcel->status->value }}"
          x-data="{ menuOpen: false }"
          :class="menuOpen ? 'relative z-30' : 'relative'"
-         class="bg-white border {{ $parcel->status->cardBorderClass() }} lg:border-slate-200 lg:border-t-slate-200 lg:border-b-slate-200 lg:border-l-slate-200 lg:border-r-4 {{ $desktopRightAccent }} rounded-2xl p-4 shadow-sm lg:shadow-2xs lg:hover:shadow-md lg:flex lg:flex-col lg:justify-between lg:h-full transition-all">
+         class="bg-white lg:dark:bg-[#24303F] border {{ $parcel->status->cardBorderClass() }} lg:border-gray-200 lg:border-t-gray-200 lg:border-b-gray-200 lg:border-l-gray-200 lg:dark:border-slate-700/60 lg:dark:border-t-slate-700/60 lg:dark:border-b-slate-700/60 lg:dark:border-l-slate-700/60 lg:border-r-4 {{ $desktopRightAccent }} rounded-2xl p-4 shadow-sm lg:shadow-2xs lg:hover:shadow-md lg:flex lg:flex-col lg:justify-between lg:h-full transition-all">
 
     {{-- الجزء العلوي والأوسط من البطاقة --}}
     <div>
         {{-- الرأس: على الجوال مطابق للأصل 100% | على الكمبيوتر شارات هادئة ونظيفة --}}
         <div class="flex items-start justify-between gap-2.5">
             <div class="flex items-start gap-2.5 min-w-0 flex-1">
-                <span class="w-10 h-10 lg:w-9 lg:h-9 rounded-xl bg-slate-100 text-primary shrink-0 flex items-center justify-center">
+                <span class="w-10 h-10 lg:w-9 lg:h-9 rounded-xl bg-slate-100 lg:dark:bg-slate-800 text-primary lg:dark:text-amber-400 shrink-0 flex items-center justify-center">
                     <span class="material-symbols-outlined text-xl lg:text-lg">outbox</span>
                 </span>
 
                 <div class="min-w-0 flex-1">
-                    <h3 class="text-base lg:text-sm font-bold lg:font-extrabold text-slate-900 truncate leading-snug">
+                    <h3 class="text-base lg:text-sm font-bold lg:font-extrabold text-slate-900 lg:dark:text-slate-100 truncate leading-snug">
                         {{ $parcel->package_type }}
                     </h3>
 
@@ -130,10 +130,10 @@
                     </div>
 
                     {{-- السطر التعريفي الهادئ للكمبيوتر (lg: فقط — نص نظيف بدون زحمة ألوان) --}}
-                    <div class="hidden lg:flex items-center gap-2 text-[11px] text-slate-500 font-semibold mt-0.5 truncate">
+                    <div class="hidden lg:flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5 truncate">
                         @if($parcel->receipt_number)
-                            <span class="font-mono font-bold text-slate-700">سند #{{ $parcel->receipt_number }}</span>
-                            <span class="text-slate-300">•</span>
+                            <span class="font-mono font-bold text-slate-700 dark:text-slate-200">سند #{{ $parcel->receipt_number }}</span>
+                            <span class="text-slate-300 dark:text-slate-600">•</span>
                         @endif
                         <span class="truncate">{{ $parcel->isExternal() ? 'خارجي: ' : 'فرع: ' }}{{ $parcel->destinationLabel() }}</span>
                     </div>
@@ -155,7 +155,7 @@
                                 title="إجراءات الطرد"
                                 aria-label="إجراءات الطرد"
                                 :aria-expanded="menuOpen ? 'true' : 'false'"
-                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors shrink-0">
+                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors shrink-0">
                             <span class="material-symbols-outlined text-[18px]">more_vert</span>
                         </button>
 
@@ -167,7 +167,7 @@
                              x-transition:leave="ease-in duration-100"
                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                              x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                             class="absolute left-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-40 text-right">
+                             class="absolute left-0 top-full mt-1.5 w-48 bg-white lg:dark:bg-[#24303F] rounded-2xl shadow-xl border border-slate-200/90 lg:dark:border-slate-700/60 py-1.5 z-40 text-right">
                             @include('office.outgoing_parcels.partials.parcel-actions-menu', [
                                 'parcel'             => $parcel,
                                 'canEditParcel'      => $canEditParcel,
@@ -196,23 +196,23 @@
         </div>
 
         {{-- صندوق بيانات المرسل والمستلم --}}
-        <div class="bg-slate-50 rounded-2xl lg:rounded-xl p-3 mt-3 border border-slate-100">
-            <div class="grid grid-cols-2 divide-x divide-x-reverse divide-slate-200 text-xs">
+        <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-2xl lg:rounded-xl p-3 mt-3 border border-slate-100 lg:dark:border-slate-700/50">
+            <div class="grid grid-cols-2 divide-x divide-x-reverse divide-slate-200 lg:dark:divide-slate-700/60 text-xs">
                 <div class="min-w-0 pl-2.5">
                     <p class="text-[10px] text-slate-400 font-bold mb-0.5">المرسل</p>
-                    <p class="font-bold text-slate-800 truncate">{{ $parcel->sender_name }}</p>
-                    <p class="text-[11px] text-slate-500 font-mono dir-ltr text-right mt-0.5">{{ $parcel->sender_phone }}</p>
+                    <p class="font-bold text-slate-800 lg:dark:text-slate-100 truncate">{{ $parcel->sender_name }}</p>
+                    <p class="text-[11px] text-slate-500 lg:dark:text-slate-400 font-mono dir-ltr text-right mt-0.5">{{ $parcel->sender_phone }}</p>
                 </div>
                 <div class="min-w-0 pr-2.5">
                     <p class="text-[10px] text-slate-400 font-bold mb-0.5">المستلم</p>
-                    <p class="font-bold text-slate-800 truncate">{{ $parcel->recipient_name ?: 'بدون اسم' }}</p>
-                    <p class="text-[11px] text-slate-500 font-mono dir-ltr text-right mt-0.5">{{ $parcel->recipient_phone }}</p>
+                    <p class="font-bold text-slate-800 lg:dark:text-slate-100 truncate">{{ $parcel->recipient_name ?: 'بدون اسم' }}</p>
+                    <p class="text-[11px] text-slate-500 lg:dark:text-slate-400 font-mono dir-ltr text-right mt-0.5">{{ $parcel->recipient_phone }}</p>
                 </div>
             </div>
 
             @if($parcel->notes)
-                <p class="mt-2.5 pt-2 border-t border-slate-200/70 text-[11px] text-slate-600 leading-relaxed truncate" title="{{ $parcel->notes }}">
-                    <span class="font-extrabold text-amber-800">ملاحظة:</span> {{ $parcel->notes }}
+                <p class="mt-2.5 pt-2 border-t border-slate-200/70 lg:dark:border-slate-700/60 text-[11px] text-slate-600 lg:dark:text-slate-300 leading-relaxed truncate" title="{{ $parcel->notes }}">
+                    <span class="font-extrabold text-amber-800 lg:dark:text-amber-400">ملاحظة:</span> {{ $parcel->notes }}
                 </p>
             @endif
         </div>
@@ -265,7 +265,7 @@
     </div>
 
     {{-- الشريط السفلي الثابت الموحّد للكمبيوتر (lg: فقط): المبلغ البارز + سياق الشحنة/الوقت + زر طباعة السند المباشر بضغطة واحدة --}}
-    <div class="hidden lg:flex items-center justify-between gap-2 pt-3 mt-3.5 border-t border-slate-100">
+    <div class="hidden lg:flex items-center justify-between gap-2 pt-3 mt-3.5 border-t border-gray-100 dark:border-slate-700/60">
         <div class="flex items-center gap-2 min-w-0">
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-extrabold whitespace-nowrap {{ $paymentEnum->badgeClass() }}">
                 <span>{{ $paymentEnum->label() }}:</span>
@@ -273,7 +273,7 @@
             </span>
 
             @if($isAttachedToShipment && $shipment)
-                <span class="text-[11px] font-mono font-bold text-slate-500 truncate" title="ضمن كشف شحنة #{{ $shipment->shipment_number }}">
+                <span class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 truncate" title="ضمن كشف شحنة #{{ $shipment->shipment_number }}">
                     #{{ $shipment->shipment_number }}
                 </span>
             @elseif($createdAgo)
@@ -286,7 +286,7 @@
         <button type="button"
                 data-card-action="print-receipt"
                 data-receipt-url="{{ $receiptUrl }}"
-                class="shrink-0 h-8 px-3 rounded-lg bg-slate-100 hover:bg-primary text-slate-700 hover:text-secondary border border-slate-200/90 hover:border-primary text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
+                class="shrink-0 h-8 px-3 rounded-lg bg-gray-100 hover:bg-primary text-slate-700 hover:text-secondary border border-gray-200 hover:border-primary dark:bg-[#1A222C] dark:hover:bg-amber-500 dark:text-slate-200 dark:hover:text-slate-950 dark:border-slate-700 dark:hover:border-amber-500 text-xs font-extrabold inline-flex items-center gap-1.5 transition-all">
             <span class="material-symbols-outlined text-[16px]">print</span>
             <span>طباعة السند</span>
         </button>

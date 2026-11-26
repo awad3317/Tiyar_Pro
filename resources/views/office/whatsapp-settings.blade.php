@@ -12,29 +12,29 @@
     {{-- عنوان الصفحة --}}
     <div class="flex items-center gap-3">
         <a href="{{ route('office.dashboard') }}"
-           class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary/30 transition-colors shadow-xs">
+           class="w-9 h-9 rounded-xl bg-white lg:dark:bg-[#24303F] border border-slate-200 lg:border-gray-200 lg:dark:border-slate-700/60 flex items-center justify-center text-slate-500 lg:dark:text-slate-300 hover:text-primary lg:dark:hover:text-amber-400 hover:border-primary/30 transition-colors shadow-xs">
             <span class="material-symbols-outlined text-lg">arrow_forward</span>
         </a>
         <div>
-            <h2 class="text-sm font-extrabold text-slate-800">إعدادات الواتساب</h2>
+            <h2 class="text-sm font-extrabold text-slate-800 lg:dark:text-slate-100">إعدادات الواتساب</h2>
         </div>
     </div>
 
     {{-- بطاقة حالة الاتصال --}}
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+    <div class="bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm overflow-hidden lg:max-w-2xl">
         <div class="p-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center transition-colors"
-                     :class="waState === 'connected' ? 'bg-emerald-50 text-emerald-600' : waState === 'loading' ? 'bg-slate-100 text-slate-400' : 'bg-rose-50 text-rose-500'">
+                     :class="waState === 'connected' ? 'bg-emerald-50 text-emerald-600 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400' : waState === 'loading' ? 'bg-slate-100 text-slate-400 lg:dark:bg-slate-800' : 'bg-rose-50 text-rose-500 lg:dark:bg-rose-500/15 lg:dark:text-rose-400'">
                     <span class="material-symbols-outlined text-2xl" 
                           :class="waState === 'loading' ? 'animate-spin' : ''"
                           x-text="waState === 'connected' ? 'wifi' : waState === 'loading' ? 'sync' : 'wifi_off'"></span>
                 </div>
                 <div>
-                    <p class="text-sm font-extrabold text-slate-800" 
+                    <p class="text-sm font-extrabold text-slate-800 lg:dark:text-slate-100" 
                        x-text="waState === 'connected' ? 'متصل بالواتساب' : waState === 'loading' ? 'جاري الفحص...' : 'غير متصل'"></p>
                     <p class="text-[11px] font-bold mt-0.5"
-                       :class="waState === 'connected' ? 'text-emerald-500' : 'text-slate-400'"
+                       :class="waState === 'connected' ? 'text-emerald-500 lg:dark:text-emerald-400' : 'text-slate-400'"
                        x-text="waMessage"></p>
                 </div>
             </div>
@@ -42,14 +42,14 @@
             {{-- زر تحديث الحالة --}}
             <button type="button" @click="checkStatus(true)"
                     :disabled="waState === 'loading'"
-                    class="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 transition-colors disabled:opacity-50"
+                    class="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 lg:dark:bg-[#1A222C] lg:dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary lg:dark:hover:text-amber-400 hover:border-primary/30 transition-colors disabled:opacity-50"
                     title="تحديث الحالة المباشرة من السيرفر">
                 <span class="material-symbols-outlined text-base" :class="waState === 'loading' ? 'animate-spin' : ''">refresh</span>
             </button>
         </div>
 
         {{-- أزرار الاتصال / القطع --}}
-        <div class="border-t border-slate-100 p-3 flex gap-2">
+        <div class="border-t border-slate-100 lg:dark:border-slate-700/60 p-3 flex gap-2">
             <template x-if="waState !== 'connected'">
                 <button type="button" @click="openConnectPanel()"
                         :disabled="isConnecting || isPairingLoading"
@@ -71,21 +71,21 @@
 
     {{-- منطقة الربط (رمز QR أو كود الربط بالهاتف) --}}
     <div x-show="showConnectPanel && waState !== 'connected'" x-cloak x-transition
-         class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+         class="bg-white lg:dark:bg-[#24303F] rounded-2xl border border-slate-200/80 lg:border-gray-200 lg:dark:border-slate-700/60 shadow-sm overflow-hidden lg:max-w-2xl">
         
         {{-- تبويبات طرق الربط --}}
-        <div class="p-3 bg-slate-50/70 border-b border-slate-100">
-            <div class="flex bg-slate-200/70 p-1 rounded-xl gap-1">
+        <div class="p-3 bg-slate-50/70 lg:dark:bg-slate-800/50 border-b border-slate-100 lg:dark:border-slate-700/60">
+            <div class="flex bg-slate-200/70 lg:dark:bg-[#1A222C] p-1 rounded-xl gap-1">
                 <button type="button" 
                         @click="setConnectMethod('qr')"
-                        :class="connectMethod === 'qr' ? 'bg-white text-emerald-700 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        :class="connectMethod === 'qr' ? 'bg-white text-emerald-700 lg:dark:bg-[#24303F] lg:dark:text-emerald-400 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold'"
                         class="flex-1 py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-base">qr_code_2</span>
                     <span>مسح رمز QR</span>
                 </button>
                 <button type="button" 
                         @click="setConnectMethod('pairing')"
-                        :class="connectMethod === 'pairing' ? 'bg-white text-emerald-700 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800 font-bold'"
+                        :class="connectMethod === 'pairing' ? 'bg-white text-emerald-700 lg:dark:bg-[#24303F] lg:dark:text-emerald-400 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold'"
                         class="flex-1 py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-base">pin</span>
                     <span>كود الربط برقم الهاتف</span>
@@ -95,7 +95,7 @@
 
         {{-- 1. محتوى تبويب QR --}}
         <div x-show="connectMethod === 'qr'" class="p-5 text-center space-y-3.5">
-            <div class="flex items-center justify-center gap-2 text-slate-700">
+            <div class="flex items-center justify-center gap-2 text-slate-700 lg:dark:text-slate-200">
                 <span class="material-symbols-outlined text-xl text-emerald-500">qr_code_scanner</span>
                 <p class="text-sm font-extrabold">امسح رمز QR من تطبيق الواتساب</p>
             </div>
@@ -127,7 +127,7 @@
             {{-- زر تحديث QR --}}
             <button type="button" @click="fetchQr()"
                     :disabled="qrLoading"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors disabled:opacity-50">
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-200 text-xs font-bold transition-colors disabled:opacity-50">
                 <span class="material-symbols-outlined text-sm" :class="qrLoading ? 'animate-spin' : ''">refresh</span>
                 <span>تحديث الكود</span>
             </button>
@@ -136,20 +136,20 @@
         {{-- 2. محتوى تبويب كود الربط (Pairing Code) --}}
         <div x-show="connectMethod === 'pairing'" class="p-5 space-y-4">
             <div class="text-center space-y-1">
-                <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-50 lg:dark:bg-emerald-500/15 text-emerald-600 lg:dark:text-emerald-400 flex items-center justify-center mx-auto">
                     <span class="material-symbols-outlined text-xl">dialpad</span>
                 </div>
-                <h3 class="text-sm font-extrabold text-slate-800">الربط بكود التحقق المباشر</h3>
+                <h3 class="text-sm font-extrabold text-slate-800 lg:dark:text-slate-100">الربط بكود التحقق المباشر</h3>
                 <p class="text-[11px] text-slate-400 font-bold">أدخل رقم هاتف الواتساب لتوليد كود الربط المكون من 8 أحرف</p>
             </div>
 
             {{-- حقل إدخال رقم الهاتف وزر التوليد --}}
             <div class="space-y-1.5">
-                <label class="text-[11px] font-extrabold text-slate-600 block">رقم هاتف الواتساب للربط</label>
+                <label class="text-[11px] font-extrabold text-slate-600 lg:dark:text-slate-300 block">رقم هاتف الواتساب للربط</label>
                 <div class="flex gap-2">
                     <input type="tel" x-model="pairingPhone"
                            placeholder="مثال: 771234567 أو 967771234567"
-                           class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none dir-ltr text-left font-mono">
+                           class="flex-1 bg-slate-50 border border-slate-200 lg:dark:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder-slate-400 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none dir-ltr text-left font-mono">
                     <button type="button" @click="requestPairingCode()"
                             :disabled="isPairingLoading || !pairingPhone"
                             class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-xs">
@@ -162,19 +162,19 @@
 
             {{-- صندوق عرض كود الربط --}}
             <template x-if="pairingCode">
-                <div class="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 text-center space-y-3 animate-fadeIn">
-                    <p class="text-xs text-slate-600 font-bold">أدخل هذا الكود في تطبيق الواتساب بهاتفك:</p>
+                <div class="bg-emerald-50/80 border border-emerald-200/90 lg:dark:bg-emerald-500/10 lg:dark:border-emerald-500/30 rounded-2xl p-4 text-center space-y-3 animate-fadeIn">
+                    <p class="text-xs text-slate-600 lg:dark:text-slate-300 font-bold">أدخل هذا الكود في تطبيق الواتساب بهاتفك:</p>
                     <div class="flex items-center justify-center gap-2">
-                        <div class="bg-white border-2 border-emerald-500/80 rounded-xl px-5 py-2.5 shadow-sm inline-block">
-                            <span class="text-2xl sm:text-3xl font-black text-emerald-800 tracking-widest font-mono select-all" x-text="pairingCode"></span>
+                        <div class="bg-white lg:dark:bg-[#1A222C] border-2 border-emerald-500/80 rounded-xl px-5 py-2.5 shadow-sm inline-block">
+                            <span class="text-2xl sm:text-3xl font-black text-emerald-800 lg:dark:text-emerald-400 tracking-widest font-mono select-all" x-text="pairingCode"></span>
                         </div>
                         <button type="button" @click="copyPairingCode()" title="نسخ الكود"
-                                class="w-11 h-11 rounded-xl bg-white border border-emerald-300 text-emerald-600 hover:bg-emerald-100/50 flex items-center justify-center transition-colors shadow-xs">
+                                class="w-11 h-11 rounded-xl bg-white lg:dark:bg-[#1A222C] border border-emerald-300 lg:dark:border-emerald-500/40 text-emerald-600 lg:dark:text-emerald-400 hover:bg-emerald-100/50 lg:dark:hover:bg-emerald-500/20 flex items-center justify-center transition-colors shadow-xs">
                             <span class="material-symbols-outlined text-xl" x-text="codeCopied ? 'check' : 'content_copy'"></span>
                         </button>
                     </div>
 
-                    <div class="flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 font-bold pt-1">
+                    <div class="flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 lg:dark:text-emerald-400 font-bold pt-1">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                         <span>بانتظار إدخال الكود في هاتفك... يتم فحص الاتصال تلقائياً</span>
                     </div>
@@ -182,12 +182,12 @@
             </template>
 
             {{-- خطوات الربط بالكود --}}
-            <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-100 text-[11px] text-slate-500 font-bold space-y-1.5 text-right leading-relaxed">
-                <p class="font-extrabold text-slate-700">خطوات استخدام كود الربط:</p>
+            <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-xl p-3.5 border border-slate-100 lg:dark:border-slate-700/50 text-[11px] text-slate-500 lg:dark:text-slate-400 font-bold space-y-1.5 text-right leading-relaxed">
+                <p class="font-extrabold text-slate-700 lg:dark:text-slate-200">خطوات استخدام كود الربط:</p>
                 <p>1. افتح تطبيق الواتساب على هاتفك.</p>
-                <p>2. اذهب إلى: <span class="text-slate-800">الإعدادات ← الأجهزة المرتبطة</span>.</p>
-                <p>3. اضغط على زر <span class="text-slate-800 font-extrabold">"ربط جهاز"</span>.</p>
-                <p>4. اضغط بالأسفل على: <span class="text-emerald-700 font-black">"الربط باستخدام رقم الهاتف بدلاً من ذلك"</span>.</p>
+                <p>2. اذهب إلى: <span class="text-slate-800 lg:dark:text-slate-200">الإعدادات ← الأجهزة المرتبطة</span>.</p>
+                <p>3. اضغط على زر <span class="text-slate-800 lg:dark:text-slate-200 font-extrabold">"ربط جهاز"</span>.</p>
+                <p>4. اضغط بالأسفل على: <span class="text-emerald-700 lg:dark:text-emerald-400 font-black">"الربط باستخدام رقم الهاتف بدلاً من ذلك"</span>.</p>
                 <p>5. اكتب الكود الظاهر أعلاه وسيتم تفعيل الاتصال فوراً!</p>
             </div>
         </div>

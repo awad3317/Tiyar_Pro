@@ -17,7 +17,7 @@
     </div>
 
     <!-- بطاقة التأكيد -->
-    <div class="relative w-full max-w-xs bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 text-center overflow-hidden z-10 my-auto"
+    <div class="relative w-full max-w-xs bg-white lg:dark:bg-[#24303F] rounded-3xl shadow-2xl border border-slate-100 lg:dark:border-slate-700/60 p-5 text-center overflow-hidden z-10 my-auto"
          x-show="deleteModal.open"
          x-transition:enter="ease-out duration-200"
          x-transition:enter-start="opacity-0 scale-95"
@@ -26,20 +26,20 @@
          x-transition:leave-start="opacity-100 scale-100"
          x-transition:leave-end="opacity-0 scale-95">
 
-        <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 lg:dark:bg-rose-500/15 lg:dark:border-rose-500/30 text-rose-600 lg:dark:text-rose-400 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
             <span class="material-symbols-outlined text-2xl">delete_forever</span>
         </div>
 
-        <h3 class="text-sm font-black text-slate-900 mb-1">حذف عميل مميز</h3>
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        <h3 class="text-sm font-black text-slate-900 lg:dark:text-slate-100 mb-1">حذف عميل مميز</h3>
+        <p class="text-xs text-slate-500 lg:dark:text-slate-400 mb-4 leading-relaxed">
             هل أنت متأكد من حذف العميل المميز
-            <span class="font-bold text-slate-800" x-text="deleteModal.customer?.name"></span>
-            (<span class="font-mono text-slate-700" dir="ltr" x-text="deleteModal.customer?.phone"></span>)؟
+            <span class="font-bold text-slate-800 lg:dark:text-slate-100" x-text="deleteModal.customer?.name"></span>
+            (<span class="font-mono text-slate-700 lg:dark:text-slate-300" dir="ltr" x-text="deleteModal.customer?.phone"></span>)؟
         </p>
 
         <div class="flex items-center gap-2">
             <button type="button" @click="closeDeleteModal()" :disabled="deleteModal.loading"
-                    class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-95 transition-all">
+                    class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 lg:dark:border-slate-700 lg:dark:text-slate-200 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 active:scale-95 transition-all">
                 إلغاء
             </button>
 

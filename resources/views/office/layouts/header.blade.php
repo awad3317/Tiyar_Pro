@@ -241,33 +241,41 @@
 {{-- =========================================================================
      2. الشريط العلوي الأبيض النحيف لسطح المكتب (lg: >= 1024px فقط — سطر واحد نظيف)
    ========================================================================= --}}
-<header class="hidden lg:flex h-16 bg-white border-b border-slate-200 px-6 items-center justify-between gap-4 sticky top-0 z-30 print:hidden"
+<header class="hidden lg:flex h-16 bg-white dark:bg-[#24303F] border-b border-gray-200 dark:border-slate-700/60 px-6 items-center justify-between gap-4 sticky top-0 z-30 transition-colors print:hidden"
         x-data="{
-            headerCount: {{ $desktopInitialCount !== null ? $desktopInitialCount : 'null' }}
+            headerCount: {{ $desktopInitialCount !== null ? $desktopInitialCount : 'null' }},
+            isDark: document.documentElement.classList.contains('dark'),
+            toggleTheme() {
+                this.isDark = !this.isDark;
+                document.documentElement.classList.toggle('dark', this.isDark);
+                try {
+                    localStorage.setItem('mursal_office_theme', this.isDark ? 'dark' : 'light');
+                } catch (e) {}
+            }
         }"
         @office-header-count.window="headerCount = $event.detail?.count ?? headerCount">
 
     {{-- يميناً: عنوان الصفحة الحالي + عداد بسيط --}}
     <div class="flex items-center gap-2.5 min-w-0 shrink-0">
-        <h1 class="text-base font-extrabold text-slate-900 truncate">{{ $desktopPageTitle }}</h1>
+        <h1 class="text-base font-extrabold text-slate-900 dark:text-slate-100 truncate">{{ $desktopPageTitle }}</h1>
 
         @if (request()->routeIs('office.parcels.*'))
-            <span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 text-xs font-mono font-bold"
+            <span class="px-2.5 py-0.5 rounded-full bg-gray-100 text-slate-600 border border-gray-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs font-mono font-bold"
                   x-show="typeof parcels !== 'undefined'"
                   x-text="typeof parcels !== 'undefined' ? parcels.length : ''"></span>
         @elseif (request()->routeIs('office.favorite_customers.*'))
-            <span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 text-xs font-mono font-bold"
+            <span class="px-2.5 py-0.5 rounded-full bg-gray-100 text-slate-600 border border-gray-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs font-mono font-bold"
                   x-show="typeof customers !== 'undefined'"
                   x-text="typeof customers !== 'undefined' ? customers.length : ''"></span>
         @else
             <span x-show="headerCount !== null"
                   x-cloak
-                  class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 text-xs font-mono font-bold"
+                  class="px-2.5 py-0.5 rounded-full bg-gray-100 text-slate-600 border border-gray-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs font-mono font-bold"
                   x-text="headerCount"></span>
         @endif
     </div>
 
-    {{-- في المنتصف: حقل البحث الموحد الأنيق بخلفية رمادية فاتحة وتلميح الاختصار / --}}
+    {{-- في المنتصف: حقل البحث الموحد الأنيق بأسلوب TailAdmin وتلميح الاختصار / --}}
     <div class="flex-1 flex justify-center px-2">
         @if ($desktopSearchMode === 'alpine-search')
             <div class="relative w-full max-w-md">
@@ -278,16 +286,16 @@
                        dir="rtl"
                        autocomplete="off"
                        placeholder="{{ $desktopSearchPlaceholder }}"
-                       class="w-full h-10 bg-slate-100 hover:bg-slate-200/60 focus:bg-white text-slate-800 placeholder-slate-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none border border-transparent focus:border-secondary focus:ring-2 focus:ring-secondary/15 transition-all">
+                       class="w-full h-10 bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-slate-800 placeholder-slate-400 border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-amber-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
                 <div class="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <template x-if="typeof search !== 'undefined' && search.length > 0">
                         <button type="button"
                                 @click="search = ''"
                                 title="مسح البحث"
-                                class="w-5 h-5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold">✕</button>
+                                class="w-5 h-5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold">✕</button>
                     </template>
                     <kbd x-show="typeof search === 'undefined' || search.length === 0"
-                         class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200/90 text-[10px] font-mono text-slate-400 shadow-2xs pointer-events-none">/</kbd>
+                         class="px-1.5 py-0.5 rounded-md bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700 text-[10px] font-mono text-slate-400 shadow-2xs pointer-events-none">/</kbd>
                 </div>
             </div>
         @elseif ($desktopSearchMode !== null)
@@ -342,23 +350,32 @@
                        dir="rtl"
                        autocomplete="off"
                        placeholder="{{ $desktopSearchPlaceholder }}"
-                       class="w-full h-10 bg-slate-100 hover:bg-slate-200/60 focus:bg-white text-slate-800 placeholder-slate-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none border border-transparent focus:border-secondary focus:ring-2 focus:ring-secondary/15 transition-all">
+                       class="w-full h-10 bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-slate-800 placeholder-slate-400 border border-gray-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 dark:bg-[#1A222C] dark:hover:bg-[#1D2A39] dark:focus:bg-[#1A222C] dark:text-slate-100 dark:placeholder-slate-400 dark:border-slate-700/80 dark:focus:border-amber-400 text-xs font-bold rounded-xl pr-9 pl-12 outline-none transition-all">
                 <div class="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <template x-if="dq.length > 0">
                         <button type="button"
                                 @click="clearDesktopSearch()"
                                 title="مسح البحث"
-                                class="w-5 h-5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold">✕</button>
+                                class="w-5 h-5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold">✕</button>
                     </template>
                     <kbd x-show="dq.length === 0"
-                         class="px-1.5 py-0.5 rounded-md bg-white border border-slate-200/90 text-[10px] font-mono text-slate-400 shadow-2xs pointer-events-none">/</kbd>
+                         class="px-1.5 py-0.5 rounded-md bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700 text-[10px] font-mono text-slate-400 shadow-2xs pointer-events-none">/</kbd>
                 </div>
             </div>
         @endif
     </div>
 
-    {{-- يساراً: زر الإجراء الرئيسي البرتقالي/الكهرماني الممتلئ + زر تسجيل الخروج الأنيق --}}
+    {{-- يساراً: زر الوضع الليلي/النهاري + زر الإجراء الرئيسي + زر تسجيل الخروج --}}
     <div class="flex items-center gap-2.5 shrink-0">
+        <button type="button"
+                @click="toggleTheme()"
+                :title="isDark ? 'التبديل للوضع النهاري' : 'التبديل للوضع الليلي'"
+                :aria-label="isDark ? 'التبديل للوضع النهاري' : 'التبديل للوضع الليلي'"
+                class="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200/70 text-slate-600 border border-gray-200/80 dark:bg-[#1A222C] dark:hover:bg-[#333A48] dark:text-amber-300 dark:border-slate-700/70 flex items-center justify-center transition-colors shrink-0">
+            <span class="material-symbols-outlined text-[20px]"
+                  x-text="isDark ? 'light_mode' : 'dark_mode'">dark_mode</span>
+        </button>
+
         @if (request()->routeIs('office.outgoing-parcels.*'))
             <button type="button"
                     data-desktop-primary-add="true"
@@ -422,7 +439,7 @@
             <button type="submit"
                     :disabled="isLoggingOut"
                     title="تسجيل الخروج"
-                    class="h-10 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-60">
+                    class="h-10 px-3 rounded-xl bg-gray-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-gray-200/80 hover:border-rose-200 dark:bg-[#1A222C] dark:hover:bg-rose-500/15 dark:text-slate-300 dark:hover:text-rose-400 dark:border-slate-700/70 dark:hover:border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-60">
                 <span x-show="!isLoggingOut" class="material-symbols-outlined text-[18px]">logout</span>
                 <span x-show="isLoggingOut" x-cloak class="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
                 <span>خروج</span>

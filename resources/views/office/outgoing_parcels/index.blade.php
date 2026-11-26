@@ -118,18 +118,18 @@
         {{-- 2. شريط أدوات سطح المكتب الاحترافي (lg: >= 1024px): Segmented Filter Pills + مبدّل (جدول / بطاقات) في سطر واحد --}}
         <div class="hidden lg:flex items-center justify-between gap-4 px-6 pt-5 pb-1">
             {{-- يميناً: شريط أزرار التصفية المتراصة (Segmented Pills) --}}
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 border border-slate-200/90">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 dark:bg-[#1C2434] dark:border-slate-700/60">
                 @foreach ($outgoingTabs as $tabItem)
                     <button type="button"
                             @click="setStatusFilter('{{ $tabItem['key'] }}')"
                             :class="activeStatus === '{{ $tabItem['key'] }}'
-                                ? 'bg-white text-slate-900 shadow-xs font-extrabold'
-                                : 'text-slate-600 hover:text-slate-900 font-bold'"
+                                ? 'bg-white text-slate-900 shadow-xs font-extrabold dark:bg-[#24303F] dark:text-slate-100'
+                                : 'text-slate-600 hover:text-slate-900 font-bold dark:text-slate-400 dark:hover:text-slate-200'"
                             class="px-3.5 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                         <span>{{ $tabItem['label'] }}</span>
                         <span :class="activeStatus === '{{ $tabItem['key'] }}'
-                                  ? 'bg-secondary/20 text-amber-900'
-                                  : 'bg-slate-300/60 text-slate-600'"
+                                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                                  : 'bg-gray-200/80 text-slate-600 dark:bg-slate-800 dark:text-slate-400'"
                               class="px-1.5 py-0.5 rounded-md font-mono text-[11px] leading-none"
                               x-text="counts.{{ $tabItem['key'] }}">{{ $counts[$tabItem['key']] ?? 0 }}</span>
                     </button>
@@ -137,12 +137,12 @@
             </div>
 
             {{-- يساراً: مبدّل وضع العرض (جدول / بطاقات) مع حفظ التفضيل في localStorage --}}
-            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 shadow-2xs">
+            <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-white border border-gray-200 dark:bg-[#24303F] dark:border-slate-700/60 shadow-2xs">
                 <button type="button"
                         @click="setDesktopView('table')"
                         :class="desktopView === 'table'
-                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">table_rows</span>
                     <span>جدول</span>
@@ -150,8 +150,8 @@
                 <button type="button"
                         @click="setDesktopView('cards')"
                         :class="desktopView === 'cards'
-                            ? 'bg-primary text-secondary shadow-2xs font-extrabold'
-                            : 'text-slate-500 hover:text-slate-800 font-bold'"
+                            ? 'bg-slate-900 text-secondary dark:bg-amber-500/20 dark:text-amber-300 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold'"
                         class="px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition-all">
                     <span class="material-symbols-outlined text-[16px]">grid_view</span>
                     <span>بطاقات</span>
@@ -162,7 +162,7 @@
         <main class="flex-1 p-3 lg:px-6 lg:py-4 space-y-2.5">
 
             @if ($errors->any())
-                <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-1 shadow-2xs">
+                <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 lg:dark:bg-rose-500/15 lg:dark:border-rose-500/30 lg:dark:text-rose-300 text-xs font-bold space-y-1 shadow-2xs">
                     <div class="flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-base text-rose-600">warning</span>
                         <span>يرجى مراجعة الحقول التالية:</span>
@@ -189,10 +189,10 @@
              class="fixed left-0 right-0 z-50 bg-slate-950/60 flex items-start justify-center pt-1.5 px-1.5 sm:items-center sm:p-4">
             <div @click.outside="closeModal()"
                  :style="{ maxHeight: Math.max(260, viewportHeight - 12) + 'px' }"
-                 class="bg-white w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+                 class="bg-white lg:dark:bg-[#24303F] w-full max-w-lg rounded-2xl flex flex-col shadow-2xl border border-slate-200 lg:dark:border-slate-700/60 overflow-hidden">
 
                 {{-- هيدر المودال --}}
-                <div class="py-3 px-4 bg-primary text-white flex items-center justify-between shrink-0">
+                <div class="py-3 px-4 bg-primary lg:dark:bg-[#1C2434] lg:dark:border-b lg:dark:border-slate-700/60 text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-secondary text-xl" x-text="modalMode === 'edit' ? 'edit_note' : 'outbox'">outbox</span>
                         <h3 class="text-sm font-extrabold"
@@ -217,19 +217,19 @@
                         {{-- أ. حقل الوجهة الموحد الذكي (Searchable Combobox: فرع في النظام أو مكتب خارجي) --}}
                         <div class="relative" @click.outside="destDropdownOpen = false">
                             <div class="flex items-center justify-between gap-2 mb-1">
-                                <label class="block text-[11px] font-bold text-slate-600">
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300">
                                     الوجهة المستلمة <span class="text-rose-500">*</span>
                                 </label>
 
                                 {{-- شارة توضيحية لنوع الوجهة الحالية --}}
                                 <template x-if="selectedOfficeId !== ''">
-                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
+                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-400 lg:dark:border-emerald-500/30 text-[10px] font-extrabold">
                                         <span class="material-symbols-outlined text-[12px]">domain</span>
                                         <span>فرع في النظام</span>
                                     </span>
                                 </template>
                                 <template x-if="selectedOfficeId === '' && destinationQuery.trim() !== ''">
-                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold">
+                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:border-amber-500/30 text-[10px] font-extrabold">
                                         <span class="material-symbols-outlined text-[12px]">storefront</span>
                                         <span>مكتب خارجي</span>
                                     </span>
@@ -241,8 +241,8 @@
                             <input type="hidden" name="destination_office_id" :value="selectedOfficeId">
                             <input type="hidden" name="external_office_name" :value="externalOfficeName">
 
-                            <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary transition-all"
-                                 :class="selectedOfficeId !== '' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'">
+                            <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary transition-all"
+                                 :class="selectedOfficeId !== '' ? 'border-emerald-300 bg-emerald-50/20 lg:dark:border-emerald-500/40' : 'border-slate-200 lg:dark:border-slate-700'">
                                 <input type="text"
                                        x-ref="destinationComboInput"
                                        x-model="destinationQuery"
@@ -254,20 +254,20 @@
                                        dir="rtl"
                                        autocomplete="off"
                                        placeholder="اختر الفرع أو اكتب اسم مكتب خارجي..."
-                                       class="w-full py-2.5 pr-3 pl-14 text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal" />
+                                       class="w-full py-2.5 pr-3 pl-14 text-xs font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400 lg:dark:placeholder:text-slate-500 placeholder:font-normal" />
 
                                 <div class="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                     <template x-if="destinationQuery !== ''">
                                         <button type="button"
                                                 @click="clearDestination(); $nextTick(() => $refs.destinationComboInput.focus())"
-                                                class="w-5 h-5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center text-xs font-bold transition-colors"
+                                                class="w-5 h-5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 lg:dark:hover:bg-rose-500/15 flex items-center justify-center text-xs font-bold transition-colors"
                                                 title="مسح الوجهة">
                                             ✕
                                         </button>
                                     </template>
                                     <button type="button"
                                             @click="destDropdownOpen = !destDropdownOpen"
-                                            class="text-slate-400 hover:text-slate-600 flex items-center p-0.5">
+                                            class="text-slate-400 hover:text-slate-600 lg:dark:hover:text-slate-200 flex items-center p-0.5">
                                         <span class="material-symbols-outlined text-base" x-text="destDropdownOpen ? 'expand_less' : 'expand_more'"></span>
                                     </button>
                                 </div>
@@ -277,21 +277,21 @@
                             <div x-show="destDropdownOpen"
                                  x-cloak
                                  x-transition
-                                 class="absolute left-0 right-0 top-full mt-1 z-30 max-h-48 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl divide-y divide-slate-50">
+                                 class="absolute left-0 right-0 top-full mt-1 z-30 max-h-48 overflow-y-auto bg-white lg:dark:bg-[#1C2434] rounded-2xl border border-slate-200 lg:dark:border-slate-700 shadow-xl divide-y divide-slate-50 lg:dark:divide-slate-700/50">
                                 <template x-for="off in filteredOffices" :key="off.id">
                                     <button type="button"
                                             @mousedown.prevent
                                             @click="selectInternalOffice(off)"
                                             :class="String(selectedOfficeId) === String(off.id)
-                                                ? 'bg-emerald-50 text-emerald-800 font-extrabold'
-                                                : 'text-slate-700 hover:bg-slate-50 font-bold'"
+                                                ? 'bg-emerald-50 text-emerald-800 lg:dark:bg-emerald-500/15 lg:dark:text-emerald-300 font-extrabold'
+                                                : 'text-slate-700 hover:bg-slate-50 lg:dark:text-slate-200 lg:dark:hover:bg-slate-700/50 font-bold'"
                                             class="w-full px-3 py-2.5 text-right text-xs flex items-center justify-between gap-2 transition-colors">
                                         <span class="flex items-center gap-1.5 min-w-0">
-                                            <span class="material-symbols-outlined text-sm text-sky-600 shrink-0">domain</span>
+                                            <span class="material-symbols-outlined text-sm text-sky-600 lg:dark:text-sky-400 shrink-0">domain</span>
                                             <span x-text="off.label" class="truncate"></span>
                                         </span>
                                         <template x-if="String(selectedOfficeId) === String(off.id)">
-                                            <span class="material-symbols-outlined text-sm text-emerald-600 shrink-0">check_circle</span>
+                                            <span class="material-symbols-outlined text-sm text-emerald-600 lg:dark:text-emerald-400 shrink-0">check_circle</span>
                                         </template>
                                     </button>
                                 </template>
@@ -301,8 +301,8 @@
                                     <button type="button"
                                             @mousedown.prevent
                                             @click="confirmExternalOffice()"
-                                            class="w-full px-3 py-2.5 text-right text-xs font-extrabold text-amber-800 bg-amber-50/70 hover:bg-amber-100/80 flex items-center gap-1.5 transition-colors">
-                                        <span class="material-symbols-outlined text-sm text-amber-600 shrink-0">storefront</span>
+                                            class="w-full px-3 py-2.5 text-right text-xs font-extrabold text-amber-800 bg-amber-50/70 hover:bg-amber-100/80 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 lg:dark:hover:bg-amber-500/25 flex items-center gap-1.5 transition-colors">
+                                        <span class="material-symbols-outlined text-sm text-amber-600 lg:dark:text-amber-400 shrink-0">storefront</span>
                                         <span class="truncate" x-text="'إضافة &quot;' + destinationQuery.trim() + '&quot; كمكتب خارجي'"></span>
                                     </button>
                                 </template>
@@ -318,18 +318,18 @@
                         {{-- ب. بيانات المرسل --}}
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المرسل <span class="text-rose-500">*</span></label>
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">اسم المرسل <span class="text-rose-500">*</span></label>
                                 <input type="text"
                                        name="sender_name"
                                        x-model="senderName"
                                        required
                                        placeholder="اسم المرسل"
-                                       class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                                       class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white lg:dark:bg-[#1A222C] lg:dark:focus:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder:text-slate-500 outline-none focus:border-secondary">
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">هاتف المرسل <span class="text-rose-500">*</span></label>
-                                <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
-                                     :class="senderPhone.length > 0 && !isValidPhone(senderPhone) ? 'border-rose-300' : (isValidPhone(senderPhone) ? 'border-emerald-300' : 'border-slate-200')">
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">هاتف المرسل <span class="text-rose-500">*</span></label>
+                                <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
+                                     :class="senderPhone.length > 0 && !isValidPhone(senderPhone) ? 'border-rose-300 lg:dark:border-rose-500/50' : (isValidPhone(senderPhone) ? 'border-emerald-300 lg:dark:border-emerald-500/50' : 'border-slate-200 lg:dark:border-slate-700')">
                                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 select-none pointer-events-none">
                                         <span class="text-[11px]">🇾🇪</span>
                                         <template x-if="isValidPhone(senderPhone)">
@@ -351,7 +351,7 @@
                                            title="يجب أن يتكون الرقم من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70"
                                            autocomplete="off"
                                            placeholder="7XXXXXXXX"
-                                           class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal">
+                                           class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 placeholder:font-normal">
                                 </div>
                                 <template x-if="senderPhone.length > 0 && !isValidPhone(senderPhone)">
                                     <p class="text-[10px] font-bold text-rose-500 mt-0.5">9 أرقام تبدأ بـ 70/71/73/77/78</p>
@@ -365,17 +365,17 @@
                         {{-- ج. بيانات المستلم --}}
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">اسم المستلم <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
                                 <input type="text"
                                        name="recipient_name"
                                        x-model="recipientName"
                                        placeholder="اسم المستلم"
-                                       class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                                       class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white lg:dark:bg-[#1A222C] lg:dark:focus:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder:text-slate-500 outline-none focus:border-secondary">
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">هاتف المستلم <span class="text-rose-500">*</span></label>
-                                <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
-                                     :class="recipientPhone.length > 0 && !isValidPhone(recipientPhone) ? 'border-rose-300' : (isValidPhone(recipientPhone) ? 'border-emerald-300' : 'border-slate-200')">
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">هاتف المستلم <span class="text-rose-500">*</span></label>
+                                <div class="relative rounded-xl border bg-slate-50 focus-within:bg-white lg:dark:bg-[#1A222C] lg:dark:focus-within:bg-[#1A222C] focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all"
+                                     :class="recipientPhone.length > 0 && !isValidPhone(recipientPhone) ? 'border-rose-300 lg:dark:border-rose-500/50' : (isValidPhone(recipientPhone) ? 'border-emerald-300 lg:dark:border-emerald-500/50' : 'border-slate-200 lg:dark:border-slate-700')">
                                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 select-none pointer-events-none">
                                         <span class="text-[11px]">🇾🇪</span>
                                         <template x-if="isValidPhone(recipientPhone)">
@@ -397,7 +397,7 @@
                                            title="يجب أن يتكون الرقم من 9 أرقام ويبدأ بـ 77، 78، 73، 71، أو 70"
                                            autocomplete="off"
                                            placeholder="7XXXXXXXX"
-                                           class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-300 placeholder:font-normal">
+                                           class="w-full py-2 px-2.5 pr-12 text-xs font-mono font-bold text-slate-800 lg:dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-300 lg:dark:placeholder:text-slate-500 placeholder:font-normal">
                                 </div>
                                 <template x-if="recipientPhone.length > 0 && !isValidPhone(recipientPhone)">
                                     <p class="text-[10px] font-bold text-rose-500 mt-0.5">9 أرقام تبدأ بـ 70/71/73/77/78</p>
@@ -410,7 +410,7 @@
 
                         {{-- د. نوع الطرد + أزرار الاختصار التفاعلية المتدرجة (النوع ← اللون ← المقاس) --}}
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">نوع الطرد <span class="text-rose-500">*</span></label>
+                            <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">نوع الطرد <span class="text-rose-500">*</span></label>
                             <input type="text"
                                    name="package_type"
                                    x-ref="outgoingPackageInput"
@@ -419,7 +419,7 @@
                                    dir="rtl"
                                    autocomplete="off"
                                    placeholder="طرد"
-                                   class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                                   class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white lg:dark:bg-[#1A222C] lg:dark:focus:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder:text-slate-500 outline-none focus:border-secondary">
 
                             {{-- أزرار الاختصار السريع لنوع الطرد --}}
                             <div class="mt-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
@@ -433,7 +433,7 @@
                                                         packageType = cat + ' ';
                                                         document.activeElement?.blur();
                                                     "
-                                                    class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                                    class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
                                                 <span x-text="cat"></span>
                                                 <span class="text-[9px] text-slate-400">◀</span>
                                             </button>
@@ -450,7 +450,7 @@
                                                     packageType = '';
                                                     document.activeElement?.blur();
                                                 "
-                                                class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                                class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
                                                 title="تغيير النوع">
                                             <span x-text="activeCategory + ' ✕'"></span>
                                         </button>
@@ -462,7 +462,7 @@
                                                         packageType = activeCategory + ' ' + color;
                                                         document.activeElement?.blur();
                                                     "
-                                                    class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
+                                                    class="py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95 flex items-center gap-1">
                                                 <span x-text="color"></span>
                                                 <span class="text-[9px] text-slate-400">◀</span>
                                             </button>
@@ -479,7 +479,7 @@
                                                     packageType = '';
                                                     document.activeElement?.blur();
                                                 "
-                                                class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                                class="py-1 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:text-rose-400 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
                                                 title="تغيير الفئة">
                                             <span x-text="activeCategory + ' ✕'"></span>
                                         </button>
@@ -490,7 +490,7 @@
                                                     packageType = activeCategory + ' ';
                                                     document.activeElement?.blur();
                                                 "
-                                                class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
+                                                class="py-1 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 lg:dark:bg-amber-500/15 lg:dark:text-amber-300 text-[11px] font-bold shrink-0 transition-colors active:scale-95"
                                                 title="تغيير اللون">
                                             <span x-text="activeColor + ' ✕'"></span>
                                         </button>
@@ -504,7 +504,7 @@
                                                     "
                                                     :class="activeSize === size
                                                         ? 'bg-secondary text-white shadow-sm'
-                                                        : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700'"
+                                                        : 'bg-slate-100 hover:bg-secondary/10 hover:text-secondary text-slate-700 lg:dark:bg-slate-800 lg:dark:text-slate-200 lg:dark:hover:bg-amber-500/20 lg:dark:hover:text-amber-300'"
                                                     class="py-1 px-2.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors active:scale-95">
                                                 <span x-text="size"></span>
                                             </button>
@@ -517,7 +517,7 @@
                         {{-- هـ. المبلغ وحالة الدفع (محاسب / آجل) --}}
                         <div class="grid grid-cols-12 gap-2 items-end">
                             <div class="col-span-6">
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">المبلغ (ر.ي) <span class="text-rose-500">*</span></label>
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">المبلغ (ر.ي) <span class="text-rose-500">*</span></label>
                                 <input type="number"
                                        step="any"
                                        min="0"
@@ -526,18 +526,18 @@
                                        required
                                        dir="ltr"
                                        placeholder="مثال: 5000"
-                                       class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary">
+                                       class="w-full py-2 px-3 text-xs font-mono font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white lg:dark:bg-[#1A222C] lg:dark:focus:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder:text-slate-500 outline-none focus:border-secondary">
                             </div>
 
                             <div class="col-span-6">
-                                <label class="block text-[11px] font-bold text-slate-600 mb-1">حالة الدفع <span class="text-rose-500">*</span></label>
+                                <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">حالة الدفع <span class="text-rose-500">*</span></label>
                                 <input type="hidden" name="payment_type" :value="paymentType">
-                                <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                                <div class="grid grid-cols-2 gap-1 bg-slate-100 lg:dark:bg-[#1A222C] p-1 rounded-xl">
                                     <button type="button"
                                             @click="paymentType = 'paid'"
                                             :class="paymentType === 'paid'
                                                 ? 'bg-emerald-600 text-white shadow-xs font-extrabold'
-                                                : 'text-slate-600 hover:text-slate-800 font-bold'"
+                                                : 'text-slate-600 hover:text-slate-800 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold'"
                                             class="py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
                                         <span>محاسب</span>
                                     </button>
@@ -545,7 +545,7 @@
                                             @click="paymentType = 'deferred'"
                                             :class="paymentType === 'deferred'
                                                 ? 'bg-amber-500 text-white shadow-xs font-extrabold'
-                                                : 'text-slate-600 hover:text-slate-800 font-bold'"
+                                                : 'text-slate-600 hover:text-slate-800 lg:dark:text-slate-400 lg:dark:hover:text-slate-200 font-bold'"
                                             class="py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 transition-all">
                                         <span>آجل</span>
                                     </button>
@@ -555,17 +555,17 @@
 
                         {{-- و. ملاحظات --}}
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">ملاحظات <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
+                            <label class="block text-[11px] font-bold text-slate-600 lg:dark:text-slate-300 mb-1">ملاحظات <span class="text-[10px] font-normal text-slate-400">(اختياري)</span></label>
                             <textarea name="notes"
                                       rows="2"
                                       x-model="notes"
                                       placeholder="أي تفاصيل إضافية..."
-                                      class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none focus:border-secondary"></textarea>
+                                      class="w-full py-2 px-3 text-xs font-bold text-slate-800 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white lg:dark:bg-[#1A222C] lg:dark:focus:bg-[#1A222C] lg:dark:border-slate-700 lg:dark:text-slate-100 lg:dark:placeholder:text-slate-500 outline-none focus:border-secondary"></textarea>
                         </div>
                     </div>
 
                     {{-- أزرار الحفظ والإلغاء (فوتر ثابت أسفل المودال وفوق الكيبورد) --}}
-                    <div class="shrink-0 border-t border-slate-100 px-4 py-2.5 bg-white flex items-center gap-2">
+                    <div class="shrink-0 border-t border-slate-100 lg:dark:border-slate-700/60 px-4 py-2.5 bg-white lg:dark:bg-[#24303F] flex items-center gap-2">
                         <button type="submit"
                                 :disabled="submittingModal"
                                 class="flex-1 py-2.5 px-4 rounded-xl bg-secondary hover:bg-amber-500 text-white text-xs font-extrabold shadow-md shadow-secondary/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
@@ -577,7 +577,7 @@
                         <button type="button"
                                 @click="closeModal()"
                                 :disabled="submittingModal"
-                                class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 disabled:opacity-50">
+                                class="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 lg:dark:border-slate-700 lg:dark:text-slate-200 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 disabled:opacity-50">
                             إلغاء
                         </button>
                     </div>
@@ -604,7 +604,7 @@
             </div>
 
             {{-- بطاقة المودال الرئيسية --}}
-            <div class="relative w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10 transition-all transform flex flex-col gap-4 text-right"
+            <div class="relative w-full max-w-sm bg-white lg:dark:bg-[#24303F] rounded-3xl p-5 shadow-2xl border border-slate-100 lg:dark:border-slate-700/60 z-10 transition-all transform flex flex-col gap-4 text-right"
                  x-show="actionModal.open"
                  x-transition:enter="ease-out duration-200"
                  x-transition:enter-start="opacity-0 translate-y-6 sm:translate-y-0 sm:scale-95"
@@ -618,7 +618,7 @@
                         @click="closeActionModal()"
                         :disabled="actionModal.submitting"
                         title="إغلاق"
-                        class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors disabled:opacity-50">
+                        class="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-300 flex items-center justify-center transition-colors disabled:opacity-50">
                     <span class="material-symbols-outlined text-base">close</span>
                 </button>
 
@@ -628,16 +628,16 @@
                          :class="actionModalMeta.iconBoxClass">
                         <span class="material-symbols-outlined text-3xl" x-text="actionModalMeta.icon"></span>
                     </div>
-                    <h3 class="text-base font-extrabold text-slate-800" x-text="actionModalMeta.title"></h3>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed" x-text="actionModalMeta.subtitle"></p>
+                    <h3 class="text-base font-extrabold text-slate-800 lg:dark:text-slate-100" x-text="actionModalMeta.title"></h3>
+                    <p class="text-xs text-slate-500 lg:dark:text-slate-400 mt-1 leading-relaxed" x-text="actionModalMeta.subtitle"></p>
                 </div>
 
                 {{-- ملخص بيانات الطرد --}}
                 <template x-if="actionModal.parcel">
-                    <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2.5 text-xs">
+                    <div class="bg-slate-50 lg:dark:bg-[#1A222C] rounded-2xl p-3.5 border border-slate-200/80 lg:dark:border-slate-700/60 space-y-2.5 text-xs">
 
                         {{-- الوجهة المستلمة --}}
-                        <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                        <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 lg:dark:border-slate-700/60">
                             <span class="text-slate-400 flex items-center gap-1 font-medium">
                                 <span class="material-symbols-outlined text-sm text-slate-400"
                                       x-text="actionModal.parcel.is_external ? 'storefront' : 'domain'"></span>
@@ -652,19 +652,19 @@
                         {{-- نوع الشحنة --}}
                         <div class="flex items-center justify-between">
                             <span class="text-slate-400">نوع الشحنة:</span>
-                            <span class="font-bold text-slate-700" x-text="actionModal.parcel.package_type"></span>
+                            <span class="font-bold text-slate-700 lg:dark:text-slate-100" x-text="actionModal.parcel.package_type"></span>
                         </div>
 
                         {{-- رقم السند --}}
                         <div class="flex items-center justify-between" x-show="actionModal.parcel.receipt_number">
                             <span class="text-slate-400">رقم السند:</span>
-                            <span class="font-mono font-bold text-slate-700" x-text="'#' + actionModal.parcel.receipt_number"></span>
+                            <span class="font-mono font-bold text-slate-700 lg:dark:text-slate-200" x-text="'#' + actionModal.parcel.receipt_number"></span>
                         </div>
 
                         {{-- المبلغ وحالة الدفع --}}
                         <div class="flex items-center justify-between" x-show="actionModal.parcel.payment_label">
                             <span class="text-slate-400">الحساب:</span>
-                            <span class="font-bold text-slate-700">
+                            <span class="font-bold text-slate-700 lg:dark:text-slate-200">
                                 <span x-text="actionModal.parcel.payment_label"></span>:
                                 <span class="font-mono" x-text="(actionModal.parcel.cod_amount || '0') + ' ر.ي'"></span>
                             </span>
@@ -674,7 +674,7 @@
                         <div class="flex items-center justify-between pt-1">
                             <span class="text-slate-400">المستلم:</span>
                             <div class="text-left">
-                                <span class="font-bold text-slate-700 block" x-text="actionModal.parcel.recipient_name || 'بدون اسم'"></span>
+                                <span class="font-bold text-slate-700 lg:dark:text-slate-100 block" x-text="actionModal.parcel.recipient_name || 'بدون اسم'"></span>
                                 <span class="text-[11px] text-slate-400 font-mono dir-ltr block" x-text="actionModal.parcel.recipient_phone"></span>
                             </div>
                         </div>
@@ -711,7 +711,7 @@
                     <button type="button"
                             @click="closeActionModal()"
                             :disabled="actionModal.submitting"
-                            class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center transition-colors disabled:opacity-50">
+                            class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 lg:dark:bg-slate-800 lg:dark:hover:bg-slate-700 lg:dark:text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center transition-colors disabled:opacity-50">
                         <span>تراجع</span>
                     </button>
                 </form>
@@ -826,7 +826,7 @@
                     if (buttons.length === 0) return;
 
                     const keys = await caches.keys();
-                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v31';
+                    const pwaCacheName = keys.find(k => k.startsWith('mursal-pwa-')) || 'mursal-pwa-v32';
                     const cache = await caches.open(pwaCacheName);
 
                     for (const btn of buttons) {
@@ -1159,15 +1159,15 @@
                     const shipNum = this.actionModal.parcel?.shipment_number;
                     return {
                         icon: 'link_off',
-                        iconBoxClass: 'bg-amber-50 border-amber-200 text-amber-600',
-                        destTextClass: 'text-amber-700',
+                        iconBoxClass: 'bg-amber-50 border-amber-200 text-amber-600 lg:dark:bg-amber-500/15 lg:dark:border-amber-500/30 lg:dark:text-amber-400',
+                        destTextClass: 'text-amber-700 lg:dark:text-amber-400',
                         title: 'إخراج الطرد من الشحنة',
                         subtitle: shipNum
                             ? `هل أنت متأكد من إخراج هذا الطرد من الشحنة #${shipNum} وإعادته إلى (في الانتظار)؟`
                             : 'هل أنت متأكد من إخراج هذا الطرد من الشحنة وإعادته إلى (في الانتظار)؟',
                         noticeIcon: 'info',
-                        noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800',
-                        noticeIconClass: 'text-amber-600',
+                        noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/30 lg:dark:text-amber-300',
+                        noticeIconClass: 'text-amber-600 lg:dark:text-amber-400',
                         noticeLabel: 'ملاحظة: ',
                         noticeText: 'سيُفك ارتباط الطرد من الشحنة ويعود إلى قائمة (في الانتظار)، وبعدها يمكنك إلغاؤه أو ضمه إلى شحنة أخرى.',
                         confirmBtnClass: 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25',
@@ -1181,13 +1181,13 @@
                 if (this.actionModal.type === 'deliver') {
                     return {
                         icon: 'check_circle',
-                        iconBoxClass: 'bg-emerald-50 border-emerald-100 text-emerald-600',
-                        destTextClass: 'text-emerald-700',
+                        iconBoxClass: 'bg-emerald-50 border-emerald-100 text-emerald-600 lg:dark:bg-emerald-500/15 lg:dark:border-emerald-500/30 lg:dark:text-emerald-400',
+                        destTextClass: 'text-emerald-700 lg:dark:text-emerald-400',
                         title: 'تأكيد تسليم الطرد',
                         subtitle: 'هل أنت متأكد من تسليم هذا الطرد للمكتب الخارجي؟',
                         noticeIcon: 'verified',
-                        noticeBoxClass: 'bg-emerald-50 border-emerald-200/80 text-emerald-800',
-                        noticeIconClass: 'text-emerald-600',
+                        noticeBoxClass: 'bg-emerald-50 border-emerald-200/80 text-emerald-800 lg:dark:bg-emerald-500/10 lg:dark:border-emerald-500/30 lg:dark:text-emerald-300',
+                        noticeIconClass: 'text-emerald-600 lg:dark:text-emerald-400',
                         noticeLabel: 'ملاحظة: ',
                         noticeText: 'سيتم اعتماد الطرد كـ (تم التسليم) بشكل نهائي ولن يمكن تعديله أو إلغاؤه بعد ذلك.',
                         confirmBtnClass: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25',
@@ -1200,13 +1200,13 @@
 
                 return {
                     icon: 'cancel',
-                    iconBoxClass: 'bg-rose-50 border-rose-100 text-rose-600',
-                    destTextClass: 'text-rose-600',
+                    iconBoxClass: 'bg-rose-50 border-rose-100 text-rose-600 lg:dark:bg-rose-500/15 lg:dark:border-rose-500/30 lg:dark:text-rose-400',
+                    destTextClass: 'text-rose-600 lg:dark:text-rose-400',
                     title: 'إلغاء الطرد الصادر',
                     subtitle: 'هل أنت متأكد من رغبتك في إلغاء هذا الطرد الصادر؟',
                     noticeIcon: 'warning',
-                    noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800',
-                    noticeIconClass: 'text-amber-600',
+                    noticeBoxClass: 'bg-amber-50 border-amber-200/80 text-amber-800 lg:dark:bg-amber-500/10 lg:dark:border-amber-500/30 lg:dark:text-amber-300',
+                    noticeIconClass: 'text-amber-600 lg:dark:text-amber-400',
                     noticeLabel: 'تنبيه: ',
                     noticeText: 'سيتم إلغاء الطرد الصادر رسمياً ولن يظهر في قائمة الطرود القادمة لدى الفرع المستلم.',
                     confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25',

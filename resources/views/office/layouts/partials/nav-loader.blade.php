@@ -91,7 +91,7 @@
      aria-live="polite"
      aria-hidden="true"
      style="display: none; background: radial-gradient(circle at 50% 38%, #0b2948 0%, #041627 62%, #020c17 100%);"
-     class="fixed inset-0 max-w-md mx-auto lg:max-w-none lg:mx-0 lg:right-72 xl:right-80 z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
+     class="mursal-nav-loader-desktop fixed inset-0 max-w-md mx-auto lg:max-w-none lg:mx-0 z-[70] flex-col items-center justify-center overflow-hidden select-none print:hidden transition-opacity duration-150 opacity-0">
 
     {{-- شريط الليزر العلوي المتوهج --}}
     <div class="absolute top-0 left-0 right-0 h-1 bg-white/5 overflow-hidden">
